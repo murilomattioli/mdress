@@ -1,0 +1,252 @@
+/* mdress element recipes: applies to rendered Markdown, never source text. */
+.page-stack .page-content [data-md-element-style]{
+ --md-ink:var(--resume-text);
+ --md-tint:color-mix(in srgb,var(--resume-accent) 9%,var(--resume-background));
+ --md-line:color-mix(in srgb,var(--resume-accent) 38%,transparent);
+ box-sizing:border-box;
+}
+.page-stack .page-content :is(h1,h2,h3,h4,h5,h6,p,ul,ol,li,blockquote,pre,hr,img,table,thead,tbody,tr,th,td)[data-md-element-style=accent]{
+ border-left:3px solid var(--resume-accent);
+ padding-left:.75em;
+ background:color-mix(in srgb,var(--resume-accent) 4%,transparent);
+}
+.page-stack .page-content :is(h1,h2,h3,h4,h5,h6,p,ul,ol,li,blockquote,pre,hr,img,table,thead,tbody,tr,th,td)[data-md-element-style=surface]{
+ padding:.7em .85em;background:var(--md-tint);border-radius:9px;
+}
+.page-stack .page-content :is(h1,h2,h3,h4,h5,h6,p,ul,ol,li,blockquote,pre,hr,img,table,thead,tbody,tr,th,td)[data-md-element-style=outline]{
+ padding:.65em .8em;border:1px solid var(--md-line);border-radius:8px;
+}
+.page-stack .page-content :is(h1,h2,h3,h4,h5,h6,p,ul,ol,li,blockquote,pre,hr,img,table,thead,tbody,tr,th,td)[data-md-element-style=glass]{
+ padding:.7em .85em;border-radius:12px;
+ border:1px solid color-mix(in srgb,var(--resume-text) 15%,transparent);
+ background:linear-gradient(135deg,color-mix(in srgb,var(--resume-background) 75%,transparent),color-mix(in srgb,var(--resume-accent) 13%,var(--resume-background)));
+ box-shadow:inset 0 1px 0 color-mix(in srgb,var(--resume-text) 8%,transparent),0 4px 12px color-mix(in srgb,var(--resume-text) 8%,transparent);
+ backdrop-filter:blur(12px) saturate(135%);-webkit-backdrop-filter:blur(12px) saturate(135%);
+}
+.page-stack .page-content :is(h1,h2,h3,h4,h5,h6,p,ul,ol,li,blockquote,pre,hr,img,table,thead,tbody,tr,th,td)[data-md-element-style=editorial]{
+ padding:.45em 0 .5em;letter-spacing:.012em;
+ border-top:2px solid var(--resume-accent);border-bottom:1px solid var(--md-line);
+}
+.page-stack .page-content :is(ul,ol)[data-md-element-style]:not([data-md-element-style=plain]){
+ padding-left:2.2em;
+}
+.page-stack .page-content li[data-md-element-style]:not([data-md-element-style=plain]){
+ margin:.25em 0;
+}
+.page-stack .page-content :is(a,strong,em,del,code)[data-md-element-style=accent]{
+ color:var(--resume-accent);text-decoration-color:var(--resume-accent);
+}
+.page-stack .page-content :is(a,strong,em,del,code)[data-md-element-style=marker]{
+ background:color-mix(in srgb,var(--resume-accent) 32%,transparent);
+ box-decoration-break:clone;-webkit-box-decoration-break:clone;
+ padding:.05em .12em;
+}
+.page-stack .page-content :is(a,strong,em,del,code)[data-md-element-style=pill]{
+ background:var(--md-tint);border:1px solid var(--md-line);
+ border-radius:999px;padding:.1em .4em;
+ box-decoration-break:clone;-webkit-box-decoration-break:clone;
+}
+.page-stack .page-content :is(a,strong,em,del,code)[data-md-element-style=underline]{
+ text-decoration:underline solid var(--resume-accent) 2px;text-underline-offset:.2em;
+}
+.page-stack .page-content :is(a,strong,em,del,code)[data-md-element-style=glass]{
+ background:color-mix(in srgb,var(--resume-accent) 12%,var(--resume-background));
+ border:1px solid color-mix(in srgb,var(--resume-text) 12%,transparent);
+ border-radius:5px;padding:.08em .3em;
+ box-decoration-break:clone;-webkit-box-decoration-break:clone;
+}
+@media print{
+ .page-stack .page-content [data-md-element-style=glass]{
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important;
+ }
+}
+
+.page-stack .page-content table[data-md-element-style]{width:100%;border-collapse:separate;border-spacing:0;max-width:100%}
+.page-stack .page-content img[data-md-element-style]{display:block;max-width:100%;height:auto;object-fit:contain}
+.page-stack .page-content :is(th,td)[data-md-element-style]{vertical-align:top}
+.page-stack .page-content tr[data-md-element-style=surface]{background:var(--md-tint)}
+.page-stack .page-content :is(th,td)[data-md-element-style=accent]{border-left:3px solid var(--resume-accent)}
+
+/* Direct manipulation: hover/focus indicates individually editable rendered nodes. */
+@media screen {
+ .page-stack .page-content [data-md-element-id]:hover{outline:1px dashed color-mix(in srgb,var(--resume-accent) 65%,transparent);outline-offset:3px;cursor:pointer}
+ .page-stack .page-content [data-md-element-id]:focus-visible{outline:2px solid var(--resume-accent);outline-offset:3px}
+}
+.element-instance-toolbar{display:flex;align-items:center;gap:8px;justify-content:space-between;margin:7px 0}
+.element-instance-toolbar [role=status]{font-size:11px;color:var(--ds-text-secondary)}
+
+/* Dense context-first inspector. Keep native inputs and accessible hit areas. */
+.design-inspector .inspector-header{padding:10px 12px 8px}
+.design-inspector .inspector-header p{display:none}
+.design-inspector .inspector-tabs{height:38px;min-height:38px}
+.design-inspector .inspector-scroll .ds-accordion-body{padding:8px 11px 10px}
+.design-inspector .inspector-panel .section-style-gallery{
+ grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:6px 0;
+}
+.design-inspector .inspector-panel .section-style-preset{
+ min-height:34px;padding:4px;gap:3px;border-radius:6px;
+}
+.design-inspector .inspector-panel .section-style-illustration{
+ min-height:31px;padding:5px 6px;gap:3px;
+}
+.design-inspector .inspector-panel .section-style-preset-title{font-size:10px;line-height:1.3;padding:1px;min-width:0}
+.design-inspector .inspector-panel .section-style-density{gap:4px}
+.design-inspector .inspector-panel .section-style-density button{min-height:31px;padding:4px;font-size:10px}
+.design-inspector .inspector-panel .section-style-hint{display:none}
+.design-inspector .inspector-panel .section-style-target-caption{font-size:10px;margin:4px 0}
+.design-inspector .inspector-panel .element-styles-editor{border-top:1px solid var(--ds-border-subtle);padding-top:9px;margin-top:10px}
+.design-inspector .inspector-panel .element-styles-editor h3{font-size:11px;margin:0 0 6px}
+.design-inspector .inspector-panel .element-instance-toolbar{margin:3px 0;gap:4px}
+.design-inspector .inspector-panel .element-instance-toolbar [role=status]{font-size:10px;line-height:1.2}
+.design-inspector .inspector-panel .element-instance-toolbar button{padding:3px 6px;font-size:10px;min-height:25px}
+.design-inspector .inspector-panel .property-row{gap:5px!important;margin-bottom:5px!important}
+@media screen {
+ .page-stack .page-content [data-md-element-id][data-md-instance-selected=true]{
+ outline:2px solid var(--resume-accent)!important;outline-offset:3px;
+ }
+}
+
+/* List-item recipes own the marker AND text. Outside markers are not part of the box. */
+.page-stack .page-content :is(ul,ol)>li[data-md-element-style]{
+ list-style:none!important;position:relative;display:list-item;
+ padding-left:2.6em!important;padding-right:.75em;
+ min-width:0;overflow-wrap:anywhere;
+}
+.page-stack .page-content :is(ul,ol)>li[data-md-element-style]::marker{content:''}
+.page-stack .page-content :is(ul,ol)>li[data-md-element-style]::before{
+ position:absolute;left:.7em;top:.7em;min-width:1.25em;
+ text-align:center;font-weight:750;line-height:1.35;
+ color:var(--resume-accent);
+}
+.page-stack .page-content ul>li[data-md-element-style]::before{content:'•'}
+.page-stack .page-content ol>li[data-md-element-style]::before{content:counter(list-item) '.'}
+.page-stack .page-content ul>li[data-md-element-style=editorial]::before{content:'—'}
+.page-stack .page-content ul>li[data-md-element-style=accent]::before{content:'◆';font-size:.85em}
+.page-stack .page-content ul>li[data-md-element-style=surface]::before,
+.page-stack .page-content ul>li[data-md-element-style=glass]::before{content:'●';font-size:.82em}
+.page-stack .page-content ul>li[data-md-element-style=outline]::before{content:'○'}
+.page-stack .page-content ol>li[data-md-element-style=editorial]::before{font-family:Georgia,serif;font-style:italic}
+.page-stack .page-content :is(ul,ol)>li[data-md-element-style=accent]::before{left:1em}
+.page-stack .page-content :is(ul,ol)>li[data-md-element-style=editorial]::before{top:.4em}
+.page-stack .page-content :is(ul,ol)>li[data-md-element-style]:not([data-md-element-style=plain]):focus-visible{
+ outline-offset:2px;
+}
+
+/* Context switching avoids stacking two unrelated galleries. */
+.design-inspector .composer-mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;margin:0 0 7px;border:1px solid var(--ds-border-subtle);border-radius:7px;background:var(--ds-panel-raised)}
+.design-inspector .composer-mode-switch button{height:29px;border:0;border-radius:5px;background:transparent;color:var(--ds-text-secondary);font-size:11px;font-weight:650;cursor:pointer}
+.design-inspector .composer-mode-switch button[aria-pressed=true]{background:var(--ds-panel);color:var(--ds-brand);box-shadow:0 1px 4px #0002}
+.design-inspector .composer-mode-switch button:focus-visible{outline:2px solid var(--ds-focus);outline-offset:1px}
+.design-inspector #elementComposerView[hidden],.design-inspector #sectionComposerView[hidden]{display:none!important}
+.design-inspector .composer-context #elementComposerView{border-top:0;padding-top:2px;margin-top:0}
+
+/* Compact preset picker is the default in both composition contexts. */
+.design-inspector .compact-style-control{
+ display:grid;grid-template-columns:32px minmax(0,1fr) 32px 32px;align-items:center;gap:3px;
+ padding:3px;border:1px solid var(--ds-border);border-radius:8px;background:var(--ds-panel-raised);min-height:35px;
+}
+.design-inspector .compact-style-control button{
+ width:32px;height:28px;display:grid;place-items:center;border:0;border-radius:5px;
+ background:transparent;color:var(--ds-text);font-size:20px;cursor:pointer;
+}
+.design-inspector .compact-style-control button:hover{background:var(--ds-panel-hover)}
+.design-inspector .compact-style-control .style-more{font-size:17px;color:var(--ds-text-secondary);border-left:1px solid var(--ds-border-subtle);border-radius:0}
+.design-inspector .compact-style-control .style-current{font-size:11px;font-weight:700;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.design-inspector .section-style-gallery[hidden]{display:none!important}
+.design-inspector .section-style-gallery:not([hidden]){grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.design-inspector .section-style-gallery:not([hidden]) .section-style-illustration{min-height:25px}
+.preview-style-control{
+ position:fixed;z-index:120;display:flex;align-items:center;gap:2px;
+ max-width:min(310px,calc(100vw - 20px));height:34px;padding:3px;
+ border:1px solid var(--ds-border);border-radius:9px;
+ background:var(--ds-panel-raised);box-shadow:0 5px 20px #0003;
+ color:var(--ds-text);font:600 11px var(--ds-font);
+}
+.preview-style-control[hidden]{display:none!important}
+.preview-style-control button{height:27px;width:27px;flex:0 0 27px;padding:0;border:0;border-radius:5px;background:transparent;color:var(--ds-text);font-size:18px;cursor:pointer}
+.preview-style-control button:hover{background:var(--ds-panel-hover)}
+.preview-style-control .preview-style-name{min-width:0;max-width:175px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 5px}
+@media print{.preview-style-control{display:none!important}}
+
+.preview-style-control{max-width:min(370px,calc(100vw - 20px));height:34px}
+.preview-style-control button:disabled{opacity:.35;cursor:not-allowed}
+.preview-property-panel{
+ position:absolute;top:calc(100% + 6px);right:0;width:235px;
+ display:grid;gap:6px;padding:10px;border:1px solid var(--ds-border);
+ border-radius:9px;background:var(--ds-panel-raised);box-shadow:var(--ds-shadow-pop);
+ color:var(--ds-text);
+}
+.preview-property-panel[hidden]{display:none!important}
+.preview-property-heading{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px}
+.preview-property-heading strong{font-size:11px}
+.preview-property-heading button{width:auto!important;font-size:10px!important;padding:0 5px!important;color:var(--ds-brand)}
+.preview-property-panel label{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:var(--ds-text-secondary)}
+.preview-property-panel label span{display:flex;align-items:center;gap:3px}
+.preview-property-panel :is(input,select){
+ box-sizing:border-box;height:28px;min-height:28px;width:100px;max-width:110px;
+ border:1px solid var(--ds-border);border-radius:5px;padding:3px 6px;
+ color:var(--ds-text);background:var(--ds-panel);font:600 11px var(--ds-font);
+}
+.preview-property-panel input:focus-visible,.preview-property-panel select:focus-visible{outline:2px solid var(--ds-focus)}
+
+/* #34 — Figma-density composer: two controls, no nested cards. */
+.design-inspector #inspector-sections .composer-context{padding:0 10px 10px!important;border-bottom:1px solid var(--ds-border-subtle);background:transparent}
+.design-inspector #inspector-sections .composer-context>.ds-accordion-body{padding:7px 0 0!important}
+.design-inspector #inspector-sections .composer-context .composer-mode-switch{
+ display:flex;gap:13px;padding:0;margin:0 0 9px;border:0;border-bottom:1px solid var(--ds-border-subtle);
+ border-radius:0;background:transparent
+}
+.design-inspector #inspector-sections .composer-context .composer-mode-switch button{
+ width:auto;flex:0 0 auto;height:30px;padding:0 5px;border:0;border-bottom:2px solid transparent;
+ border-radius:0;background:transparent!important;box-shadow:none!important;color:var(--ds-text-secondary);
+ font-size:11px;font-weight:600
+}
+.design-inspector #inspector-sections .composer-context .composer-mode-switch button[aria-pressed=true]{
+ border-bottom-color:var(--ds-brand);color:var(--ds-text);font-weight:750
+}
+.design-inspector #inspector-sections .composer-context .section-style-target{
+ display:block!important;margin:0 0 8px!important;padding:0!important;background:none!important;border:0!important
+}
+.design-inspector #inspector-sections .composer-context .section-style-target select,
+.design-inspector #inspector-sections .composer-context .section-style-target .ds-select-trigger{
+ width:100%;min-width:0;height:30px!important;min-height:30px!important;
+ font-size:11px;border:1px solid var(--ds-border-subtle);border-radius:5px;
+ background:var(--ds-panel);text-align:left
+}
+.design-inspector #inspector-sections .compact-style-control{
+ grid-template-columns:30px minmax(0,1fr) 30px 30px;gap:0;min-height:33px;padding:0;
+ background:transparent;border:0;border-radius:0
+}
+.design-inspector #inspector-sections .compact-style-control button{
+ width:30px;height:32px;font-size:20px;border-radius:5px;color:var(--ds-text-secondary)
+}
+.design-inspector #inspector-sections .compact-style-control button:hover{color:var(--ds-brand);background:var(--ds-panel-hover)}
+.design-inspector #inspector-sections .compact-style-control .style-current{
+ text-align:left;padding-left:6px;font-size:12px;font-weight:750;color:var(--ds-text)
+}
+.design-inspector #inspector-sections .compact-style-control .style-more{
+ font-size:16px;border-left:1px solid var(--ds-border-subtle);border-radius:0
+}
+.design-inspector #inspector-sections .composer-context .element-styles-editor{border:0!important;padding:0!important;margin:0!important}
+.design-inspector #inspector-sections .composer-context .element-styles-editor h3{display:none}
+.design-inspector #inspector-sections .composer-context .element-instance-toolbar{margin:4px 0 7px}
+.design-inspector #inspector-sections .composer-context .section-style-gallery:not([hidden]){margin-top:5px}
+.design-inspector .visually-hidden{
+ position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;
+ clip:rect(0,0,0,0)!important;white-space:nowrap!important;padding:0!important;margin:-1px!important;
+ border:0!important
+}
+
+/* Keep composer children within the actual inspector width, including custom selects. */
+.design-inspector #inspector-sections,.design-inspector #inspector-sections .composer-context,
+.design-inspector #inspector-sections .ds-accordion-body,
+.design-inspector #inspector-sections #sectionComposerView,
+.design-inspector #inspector-sections #elementComposerView{min-width:0;max-width:100%;box-sizing:border-box}
+.design-inspector #inspector-sections .composer-context :is(.section-style-target,.ds-property-row,.ds-property-select){min-width:0;max-width:100%}
+.design-inspector #inspector-sections .composer-context .compact-style-control{width:100%;box-sizing:border-box}
+
+.design-inspector #inspector-sections .composer-context .section-style-target{display:grid!important;grid-template-columns:63px minmax(0,1fr);align-items:center;gap:7px}
+.design-inspector #inspector-sections .composer-context .composer-target-label{color:var(--ds-text-secondary);font:600 10px var(--ds-font)}
+.design-inspector #inspector-sections .composer-context .section-style-target :is(select,.ds-select-trigger){min-width:0;max-width:100%;width:100%;box-sizing:border-box}
+.design-inspector #inspector-sections .composer-context>.ds-accordion-body{min-width:0;box-sizing:border-box}
