@@ -24,8 +24,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npm install --no-save playwright@1.56.1
+      - run: npx playwright install --only-shell chromium
       - name: Start application
         run: |
           npm run dev > /tmp/mdress-server.log 2>&1 &
