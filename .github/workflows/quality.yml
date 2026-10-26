@@ -1,0 +1,53 @@
+name: Quality
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'app/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'package*.json'
+              - 'src-tauri/**'
+              - '.github/workflows/**'
+  quality:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm run check
+      - run: npm test
+  quality-gate:
+    if: always()
+    needs: [changes, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require successful quality when applicable
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          REQUIRED: ${{ needs.changes.outputs.code }}
+          RESULT: ${{ needs.quality.result }}
+        run: |
+          test "$CHANGES" = success
+          if [ "$REQUIRED" = true ]; then test "$RESULT" = success; fi
