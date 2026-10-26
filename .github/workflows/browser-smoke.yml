@@ -1,0 +1,42 @@
+name: Browser Smoke
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'app/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'package*.json'
+      - 'src-tauri/**'
+      - '.github/workflows/browser-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: browser-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save playwright@1.56.1
+      - run: npx playwright install --only-shell chromium
+      - name: Start application
+        run: |
+          npm run dev > /tmp/mdress-server.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173 >/dev/null && exit 0; sleep 1; done
+          cat /tmp/mdress-server.log; exit 1
+      - run: node scripts/e2e.mjs
+      - name: Component UX Audit
+        run: node scripts/component-ux-audit.mjs
+      - name: Evidence status
+        if: always()
+        run: |
+          echo '## Evidências visuais' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Screenshots geradas localmente; publicação em PR requer workflow separado e seguro. Revisão visual pendente.' >> "$GITHUB_STEP_SUMMARY"
+          find test-results -name '*.png' 2>/dev/null | wc -l >> "$GITHUB_STEP_SUMMARY"
