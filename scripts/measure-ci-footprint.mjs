@@ -14,7 +14,7 @@ const options=Object.fromEntries(process.argv.slice(2).map(arg=>{
   if(!m) throw Error('Invalid option: '+arg);
   return [m[1],m[2]];
 }));
-const repo=options.repo||process.env.GITHUB_REPOSITORY||'murilomattioli/markdown-resume-studio';
+const repo=options.repo||process.env.GITHUB_REPOSITORY||'murilomattioli/mdress';
 if(!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw Error('Invalid repo owner/name');
 const limit=Math.min(500,Math.max(1,Number(options.limit||100)));
 const maxArtifactRuns=Math.min(limit,Math.max(0,Number(options['max-artifact-runs']||20)));
