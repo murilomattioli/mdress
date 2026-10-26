@@ -38,6 +38,8 @@ jobs:
           node-version: '22'
       - run: npm run check
       - run: npm test
+      - name: Public snapshot credential guard
+        run: node scripts/publication-audit.mjs
   quality-gate:
     if: always()
     needs: [changes, quality]
