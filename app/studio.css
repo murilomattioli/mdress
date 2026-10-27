@@ -320,8 +320,10 @@ button,select,input,textarea{font:inherit}
 /* Source actions are one coherent left-aligned tool cluster, not two distant islands. */
 .editor-panel .markdown-toolbar{
  justify-content:flex-start;
- flex-wrap:nowrap;
+ /* Keep complete tool groups visible before resorting to horizontal scrolling. */
+ flex-wrap:wrap;
  gap:4px;
+ row-gap:2px;
  overflow-x:auto;
  scrollbar-width:thin;
  overscroll-behavior-x:contain;
