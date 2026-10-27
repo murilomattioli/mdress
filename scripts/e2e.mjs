@@ -11,6 +11,14 @@ try {
  await page.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent!=='Carregando…');
  const source=page.locator('#source');
  assert.ok((await source.inputValue()).includes('O título do artigo'));
+ // The Markdown editor must visibly indicate keyboard focus, not suppress its outline.
+ await source.focus();
+ const editorFocus=await source.evaluate(el=>({visible:el.matches(':focus-visible'),width:getComputedStyle(el).outlineWidth,style:getComputedStyle(el).outlineStyle}));
+ assert.equal(editorFocus.visible,true,'Markdown editor should match :focus-visible');
+ assert.equal(editorFocus.width,'2px','Markdown editor needs a visible 2px focus ring');
+ assert.equal(editorFocus.style,'solid','Markdown editor focus ring must not be suppressed');
+ await mkdir('test-results/ux-audit',{recursive:true});
+ await page.screenshot({path:'test-results/ux-audit/source-editor-focused.png',animations:'disabled'});
  // Wrap complete groups at split widths, preserving scroll arrows as a narrow-width fallback.
  await page.setViewportSize({width:1024,height:900});
  const toolbar=page.locator('.markdown-toolbar');
