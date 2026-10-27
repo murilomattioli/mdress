@@ -71,6 +71,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   for (const { path, line, rule } of findings) {
     console.error(`::error file=${path},line=${line}::Potential credential pattern (${rule}); inspect privately`);
   }
-  console.log(`Public snapshot credential guard: ${filesChecked} tracked text files checked; ${findings.length} finding(s).`);
+  console.log(`Public snapshot credential guard: ${filesChecked} tracked files inspected; ${findings.length} finding(s).`);
   if (findings.length) process.exitCode = 1;
 }
