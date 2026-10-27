@@ -44,15 +44,31 @@ export function isSensitiveTrackedPath(path) {
 }
 
 function trackedFiles(root) {
-  const output = execFileSync('git', ['-C', root, 'ls-files', '-z']);
-  return output.toString('utf8').split('\0').filter(Boolean);
+  // Inspect Git index modes rather than filesystem symlinks: on Windows,
+  // core.symlinks=false can check out a tracked link as an ordinary text file.
+  const output = execFileSync('git', ['-C', root, 'ls-files', '--stage', '-z']);
+  return output.toString('utf8').split('\0').filter(Boolean).map(entry => {
+    const separator = entry.indexOf('\t');
+    if (separator < 0) throw new Error('Unexpected git ls-files --stage output');
+    return {
+      mode: entry.slice(0, separator).split(' ')[0],
+      path: entry.slice(separator + 1),
+    };
+  });
 }
 
 export function auditTrackedFiles(root = ROOT) {
   const findings = [];
   const files = trackedFiles(root);
   let filesChecked = 0;
-  for (const path of files) {
+  for (const { path, mode } of files) {
+    // Never follow tracked symlinks during a public-snapshot audit.
+    // Their targets can escape the repository or contain private content.
+    if (mode === '120000') {
+      findings.push({ path, line: 1, rule: 'tracked-symlink' });
+      filesChecked++;
+      continue;
+    }
     if (isSensitiveTrackedPath(path)) {
       findings.push({ path, line: 1, rule: 'tracked-sensitive-file' });
       filesChecked++;
