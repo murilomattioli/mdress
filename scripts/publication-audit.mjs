@@ -36,20 +36,34 @@ export function scanText(content) {
   return findings;
 }
 
-function trackedTextFiles(root) {
+/** Block sensitive tracked filenames even when their contents contain no recognizable token. */
+export function isSensitiveTrackedPath(path) {
+  const name = path.split('/').at(-1);
+  if (name === '.env.example' || name === '.env.sample') return false;
+  return /^(?:\.env(?:\..+)?|id_rsa|id_ed25519|.+\.(?:pem|p12|pfx|key))$/i.test(name);
+}
+
+function trackedFiles(root) {
   const output = execFileSync('git', ['-C', root, 'ls-files', '-z']);
-  return output.toString('utf8').split('\0').filter(Boolean)
-    .filter(path => TEXT_EXTENSIONS.has(extname(path)) || path === '.gitignore' || path === '.gitattributes');
+  return output.toString('utf8').split('\0').filter(Boolean);
 }
 
 export function auditTrackedFiles(root = ROOT) {
   const findings = [];
-  const files = trackedTextFiles(root);
+  const files = trackedFiles(root);
+  let filesChecked = 0;
   for (const path of files) {
+    if (isSensitiveTrackedPath(path)) {
+      findings.push({ path, line: 1, rule: 'tracked-sensitive-file' });
+      filesChecked++;
+      continue;
+    }
+    if (!TEXT_EXTENSIONS.has(extname(path)) && path !== '.gitignore' && path !== '.gitattributes') continue;
+    filesChecked++;
     const text = readFileSync(join(root, path), 'utf8');
     for (const finding of scanText(text)) findings.push({ path, ...finding });
   }
-  return { filesChecked: files.length, findings };
+  return { filesChecked, findings };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -57,6 +71,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   for (const { path, line, rule } of findings) {
     console.error(`::error file=${path},line=${line}::Potential credential pattern (${rule}); inspect privately`);
   }
-  console.log(`Public snapshot credential guard: ${filesChecked} tracked text files checked; ${findings.length} finding(s).`);
+  console.log(`Public snapshot credential guard: ${filesChecked} tracked files inspected; ${findings.length} finding(s).`);
   if (findings.length) process.exitCode = 1;
 }
