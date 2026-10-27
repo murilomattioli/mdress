@@ -1,6 +1,7 @@
 import {createIcon,createOutlineItem} from './design-system/components.js';
 import {sectionAnchors} from './section-pagination.js';
 import {connectScrollSync} from './scroll-sync.js';
+import {attachToolbarOverflow} from './toolbar-overflow.js';
 const $=id=>document.getElementById(id);
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 function saved(key,initial){try{const value=Number(localStorage.getItem('studio-'+key));return value>0?value:initial;}catch{return initial;}}
@@ -170,7 +171,7 @@ function enhancement(){
 }
 function init(){
  $('editorSplitter')?.apply(saved('editor',435));$('inspectorSplitter')?.apply(saved('inspector',330));
- menu();outline();enhancement();canvas();setupPageGuides();
+ menu();outline();enhancement();attachToolbarOverflow(document.querySelector('.markdown-toolbar'));canvas();setupPageGuides();
  connectScrollSync({source:$('source'),preview:document.querySelector('.preview-scroll'),stack:$('pageStack'),workspace:document.querySelector('.workspace')});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
