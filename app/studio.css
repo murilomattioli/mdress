@@ -352,3 +352,25 @@ button,select,input,textarea{font:inherit}
 .editor-panel .toolbar-scroll-button:focus-visible{outline:2px solid var(--ds-brand);outline-offset:-2px}
 .editor-panel .toolbar-scroll-button:disabled{opacity:.35;cursor:default}
 .editor-panel .toolbar-scroll-button[hidden]{display:none}
+
+/* UX-023: the design inspector must remain reachable on compact screens.
+ * The preview canvas is hidden in split/edit mode, but it owns the inspector.
+ * Expose only its inspector as a floating overlay when the Design rail opens. */
+@media(max-width:860px){
+ .workspace[data-mode=split] .preview-panel:has(.design-inspector:not(.hidden)),
+ .workspace[data-mode=edit] .preview-panel:has(.design-inspector:not(.hidden)){
+  display:flex!important;position:absolute!important;inset:0 0 0 var(--rail-width);
+  width:calc(100% - var(--rail-width));height:100%;z-index:12;
+  background:transparent!important;border:0!important;pointer-events:none;
+ }
+ .workspace[data-mode=split] .preview-panel:has(.design-inspector:not(.hidden)) > :not(.design-inspector),
+ .workspace[data-mode=edit] .preview-panel:has(.design-inspector:not(.hidden)) > :not(.design-inspector){
+  visibility:hidden!important;pointer-events:none!important;
+ }
+ .workspace[data-mode=split] .preview-panel .design-inspector:not(.hidden),
+ .workspace[data-mode=edit] .preview-panel .design-inspector:not(.hidden){
+  visibility:visible!important;pointer-events:auto!important;
+  width:min(330px,100%)!important;min-width:0!important;
+  box-shadow:-15px 0 45px #0004!important;
+ }
+}
