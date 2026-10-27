@@ -83,6 +83,29 @@ try {
  await page.locator('[data-inspector-tab="page"]').click();
  assert.equal(await page.locator('#inspector-page').isVisible(),true);
  assert.ok((await page.locator('#inspectorPageCount').textContent()).includes('página'));
+ // A disabled native checkbox must also disable its visible binary buttons.
+ // With no target section, aligning to the page footer is not a valid action.
+ const bottomTarget=page.locator('#bottomSectionTarget');
+ const bottomEnabled=page.locator('#bottomSectionEnabled');
+ const bottomBinary=page.locator('.ds-property-binary').filter({has:bottomEnabled});
+ await bottomTarget.evaluate(el=>{el.value='';el.dispatchEvent(new Event('change',{bubbles:true}));});
+ await page.waitForFunction(()=>{
+  const native=document.querySelector('#bottomSectionEnabled');
+  const buttons=native?.closest('.ds-property-binary')?.querySelectorAll('.ds-binary-option');
+  return native?.disabled&&buttons?.length===2&&[...buttons].every(button=>button.disabled);
+ });
+ assert.equal(await bottomBinary.locator('button:disabled').count(),2,'Disabled binary control must expose disabled buttons');
+ await bottomBinary.locator('.ds-binary-option').last().evaluate(button=>button.click());
+ assert.equal(await bottomEnabled.isChecked(),false,'Disabled binary control must not modify native state');
+ await bottomBinary.screenshot({path:'test-results/ux-audit/inspector-binary-disabled.png',animations:'disabled'});
+ assert.ok((await bottomTarget.locator('option').count())>1,'Fixture needs a selectable section');
+ await bottomTarget.evaluate(el=>{el.value=el.options[1].value;el.dispatchEvent(new Event('change',{bubbles:true}));});
+ await page.waitForFunction(()=>{
+  const native=document.querySelector('#bottomSectionEnabled');
+  const buttons=native?.closest('.ds-property-binary')?.querySelectorAll('.ds-binary-option');
+  return native&&!native.disabled&&buttons?.length===2&&[...buttons].every(button=>!button.disabled);
+ });
+ await bottomTarget.evaluate(el=>{el.value='';el.dispatchEvent(new Event('change',{bubbles:true}));});
  await page.locator('[data-inspector-tab="background"]').click();
  assert.equal(await page.locator('.bg-preset').count(),15);
  await page.locator('.bg-preset[aria-label="Usar fundo Soft Mesh"]').click();

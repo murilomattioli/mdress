@@ -170,15 +170,27 @@ function enhanceBinary(label,input,title){
  off.setAttribute('aria-label',title+' desligado');on.setAttribute('aria-label',title+' ligado');
  input.classList.add('ds-binary-native');input.setAttribute('aria-hidden','true');input.tabIndex=-1;
  input.replaceWith(field);field.append(name,group,input);group.append(off,on);
- const update=()=>{off.setAttribute('aria-pressed',String(!input.checked));on.setAttribute('aria-pressed',String(input.checked));};
- const commit=val=>{input.checked=val;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));update();};
+ const update=()=>{
+  off.setAttribute('aria-pressed',String(!input.checked));
+  on.setAttribute('aria-pressed',String(input.checked));
+  // The native checkbox remains the source of truth for disabled state.
+  // In particular, bottomSectionEnabled is disabled when no section is selected.
+  off.disabled=input.disabled;on.disabled=input.disabled;
+ };
+ const commit=val=>{
+  if(input.disabled)return;
+  input.checked=val;input.dispatchEvent(new Event('input',{bubbles:true}));
+  input.dispatchEvent(new Event('change',{bubbles:true}));update();
+ };
  off.onclick=()=>commit(false);on.onclick=()=>commit(true);
  for(const [index,btn] of [off,on].entries())btn.addEventListener('keydown',e=>{
   if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
   e.preventDefault();const value=e.key==='Home'?false:e.key==='End'?true:e.key==='ArrowRight'?true:false;
   const next=value?on:off;next.focus();commit(value);
  });
- input.addEventListener('change',update);controllers.push(update);update();
+ input.addEventListener('change',update);
+ new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
+ controllers.push(update);update();
 }
 function enhanceSegment(label,select,title){
  label.classList.add('ds-property-row','ds-property-row--segment');
