@@ -125,7 +125,7 @@ async function exercise(page,theme,width){
  await input.press('Escape');
  assert.equal(await input.inputValue(),originalNumber);
  assert.equal(await input.getAttribute('aria-invalid'),null);
- assert.match(await input.getAttribute('aria-label'),/valor/,'Numeric control must have an explicit accessible name');
+ assert.match(await input.getAttribute('aria-label'),/margens/i,'Numeric control must preserve its existing accessible name');
  await input.evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>[...document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelectorAll('.ds-number-step')||[]].every(b=>b.disabled));
  await capture(page,theme,width,'number-disabled');
