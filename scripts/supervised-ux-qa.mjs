@@ -10,6 +10,7 @@ import {strict as assert} from 'node:assert';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
+import {summarizeUxCoverage} from './ux-qa-coverage.mjs';
 
 const args=new Set(process.argv.slice(2));
 const automated=args.has('--auto');
@@ -22,14 +23,20 @@ const url=process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173';
 const directory='test-results/ux-audit/supervised';
 const findings=[],screenshots=[],coverage=[];
 let stopped=false;
+class ReviewStopped extends Error {constructor(){super('Interrompido pelo revisor');this.name='ReviewStopped';}}
 const io=!automated?createInterface({input:stdin,output:stdout}):null;
 async function checkpoint(label){
  console.log('[UX QA] '+label);
  if(!io)return;
  while(true){
   const choice=(await io.question('ENTER=continuar | m=inspecionar | q=parar > ')).trim().toLowerCase();
-  if(choice==='q'){stopped=true;throw new Error('Interrompido pelo revisor');}
-  if(choice==='m'){console.log('Inspecione e interaja no navegador. Volte aqui quando terminar.');await io.question('ENTER=retomar > ');continue;}
+  if(choice==='q'){stopped=true;throw new ReviewStopped();}
+  if(choice==='m'){
+   console.log('Inspecione e interaja no navegador. Volte aqui quando terminar.');
+   const resume=(await io.question('ENTER=retomar | q=parar > ')).trim().toLowerCase();
+   if(resume==='q'){stopped=true;throw new ReviewStopped();}
+   return;
+  }
   return;
  }
 }
@@ -62,6 +69,7 @@ async function exercise(page,theme,width){
  const precise=range.locator('.ds-prop-number');
  await range.scrollIntoViewIfNeeded();
  await capture(page,theme,width,'range-normal');
+ await range.hover();await capture(page,theme,width,'range-hover');
  await precise.focus();
  assert.equal(await precise.evaluate(el=>el===document.activeElement),true);
  await capture(page,theme,width,'range-focus');
@@ -87,7 +95,8 @@ async function exercise(page,theme,width){
  assert.equal(await hex.getAttribute('aria-invalid'),null);
  const select=page.locator('.ds-property-select').filter({has:page.locator('#fontChoice')});
  const trigger=select.locator('.ds-select-trigger');
- await trigger.scrollIntoViewIfNeeded();await trigger.click();
+ await trigger.scrollIntoViewIfNeeded();await trigger.hover();await capture(page,theme,width,'select-hover');
+ await trigger.focus();await trigger.press('ArrowDown');
  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
  await capture(page,theme,width,'select-open');
  await page.keyboard.press('Escape');
@@ -155,23 +164,26 @@ try{
     await page.locator('#source').waitFor();
     await page.locator('body').evaluate((el,value)=>el.dataset.theme=value,theme);
     await capture(page,theme,width,'workspace');
-    try{await toolbarAudit(page,theme,width);toolbarPassed=true;}catch(e){error('toolbar',theme,width,e);}
-    try{await exercise(page,theme,width);inspectorPassed=true;}catch(e){error('inspector',theme,width,e);}
+    try{await toolbarAudit(page,theme,width);toolbarPassed=true;}catch(e){if(e instanceof ReviewStopped)throw e;error('toolbar',theme,width,e);}
+    try{await exercise(page,theme,width);inspectorPassed=true;}catch(e){if(e instanceof ReviewStopped)throw e;error('inspector',theme,width,e);}
     for(const message of errors)findings.push({severity:'error',phase:'runtime',theme,width,message});
-    scenarioPassed=true;
-   }catch(e){error('scenario',theme,width,e);}
+    scenarioPassed=toolbarPassed&&inspectorPassed&&errors.length===0;
+   }catch(e){if(e instanceof ReviewStopped)stopped=true;else error('scenario',theme,width,e);}
    finally{
     coverage.push({theme,width,scenario:scenarioPassed,inspector:inspectorPassed,toolbar:toolbarPassed,errors:errors.length});
     await page.close();
    }
+   if(stopped)break;
   }
+  if(stopped)break;
  }
 }catch(e){if(!stopped)error('browser','global',0,e);}
 finally{
  await browser?.close();
  io?.close();
- const report={schema:1,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,coverage,screenshots,findings};
+ const summary=summarizeUxCoverage(coverage,findings,stopped);
+ const report={schema:2,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,coverage,screenshots,findings};
  await writeFile('test-results/supervised-ux-qa.json',JSON.stringify(report,null,2)+'\n');
- console.log('[UX QA] report: test-results/supervised-ux-qa.json | screenshots: '+screenshots.length+' | findings: '+findings.length);
- if(findings.some(x=>x.severity==='error')||stopped)process.exitCode=1;
+ console.log('[UX QA] report: test-results/supervised-ux-qa.json | status: '+summary.status+' | scenarios: '+summary.passing+'/'+summary.expected+' | screenshots: '+screenshots.length+' | findings: '+findings.length);
+ if(summary.status!=='passed')process.exitCode=1;
 }
