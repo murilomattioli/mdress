@@ -15,7 +15,7 @@
  --ds-shadow-pop:0 18px 55px rgba(0,0,0,.32),0 2px 8px rgba(0,0,0,.13);
  --ds-text-xs:10px;--ds-text-sm:11px;--ds-text-md:12px;--ds-text-lg:13px;--ds-text-xl:15px;
  --ds-z-popover:30;--ds-z-dialog:100;
- --ds-brand:#a9b3ff;--ds-brand-strong:#8192ff;--ds-brand-soft:rgba(136,153,255,.12);
+ --ds-brand:#a9b3ff;--ds-brand-strong:#8192ff;--ds-on-brand:#101321;--ds-brand-soft:rgba(136,153,255,.12);
  --ds-bg:#14171c;--ds-panel:#1c2027;--ds-panel-raised:#232832;
  --ds-panel-hover:#2a303c;--ds-rail:#15191f;--ds-stage:#252b35;
  --ds-stage-grid:rgba(223,230,246,.055);--ds-text:#edf1fa;--ds-text-secondary:#b3becd;--ds-text-tertiary:#8693a7;
@@ -27,7 +27,7 @@
 /* Four independent application appearances. None modifies .paper tokens. */
 body[data-theme=studio]{
  color-scheme:light;
- --ds-brand:#262b31;--ds-brand-strong:#111418;--ds-brand-soft:rgba(31,35,42,.085);
+ --ds-brand:#262b31;--ds-brand-strong:#111418;--ds-on-brand:#fff;--ds-brand-soft:rgba(31,35,42,.085);
  --ds-bg:#f7f7f7;--ds-panel:#fafafa;--ds-panel-raised:#f0f1f2;--ds-panel-hover:#e8eaec;
  --ds-rail:#f3f4f5;--ds-stage:#e8e9eb;--ds-stage-grid:rgba(25,31,42,.043);
  --ds-text:#1b1e23;--ds-text-secondary:#515963;--ds-text-tertiary:#787e87;
@@ -51,7 +51,7 @@ body[data-theme=oled]{
 }
 body[data-theme=sand]{
  color-scheme:light;
- --ds-brand:#446858;--ds-brand-strong:#315746;--ds-brand-soft:rgba(59,103,79,.1);
+ --ds-brand:#446858;--ds-brand-strong:#315746;--ds-on-brand:#fff;--ds-brand-soft:rgba(59,103,79,.1);
  --ds-bg:#f1eee7;--ds-panel:#fffdf7;--ds-panel-raised:#f5f2eb;--ds-panel-hover:#ebe8df;
  --ds-rail:#ede8de;--ds-stage:#e6e2d8;--ds-stage-grid:rgba(52,70,55,.06);
  --ds-text:#26312a;--ds-text-secondary:#636e63;--ds-text-tertiary:#859085;--ds-border:#d9dbd0;--ds-border-subtle:#e6e7dd;
