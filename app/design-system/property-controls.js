@@ -88,8 +88,10 @@ function enhanceRange(label,input,title){
  const update=()=>{
   const value=Number(input.value),pct=(clamp(value,min,max)-min)/(max-min)*100;
   field.style.setProperty('--ds-range-progress',pct+'%');
+  if(input.disabled)editing=false;
+  numeric.disabled=input.disabled;
   if(!editing)numeric.value=input.value;
-  setError(editing&&!valid()?validationMessage(numeric,min,max,unit):'');
+  setError(!input.disabled&&editing&&!valid()?validationMessage(numeric,min,max,unit):'');
   if(!Number.isNaN(value))field.setAttribute('data-value',formatControlValue(value,unit));
  };
  input.addEventListener('input',update);
@@ -111,6 +113,7 @@ function enhanceRange(label,input,title){
  if(input.hasAttribute('value')&&Number.isFinite(initial))field.title='Clique duas vezes na régua para restaurar';
  if(input.hasAttribute('value'))progress.addEventListener('dblclick',()=>nativeCommit(input,normalizeRange(initial,min,max,step)));
  const output=label.querySelector('output');if(output)output.classList.add('property-visually-hidden');
+ new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
  controllers.push(update);update();
 }
 function enhanceNumber(label,input,title){
@@ -120,6 +123,7 @@ function enhanceNumber(label,input,title){
  const minus=button('ds-number-step','−'),plus=button('ds-number-step','+');
  minus.setAttribute('aria-label','Diminuir '+title);plus.setAttribute('aria-label','Aumentar '+title);
  const unit=span('ds-prop-unit',unitOf(input));
+ if(!input.hasAttribute('aria-label'))input.setAttribute('aria-label',title+' — valor'+(unitOf(input)?' em '+unitOf(input):''));
  input.classList.add('ds-number-native');
  input.replaceWith(field);field.append(name,controls);controls.append(minus,input,unit,plus);
  const min=Number(input.min||0),max=Number(input.max||999),step=Number(input.step||1);
@@ -130,8 +134,8 @@ function enhanceNumber(label,input,title){
   const ok=valid();
   if(!editing&&ok)committed=input.value;
   setError(editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
-  minus.disabled=!ok||Number(input.value)<=min;
-  plus.disabled=!ok||Number(input.value)>=max;
+  minus.disabled=input.disabled||!ok||Number(input.value)<=min;
+  plus.disabled=input.disabled||!ok||Number(input.value)>=max;
  };
  const increment=direction=>{
   if(!valid())return;
@@ -151,6 +155,7 @@ function enhanceNumber(label,input,title){
   if(event.key!=='Escape'||!editing)return;
   event.preventDefault();input.value=committed;editing=false;update();
  });
+ new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
  controllers.push(update);update();
 }
 function enhanceColor(label,input,title){
@@ -166,7 +171,7 @@ function enhanceColor(label,input,title){
  input.replaceWith(field);
  field.append(name,right);right.append(swatch,hex);swatch.append(input);
  const isHex=v=>/^#[0-9a-f]{6}$/i.test(v);
- const update=()=>{const v=input.value.toUpperCase();hex.value=v;setError('');swatch.style.backgroundColor=v;};
+ const update=()=>{const v=input.value.toUpperCase();hex.value=v;hex.disabled=input.disabled;setError('');swatch.style.backgroundColor=v;};
  // Keep invalid user input visible for correction instead of replacing it with
  // the last saved color while leaving a stale aria-invalid state behind.
  hex.addEventListener('input',()=>{
@@ -182,6 +187,7 @@ function enhanceColor(label,input,title){
   if(e.key==='Enter'){hex.dispatchEvent(new Event('change'));if(isHex(hex.value.trim()))hex.blur();}
  });
  input.addEventListener('input',update);input.addEventListener('change',update);
+ new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
  controllers.push(update);update();
 }
 function enhanceBinary(label,input,title){

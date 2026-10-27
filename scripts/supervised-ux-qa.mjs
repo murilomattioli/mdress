@@ -81,6 +81,10 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'range-invalid');
  await precise.press('Escape');
  assert.equal(await precise.getAttribute('aria-invalid'),null);
+ await page.locator('#fontSize').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('.ds-property-range .ds-prop-number')?.disabled===true);
+ await capture(page,theme,width,'range-disabled');
+ await page.locator('#fontSize').evaluate(el=>{el.disabled=false;});
  const color=page.locator('.ds-property-color').filter({has:page.locator('#accentColor')});
  const hex=color.locator('.ds-color-hex');
  await color.scrollIntoViewIfNeeded();
@@ -93,6 +97,10 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'color-invalid');
  await hex.press('Escape');
  assert.equal(await hex.getAttribute('aria-invalid'),null);
+ await page.locator('#accentColor').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('.ds-property-color .ds-color-hex')?.disabled===true);
+ await capture(page,theme,width,'color-disabled');
+ await page.locator('#accentColor').evaluate(el=>{el.disabled=false;});
  const select=page.locator('.ds-property-select').filter({has:page.locator('#fontChoice')});
  const trigger=select.locator('.ds-select-trigger');
  await trigger.scrollIntoViewIfNeeded();await trigger.hover();await capture(page,theme,width,'select-hover');
@@ -117,6 +125,11 @@ async function exercise(page,theme,width){
  await input.press('Escape');
  assert.equal(await input.inputValue(),originalNumber);
  assert.equal(await input.getAttribute('aria-invalid'),null);
+ assert.match(await input.getAttribute('aria-label'),/valor/,'Numeric control must have an explicit accessible name');
+ await input.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>[...document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelectorAll('.ds-number-step')||[]].every(b=>b.disabled));
+ await capture(page,theme,width,'number-disabled');
+ await input.evaluate(el=>{el.disabled=false;});
  const binary=page.locator('.ds-property-binary').filter({has:page.locator('#showPageGuides')});
  const native=page.locator('#showPageGuides');
  await native.evaluate(el=>{el.disabled=true;});
