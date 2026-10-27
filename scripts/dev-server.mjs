@@ -4,7 +4,7 @@ import {resolve,extname,sep} from 'node:path';
 const root=resolve('app');
 const portSetting=process.env.PORT ?? '4173';
 const port=Number(portSetting);
-if(!/^\\d+$/.test(portSetting)||!Number.isInteger(port)||port<1||port>65535){
+if(!/^\d+$/.test(portSetting)||!Number.isInteger(port)||port<1||port>65535){
  console.error('mdress: PORT inválida ('+JSON.stringify(portSetting)+'). Use um número entre 1 e 65535.');
  process.exit(1);
 }
