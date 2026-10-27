@@ -3,7 +3,8 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {deduplicateAuditFindings} from './component-ux-findings.mjs';
 
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
-const findings=[],coverage=[];
+const findings=[],coverage=[],screenshots=[];
+await mkdir('test-results/ux-audit',{recursive:true});
 const emit=(rule,severity,component,detail,context)=>findings.push({rule,severity,component,detail,context});
 try{
  for(const theme of ['graphite','studio']){
@@ -44,7 +45,12 @@ try{
      return {categories,count:controls.length,violations,inspectorWidth:inspector?.getBoundingClientRect().width||0,
       composerWidth:composer?.getBoundingClientRect().width||0};
     });
-    coverage.push({theme,width,...{controls:data.count,types:data.categories,inspectorWidth:data.inspectorWidth}});
+    // Keep a viewport screenshot tied to every audited theme/width scenario.
+    // Images remain local until a separate, permission-isolated publisher exists.
+    const screenshot=`test-results/ux-audit/${theme}-${width}.png`;
+    await page.screenshot({path:screenshot,animations:'disabled'});
+    screenshots.push({theme,width,path:screenshot});
+    coverage.push({theme,width,...{controls:data.count,types:data.categories,inspectorWidth:data.inspectorWidth},screenshot});
     for(const violation of data.violations)emit(violation.rule,violation.severity,violation.component,violation.detail,{theme,width,html:violation.html});
     for(const error of errors)emit('runtime-error','error','app',error,{theme,width});
     if(data.controls===0)emit('coverage','error','app','Nenhum controle visível foi inventariado',{theme,width});
@@ -53,7 +59,7 @@ try{
  }
 }finally{await browser.close();}
 const unique=deduplicateAuditFindings(findings);
-const report={schema:1,commit:process.env.GITHUB_SHA||'local',generatedAt:new Date().toISOString(),coverage,findings:unique,critical:unique.filter(x=>x.severity==='error').length};
+const report={schema:1,commit:process.env.GITHUB_SHA||'local',generatedAt:new Date().toISOString(),coverage,screenshots,findings:unique,critical:unique.filter(x=>x.severity==='error').length};
 await mkdir('test-results',{recursive:true});
 await writeFile('test-results/component-ux-audit.json',JSON.stringify(report,null,2)+'\n');
 console.log('COMPONENT UX AUDIT',JSON.stringify({coverage:coverage.map(x=>x.theme+'/'+x.width+':'+x.controls),critical:report.critical,findings:unique.slice(0,6)}));
