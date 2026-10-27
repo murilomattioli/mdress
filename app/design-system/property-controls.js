@@ -109,10 +109,16 @@ function enhanceColor(label,input,title){
  input.classList.add('ds-color-native');
  input.replaceWith(field);
  field.append(name,right);right.append(swatch,hex);swatch.append(input);
- const update=()=>{const v=input.value.toUpperCase();hex.value=v;swatch.style.backgroundColor=v;};
+ const isHex=v=>/^#[0-9a-f]{6}$/i.test(v);
+ const update=()=>{const v=input.value.toUpperCase();hex.value=v;hex.removeAttribute('aria-invalid');swatch.style.backgroundColor=v;};
+ // Keep invalid user input visible for correction instead of replacing it with
+ // the last saved color while leaving a stale aria-invalid state behind.
+ hex.addEventListener('input',()=>{
+  if(isHex(hex.value.trim()))hex.removeAttribute('aria-invalid');
+ });
  hex.addEventListener('change',()=>{
   const v=hex.value.trim();
-  if(!/^#[0-9a-f]{6}$/i.test(v)){hex.setAttribute('aria-invalid','true');update();return;}
+  if(!isHex(v)){hex.setAttribute('aria-invalid','true');return;}
   hex.removeAttribute('aria-invalid');nativeCommit(input,v);update();
  });
  hex.addEventListener('keydown',e=>{
