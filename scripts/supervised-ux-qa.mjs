@@ -44,6 +44,10 @@ async function revealInspector(page,tab){
  if(!(await target.isVisible())){
   const toggle=page.locator('#designToggle');
   if(await toggle.isVisible())await toggle.click();
+  else {
+   const rail=page.locator('#railDesign');
+   if(await rail.isVisible())await rail.click();
+  }
  }
  await target.waitFor({state:'visible',timeout:8000});
  await target.click();
