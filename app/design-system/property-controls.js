@@ -32,6 +32,27 @@ export function formatControlValue(v,unit=''){
  const body=Number.isInteger(value)?String(value):String(Number(value.toFixed(3)));
  return body+(unit&&unit!=='×'?' '+unit:unit);
 }
+function validationMessage(input,min,max,unit=''){
+ if(input.value.trim()==='')return 'Informe um valor.';
+ if(input.validity.rangeUnderflow||input.validity.rangeOverflow)return 'Use um valor entre '+min+' e '+max+(unit?' '+unit:'')+'.';
+ if(input.validity.stepMismatch)return 'Use um valor compatível com o incremento permitido.';
+ return 'Informe um número válido.';
+}
+function feedbackFor(label,control){
+ const feedback=span('ds-prop-error');
+ feedback.id='ds-prop-error-'+(++nextUid);
+ feedback.setAttribute('aria-live','polite');
+ feedback.hidden=true;
+ label.append(feedback);
+ const previous=control.getAttribute('aria-describedby');
+ control.setAttribute('aria-describedby',[previous,feedback.id].filter(Boolean).join(' '));
+ return message=>{
+  feedback.textContent=message||'';
+  feedback.hidden=!message;
+  if(message)control.setAttribute('aria-invalid','true');
+  else control.removeAttribute('aria-invalid');
+ };
+}
 function nativeCommit(input,next){
  if(input.disabled)return;
  input.value=String(next);
@@ -51,6 +72,7 @@ function enhanceRange(label,input,title){
  const numeric=document.createElement('input');numeric.type='number';numeric.className='ds-prop-number';
  numeric.min=input.min;numeric.max=input.max;numeric.step=input.step||'1';
  numeric.setAttribute('aria-label',title+' — valor'+(unit?' em '+unit:''));
+ const setError=feedbackFor(label,numeric);
  const unitBadge=span('ds-prop-unit',unit);
  if(!unit)unitBadge.classList.add('hidden');
  input.classList.add('ds-range-native');
@@ -67,8 +89,7 @@ function enhanceRange(label,input,title){
   const value=Number(input.value),pct=(clamp(value,min,max)-min)/(max-min)*100;
   field.style.setProperty('--ds-range-progress',pct+'%');
   if(!editing)numeric.value=input.value;
-  if(editing&&!valid())numeric.setAttribute('aria-invalid','true');
-  else numeric.removeAttribute('aria-invalid');
+  setError(editing&&!valid()?validationMessage(numeric,min,max,unit):'');
   if(!Number.isNaN(value))field.setAttribute('data-value',formatControlValue(value,unit));
  };
  input.addEventListener('input',update);
@@ -102,13 +123,13 @@ function enhanceNumber(label,input,title){
  input.classList.add('ds-number-native');
  input.replaceWith(field);field.append(name,controls);controls.append(minus,input,unit,plus);
  const min=Number(input.min||0),max=Number(input.max||999),step=Number(input.step||1);
+ const setError=feedbackFor(label,input);
  const valid=()=>input.value.trim()!==''&&input.validity.valid&&Number.isFinite(input.valueAsNumber);
  let committed=input.value,editing=false;
  const update=()=>{
   const ok=valid();
   if(!editing&&ok)committed=input.value;
-  if(editing&&!ok)input.setAttribute('aria-invalid','true');
-  else input.removeAttribute('aria-invalid');
+  setError(editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
   minus.disabled=!ok||Number(input.value)<=min;
   plus.disabled=!ok||Number(input.value)>=max;
  };
@@ -139,24 +160,26 @@ function enhanceColor(label,input,title){
  const swatch=document.createElement('span');swatch.className='ds-color-swatch';
  const hex=document.createElement('input');hex.type='text';hex.className='ds-color-hex';hex.maxLength=7;
  hex.spellcheck=false;hex.autocomplete='off';hex.setAttribute('aria-label',title+' — hexadecimal');
+ hex.setAttribute('inputmode','text');
+ const setError=feedbackFor(label,hex);
  input.classList.add('ds-color-native');
  input.replaceWith(field);
  field.append(name,right);right.append(swatch,hex);swatch.append(input);
  const isHex=v=>/^#[0-9a-f]{6}$/i.test(v);
- const update=()=>{const v=input.value.toUpperCase();hex.value=v;hex.removeAttribute('aria-invalid');swatch.style.backgroundColor=v;};
+ const update=()=>{const v=input.value.toUpperCase();hex.value=v;setError('');swatch.style.backgroundColor=v;};
  // Keep invalid user input visible for correction instead of replacing it with
  // the last saved color while leaving a stale aria-invalid state behind.
  hex.addEventListener('input',()=>{
-  if(isHex(hex.value.trim()))hex.removeAttribute('aria-invalid');
+  setError(isHex(hex.value.trim())?'':'Use uma cor hexadecimal com seis dígitos (#RRGGBB).');
  });
  hex.addEventListener('change',()=>{
   const v=hex.value.trim();
-  if(!isHex(v)){hex.setAttribute('aria-invalid','true');return;}
-  hex.removeAttribute('aria-invalid');nativeCommit(input,v);update();
+  if(!isHex(v)){setError('Use uma cor hexadecimal com seis dígitos (#RRGGBB).');return;}
+  setError('');nativeCommit(input,v);update();
  });
  hex.addEventListener('keydown',e=>{
   if(e.key==='Escape'){update();hex.blur();}
-  if(e.key==='Enter'){hex.dispatchEvent(new Event('change'));hex.blur();}
+  if(e.key==='Enter'){hex.dispatchEvent(new Event('change'));if(isHex(hex.value.trim()))hex.blur();}
  });
  input.addEventListener('input',update);input.addEventListener('change',update);
  controllers.push(update);update();
@@ -219,7 +242,11 @@ function enhanceSegment(label,select,title){
   });
   elements.push(btn);group.append(btn);
  }
- const update=()=>{for(const btn of elements)btn.setAttribute('aria-pressed',String(btn.dataset.value===select.value));};
+ const update=()=>{for(const [index,btn] of elements.entries()){
+  btn.setAttribute('aria-pressed',String(btn.dataset.value===select.value));
+  btn.disabled=select.disabled||select.options[index]?.disabled||false;
+ }};
+ new MutationObserver(update).observe(select,{attributes:true,attributeFilter:['disabled']});
  select.addEventListener('change',update);controllers.push(update);update();
 }
 function closePopup({restoreFocus=true}={}){
