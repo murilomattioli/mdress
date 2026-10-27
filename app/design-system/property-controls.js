@@ -93,10 +93,34 @@ function enhanceNumber(label,input,title){
  input.classList.add('ds-number-native');
  input.replaceWith(field);field.append(name,controls);controls.append(minus,input,unit,plus);
  const min=Number(input.min||0),max=Number(input.max||999),step=Number(input.step||1);
- const update=()=>{minus.disabled=Number(input.value)<=min;plus.disabled=Number(input.value)>=max;};
- const increment=direction=>{nativeCommit(input,normalizeRange(Number(input.value)+direction*step,min,max,step));update();};
+ const valid=()=>input.value.trim()!==''&&input.validity.valid&&Number.isFinite(input.valueAsNumber);
+ let committed=input.value,editing=false;
+ const update=()=>{
+  const ok=valid();
+  if(!editing&&ok)committed=input.value;
+  if(editing&&!ok)input.setAttribute('aria-invalid','true');
+  else input.removeAttribute('aria-invalid');
+  minus.disabled=!ok||Number(input.value)<=min;
+  plus.disabled=!ok||Number(input.value)>=max;
+ };
+ const increment=direction=>{
+  if(!valid())return;
+  nativeCommit(input,normalizeRange(Number(input.value)+direction*step,min,max,step));
+  update();
+ };
  minus.onclick=()=>increment(-1);plus.onclick=()=>increment(1);
- input.addEventListener('input',update);input.addEventListener('change',update);
+ input.addEventListener('input',()=>{editing=true;update();});
+ // Capture before the app's change listener: an invalid draft must never mutate the document.
+ input.addEventListener('change',event=>{
+  if(!valid()){
+   editing=true;update();event.preventDefault();event.stopImmediatePropagation();return;
+  }
+  editing=false;committed=input.value;update();
+ },true);
+ input.addEventListener('keydown',event=>{
+  if(event.key!=='Escape'||!editing)return;
+  event.preventDefault();input.value=committed;editing=false;update();
+ });
  controllers.push(update);update();
 }
 function enhanceColor(label,input,title){
