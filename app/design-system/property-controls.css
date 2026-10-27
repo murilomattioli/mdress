@@ -128,6 +128,8 @@
  -moz-appearance:textfield;
 }
 .ds-prop-numberbox .ds-prop-number:focus{outline:0!important;box-shadow:none!important}
+.ds-prop-numberbox .ds-prop-number[aria-invalid=true]{color:var(--ds-danger)!important}
+.ds-property-range:has(.ds-prop-number[aria-invalid=true]){border-color:var(--ds-danger)!important}
 .ds-prop-numberbox .ds-prop-number::-webkit-outer-spin-button,
 .ds-prop-numberbox .ds-prop-number::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .ds-prop-unit{font-size:10px;font-weight:600;color:var(--ds-text-tertiary);flex:0 0 auto}

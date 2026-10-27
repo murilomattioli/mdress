@@ -121,6 +121,22 @@ try {
  await precise.fill('11');
  await precise.dispatchEvent('change');
  assert.equal(await page.locator('#fontSize').inputValue(),'11');
+ const rangeControl=page.locator('.ds-property-range').filter({has:page.locator('#fontSize')});
+ await precise.fill('15');await precise.dispatchEvent('change');
+ assert.equal(await precise.inputValue(),'15','Out-of-range slider draft must remain editable');
+ assert.equal(await precise.getAttribute('aria-invalid'),'true','Invalid slider precision needs accessible feedback');
+ assert.equal(await page.locator('#fontSize').inputValue(),'11','Invalid slider draft must not change the document');
+ await rangeControl.screenshot({path:'test-results/ux-audit/inspector-range-invalid.png',animations:'disabled'});
+ await precise.press('Escape');
+ assert.equal(await precise.inputValue(),'11','Escape must restore the committed slider value');
+ assert.equal(await precise.getAttribute('aria-invalid'),null);
+ await precise.fill('11.3');await precise.dispatchEvent('change');
+ assert.equal(await precise.getAttribute('aria-invalid'),'true','Fractional step mismatch must be rejected');
+ assert.equal(await page.locator('#fontSize').inputValue(),'11','Step mismatch must not change the document');
+ await precise.fill('11.5');await precise.dispatchEvent('change');
+ assert.equal(await precise.getAttribute('aria-invalid'),null,'Valid slider precision must clear the error');
+ assert.equal(await page.locator('#fontSize').inputValue(),'11.5');
+
 
  // Real DS components: select popover, color hex, segmented choices and accordion.
  assert.ok(await page.locator('.ds-property-range').count()>=3);

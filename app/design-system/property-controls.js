@@ -59,22 +59,31 @@ function enhanceRange(label,input,title){
  input.replaceWith(field);
  field.append(name,progress,valueBox);
  progress.append(fill,ticks,thumb,input);valueBox.append(numeric,unitBadge);
+ // The precision field is an editable draft. Never silently clamp or snap
+ // invalid values: preserve them for correction without mutating the document.
+ const valid=()=>numeric.value.trim()!==''&&numeric.validity.valid&&Number.isFinite(numeric.valueAsNumber);
+ let editing=false;
  const update=()=>{
   const value=Number(input.value),pct=(clamp(value,min,max)-min)/(max-min)*100;
   field.style.setProperty('--ds-range-progress',pct+'%');
-  numeric.value=input.value;
+  if(!editing)numeric.value=input.value;
+  if(editing&&!valid())numeric.setAttribute('aria-invalid','true');
+  else numeric.removeAttribute('aria-invalid');
   if(!Number.isNaN(value))field.setAttribute('data-value',formatControlValue(value,unit));
  };
  input.addEventListener('input',update);
  input.addEventListener('change',update);
+ numeric.addEventListener('input',()=>{editing=true;update();});
  numeric.addEventListener('change',()=>{
-  const value=Number(numeric.value);
-  if(numeric.value.trim()===''||!Number.isFinite(value)){update();return;}
-  nativeCommit(input,normalizeRange(value,min,max,step));update();
+  if(!valid()){editing=true;update();return;}
+  const value=numeric.valueAsNumber;
+  editing=false;
+  nativeCommit(input,normalizeRange(value,min,max,step));
+  update();
  });
  numeric.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){update();numeric.blur();}
-  if(e.key==='Enter'){numeric.dispatchEvent(new Event('change'));numeric.blur();}
+  if(e.key==='Escape'){e.preventDefault();editing=false;update();numeric.blur();}
+  if(e.key==='Enter'){numeric.dispatchEvent(new Event('change'));if(valid())numeric.blur();}
  });
  // Double-click resets only when an explicit initial value is available.
  const initial=Number(input.defaultValue);
