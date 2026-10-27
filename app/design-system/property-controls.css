@@ -140,6 +140,8 @@
  -moz-appearance:textfield;
 }
 .ds-number-native::-webkit-inner-spin-button,.ds-number-native::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.ds-number-native[aria-invalid=true]{color:var(--ds-danger)!important}
+.ds-property-number:has(.ds-number-native[aria-invalid=true]){border-color:var(--ds-danger)!important}
 .ds-number-step{width:23px;min-width:23px;height:25px;min-height:25px;padding:0;border:0;background:transparent;color:var(--ds-text-secondary);font:650 15px/1 var(--ds-font);border-radius:4px}
 .ds-number-step:hover{background:var(--ds-panel);color:var(--ds-text)}
 .ds-number-step:disabled{opacity:.24}
