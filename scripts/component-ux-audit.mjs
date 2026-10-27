@@ -1,5 +1,6 @@
 import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
+import {deduplicateAuditFindings} from './component-ux-findings.mjs';
 
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const findings=[],coverage=[];
@@ -51,7 +52,7 @@ try{
   }
  }
 }finally{await browser.close();}
-const unique=[...new Map(findings.map(f=>[f.rule+'|'+f.component+'|'+f.context.html, f])).values()];
+const unique=deduplicateAuditFindings(findings);
 const report={schema:1,commit:process.env.GITHUB_SHA||'local',generatedAt:new Date().toISOString(),coverage,findings:unique,critical:unique.filter(x=>x.severity==='error').length};
 await mkdir('test-results',{recursive:true});
 await writeFile('test-results/component-ux-audit.json',JSON.stringify(report,null,2)+'\n');
