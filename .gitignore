@@ -1,0 +1,22 @@
+node_modules/
+dist/
+coverage/
+.DS_Store
+
+# Local environment overrides can contain credentials.
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Local QA evidence can contain private Markdown/document content.
+test-results/
+playwright-report/
+blob-report/
+*.trace.zip
+
+# Local supervised Playwright experiments and backups.
+scripts/e2e.supervised.mjs
+scripts/e2e.backup.mjs
+scripts/e2e.*-backup
+scripts/e2e.before-fix

@@ -1,0 +1,72 @@
+/**
+ * MDRESS / FOUNDATIONS 3.0
+ * Tokens for the application chrome. NEVER share these tokens with document/PDF themes.
+ * Single semantic layer shared by primitives, property inspector, canvas, editor.
+ */
+:root{
+ color-scheme:dark;
+ --ds-font:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+ --ds-mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+ --ds-space-0:0;--ds-space-1:4px;--ds-space-2:8px;--ds-space-3:12px;--ds-space-4:16px;--ds-space-5:20px;--ds-space-6:24px;--ds-space-8:32px;
+ --ds-radius-xs:5px;--ds-radius-sm:7px;--ds-radius-md:10px;--ds-radius-lg:14px;--ds-radius-xl:18px;
+ --ds-control-height:32px;--ds-control-height-lg:38px;
+ --ds-appbar-height:64px;--rail-width:66px;--editor-width:435px;--inspector-width:330px;
+ --ds-ease:cubic-bezier(.2,.8,.2,1);--ds-speed:160ms;
+ --ds-shadow-pop:0 18px 55px rgba(0,0,0,.32),0 2px 8px rgba(0,0,0,.13);
+ --ds-text-xs:10px;--ds-text-sm:11px;--ds-text-md:12px;--ds-text-lg:13px;--ds-text-xl:15px;
+ --ds-z-popover:30;--ds-z-dialog:100;
+ --ds-brand:#a9b3ff;--ds-brand-strong:#8192ff;--ds-on-brand:#101321;--ds-brand-soft:rgba(136,153,255,.12);
+ --ds-bg:#14171c;--ds-panel:#1c2027;--ds-panel-raised:#232832;
+ --ds-panel-hover:#2a303c;--ds-rail:#15191f;--ds-stage:#252b35;
+ --ds-stage-grid:rgba(223,230,246,.055);--ds-text:#edf1fa;--ds-text-secondary:#b3becd;--ds-text-tertiary:#8693a7;
+ --ds-border:#323b49;--ds-border-subtle:#2a313d;--ds-focus:#9eb2ff;--ds-danger:#ff818d;
+ --ds-success:#87d8b0;--ds-warning:#f3c380;--ds-paper-shadow:0 4px 9px rgba(6,10,19,.19),0 22px 65px rgba(3,6,13,.29);
+ --bg:var(--ds-bg);--panel:var(--ds-panel);--panel2:var(--ds-panel-raised);--text:var(--ds-text);
+ --muted:var(--ds-text-secondary);--border:var(--ds-border);--accent:var(--ds-brand);
+}
+/* Four independent application appearances. None modifies .paper tokens. */
+body[data-theme=studio]{
+ color-scheme:light;
+ --ds-brand:#262b31;--ds-brand-strong:#111418;--ds-on-brand:#fff;--ds-brand-soft:rgba(31,35,42,.085);
+ --ds-bg:#f7f7f7;--ds-panel:#fafafa;--ds-panel-raised:#f0f1f2;--ds-panel-hover:#e8eaec;
+ --ds-rail:#f3f4f5;--ds-stage:#e8e9eb;--ds-stage-grid:rgba(25,31,42,.043);
+ --ds-text:#1b1e23;--ds-text-secondary:#515963;--ds-text-tertiary:#787e87;
+ --ds-border:#d8dbdf;--ds-border-subtle:#e5e6e8;--ds-focus:#4b5563;
+ --ds-danger:#b64252;--ds-success:#31835d;--ds-warning:#926e22;
+ --ds-paper-shadow:0 4px 12px rgba(15,20,27,.055),0 22px 44px rgba(15,20,27,.09);
+}
+body[data-theme=graphite]{
+ --ds-brand:#a9b3ff;--ds-brand-strong:#8798ff;--ds-brand-soft:rgba(140,152,255,.15);
+ --ds-bg:#14171c;--ds-panel:#1c2027;--ds-panel-raised:#232832;--ds-panel-hover:#2a303c;
+ --ds-rail:#15191f;--ds-stage:#252b35;--ds-stage-grid:rgba(223,230,246,.055);
+ --ds-text:#edf1fa;--ds-text-secondary:#b3becd;--ds-text-tertiary:#8693a7;--ds-border:#323b49;--ds-border-subtle:#29313e;
+ --ds-focus:#aab8ff;--ds-danger:#ff8d93;--ds-success:#86dcb6;--ds-warning:#f8cb8d;
+}
+body[data-theme=oled]{
+ --ds-brand:#91e8e7;--ds-brand-strong:#5ed3d4;--ds-brand-soft:rgba(109,224,227,.13);
+ --ds-bg:#060709;--ds-panel:#0c0e12;--ds-panel-raised:#15191d;--ds-panel-hover:#1d242a;
+ --ds-rail:#000;--ds-stage:#15191e;--ds-stage-grid:rgba(210,233,240,.045);
+ --ds-text:#fff;--ds-text-secondary:#b9c1ca;--ds-text-tertiary:#77848d;--ds-border:#293038;--ds-border-subtle:#1c242a;
+ --ds-focus:#91e8e7;
+}
+body[data-theme=sand]{
+ color-scheme:light;
+ --ds-brand:#446858;--ds-brand-strong:#315746;--ds-on-brand:#fff;--ds-brand-soft:rgba(59,103,79,.1);
+ --ds-bg:#f1eee7;--ds-panel:#fffdf7;--ds-panel-raised:#f5f2eb;--ds-panel-hover:#ebe8df;
+ --ds-rail:#ede8de;--ds-stage:#e6e2d8;--ds-stage-grid:rgba(52,70,55,.06);
+ --ds-text:#26312a;--ds-text-secondary:#636e63;--ds-text-tertiary:#859085;--ds-border:#d9dbd0;--ds-border-subtle:#e6e7dd;
+ --ds-focus:#426c54;--ds-danger:#b34554;--ds-success:#28774c;--ds-warning:#9f6c24;
+ --ds-paper-shadow:0 2px 5px rgba(37,43,30,.09),0 22px 40px rgba(61,58,36,.12);
+}
+body[data-theme=neon]{
+ --ds-brand:#c7aaff;--ds-brand-strong:#a282ff;--ds-brand-soft:rgba(168,132,254,.15);
+ --ds-bg:#101020;--ds-panel:#17172b;--ds-panel-raised:#23213b;--ds-panel-hover:#2f294b;
+ --ds-rail:#0d0d1d;--ds-stage:#222035;--ds-stage-grid:rgba(219,204,252,.05);
+ --ds-text:#f8f3ff;--ds-text-secondary:#c8bedb;--ds-text-tertiary:#918aa5;--ds-border:#363249;--ds-border-subtle:#2d2945;
+ --ds-focus:#d3b8ff;--ds-danger:#ff8ab0;
+}
+body[data-theme]{
+ --bg:var(--ds-bg);--panel:var(--ds-panel);--panel2:var(--ds-panel-raised);--text:var(--ds-text);
+ --muted:var(--ds-text-secondary);--border:var(--ds-border);--accent:var(--ds-brand);
+ color-scheme:inherit;
+}

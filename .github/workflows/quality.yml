@@ -1,0 +1,56 @@
+name: Quality
+on:
+  pull_request:
+    # Validate small PRs stacked on the v0.1.0 migration branch before merging.
+    branches: [master, 'chore/3-import-v0-snapshot']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 (Node 24)
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'app/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'package*.json'
+              - 'src-tauri/**'
+              - '.github/workflows/**'
+  quality:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 (Node 24)
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5 (Node 24)
+        with:
+          node-version: '22'
+      - run: npm run check
+      - run: npm test
+      - name: Public snapshot credential guard
+        run: node scripts/publication-audit.mjs
+  quality-gate:
+    if: always()
+    needs: [changes, quality]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require successful quality when applicable
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          REQUIRED: ${{ needs.changes.outputs.code }}
+          RESULT: ${{ needs.quality.result }}
+        run: |
+          test "$CHANGES" = success
+          if [ "$REQUIRED" = true ]; then test "$RESULT" = success; fi

@@ -1,0 +1,53 @@
+{
+  "format": "mrs.app-theme",
+  "schemaVersion": 1,
+  "name": "OLED Pure",
+  "description": "Preto absoluto no chrome, separadores nítidos; PDF independente.",
+  "minAppVersion": "0.1.0",
+  "appearance": {
+    "mode": "dark",
+    "density": "comfortable",
+    "palette": {
+      "canvas": "#000000",
+      "surface": "#000000",
+      "surfaceSunken": "#000000",
+      "text": "#FFFFFF",
+      "textMuted": "#BFC6D0",
+      "border": "#606874",
+      "accent": "#A2EAFF",
+      "accentOn": "#00222E",
+      "focus": "#DAF7FF",
+      "error": "#FF9EA6",
+      "success": "#74E6B1",
+      "warning": "#FFC77A",
+      "info": "#A5CFFF"
+    },
+    "surfaces": {
+      "treatment": "outlined",
+      "radius": "sm",
+      "elevation": "none",
+      "glow": "none"
+    },
+    "typography": {
+      "uiFamily": "system",
+      "editorFamily": "local-mono",
+      "scale": 1
+    },
+    "motion": {
+      "level": "normal"
+    },
+    "editor": {
+      "background": "#000000",
+      "foreground": "#FFFFFF",
+      "selection": "#A2EAFF",
+      "caret": "#DAF7FF",
+      "syntax": {
+        "heading": "#A2EAFF",
+        "keyword": "#A5CFFF",
+        "link": "#74E6B1",
+        "code": "#FFC77A",
+        "comment": "#BFC6D0"
+      }
+    }
+  }
+}

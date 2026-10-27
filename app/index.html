@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#15171c"><title>mdress — Seu Markdown, bem vestido.</title><link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/icons/favicon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="assets/icons/favicon-48.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon-180.png"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="styles-v2.css"><link rel="stylesheet" href="design-system/tokens.css"><link rel="stylesheet" href="design-system/components.css"><link rel="stylesheet" href="studio.css"><link rel="stylesheet" href="section-composer.css"><link rel="stylesheet" href="design-system/property-controls.css"><link rel="stylesheet" href="design-system/mdress-palette.css"><link rel="stylesheet" href="design-system/markdown-elements.css"><style id="printPageStyle"></style></head>
+<body data-theme="graphite">
+<header class="topbar ds-appbar">
+ <div class="appbar-leading">
+  <div class="brand" aria-label="mdress — Seu Markdown, bem vestido."><img class="brand-symbol" src="assets/brand/mdress.svg" width="44" height="30" alt="" aria-hidden="true"><div class="brand-wordmark"><strong>md<span>ress</span><b class="brand-period">.</b></strong><small>SEU MARKDOWN, BEM VESTIDO.</small></div></div>
+  <div class="appbar-separator"></div>
+  <div class="document-selector">
+   <ds-icon name="file-text" size="16"></ds-icon>
+   <select id="docPicker" aria-label="Documento atual"></select>
+   <button id="newDoc" class="ds-button ds-button--subtle ds-button--icon" title="Novo documento" aria-label="Novo documento"><ds-icon name="plus" size="17"></ds-icon></button>
+   <button id="documentMenuToggle" class="ds-button ds-button--subtle ds-button--icon" aria-label="Mais ações do documento" aria-expanded="false" aria-controls="documentMenu"><ds-icon name="ellipsis" size="18"></ds-icon></button>
+   <div id="documentMenu" class="document-menu hidden" role="menu" aria-label="Ações do documento">
+    <button id="duplicateDoc" role="menuitem"><ds-icon name="copy"></ds-icon> Duplicar documento</button>
+    <button id="renameDoc" role="menuitem"><ds-icon name="pencil"></ds-icon> Renomear</button>
+    <button id="exportMD" role="menuitem"><ds-icon name="file-down"></ds-icon> Exportar Markdown</button>
+    <button id="exportJSON" role="menuitem"><ds-icon name="database"></ds-icon> Exportar backup</button>
+    <div class="menu-divider"></div>
+    <button id="deleteDoc" role="menuitem" class="danger"><ds-icon name="trash-2"></ds-icon> Excluir documento</button>
+   </div>
+  </div>
+ </div>
+ <div class="appbar-center">
+  <div class="view-modes ds-segmented" role="group" aria-label="Modo do workspace">
+   <button type="button" data-workspace-mode="edit" aria-pressed="false" title="Somente editor"><ds-icon name="code-2"></ds-icon> <span>Editor</span></button>
+   <button type="button" class="mode-active" data-workspace-mode="split" aria-pressed="true" title="Editor e prévia"><ds-icon name="columns-2"></ds-icon> <span>Dividido</span></button>
+   <button type="button" data-workspace-mode="preview" aria-pressed="false" title="Somente canvas"><ds-icon name="panel-top"></ds-icon> <span>Canvas</span></button>
+  </div>
+ </div>
+ <div class="appbar-actions">
+   <div class="global-history-controls" role="group" aria-label="Histórico de ações do documento">
+    <button id="undoEdit" class="ds-button ds-button--subtle ds-button--icon" type="button" title="Desfazer (Ctrl+Z)" aria-label="Desfazer última ação" disabled><ds-icon name="undo-2" size="17"></ds-icon></button>
+    <button id="redoEdit" class="ds-button ds-button--subtle ds-button--icon" type="button" title="Refazer (Ctrl+Shift+Z / Ctrl+Y)" aria-label="Refazer última ação" disabled><ds-icon name="redo-2" size="17"></ds-icon></button>
+   </div>
+  <span class="save-state"><span class="save-indicator" aria-hidden="true"></span><span role="status" id="saveStatus">Carregando…</span></span>
+  <button id="siteSettings" class="ds-button ds-button--subtle ds-button--icon" title="Configurações da interface" aria-label="Configurações da interface"><ds-icon name="settings-2" size="18"></ds-icon></button>
+  <button id="printPDF" class="ds-button ds-button--primary"><ds-icon name="file-down" size="16"></ds-icon><span>Exportar PDF</span><ds-icon name="chevron-down" size="13"></ds-icon></button>
+ </div>
+</header>
+<main class="workspace" data-mode="split">
+ <aside class="sidebar ds-rail" aria-label="Seções do workspace">
+ <div class="rail-heading">WORKSPACE</div>
+ <button class="nav active" data-view="source" title="Editor Markdown" aria-label="Editor Markdown"><ds-icon name="file-code-2" size="19"></ds-icon><span class="rail-label">Editor</span></button>
+ <button class="nav" data-view="ats" title="Análise do documento" aria-label="Análise do documento"><ds-icon name="scan-text" size="19"></ds-icon><span class="rail-label">Análise</span></button>
+ <button class="nav rail-design-action" id="railDesign" type="button" title="Design do documento" aria-label="Design do documento"><ds-icon name="sliders-horizontal" size="19"></ds-icon><span class="rail-label">Design</span></button>
+ <div class="rail-spacer"></div>
+ <div class="rail-offline" title="Todos os dados ficam neste dispositivo"><span class="offline-dot"></span><span class="rail-label">Offline</span></div>
+</aside>
+ <section class="editor-panel">
+  <div class="panel-head editor-head">
+ <div class="panel-heading"><span class="panel-kicker">EDITOR / 01</span><strong id="panelTitle">Markdown</strong></div>
+ <span class="panel-head-actions"><button id="importMD" class="ds-button ds-button--quiet" title="Importar Markdown"><ds-icon name="file-up"></ds-icon><span>Importar</span></button><input id="fileInput" type="file" accept=".md,.json,text/markdown,text/plain" hidden><button id="openShortcuts" class="ds-button ds-button--icon ds-button--quiet" title="Atalhos de teclado" aria-label="Ver atalhos"><ds-icon name="keyboard" size="17"></ds-icon></button></span>
+</div>
+  <div id="sourceView" class="view"><div class="meta"><span class="document-path"><ds-icon name="file-code-2" size="14"></ds-icon><span>source.md</span><span class="meta-pill">MARKDOWN</span></span><span id="charCount"></span></div>
+    <div class="markdown-toolbar" role="toolbar" aria-label="Formatação Markdown">
+     <div class="tool-group">
+       <select id="headingCommand" aria-label="Tipo de parágrafo" title="Aplicar heading ou parágrafo"><option value="">Parágrafo</option><option value="h1">Título 1</option><option value="h2">Título 2</option><option value="h3">Título 3</option><option value="paragraph">Texto normal</option></select>
+     </div>
+     <div class="tool-group" aria-label="Formatação inline">
+       <button type="button" data-md-command="bold" title="Negrito (Ctrl+B)" aria-label="Negrito"><strong>B</strong></button>
+       <button type="button" data-md-command="italic" title="Itálico (Ctrl+I)" aria-label="Itálico"><em>I</em></button>
+       <button type="button" data-md-command="strike" title="Riscado" aria-label="Riscado"><s>S</s></button>
+       <button type="button" data-md-command="link" title="Adicionar link (Ctrl+K)" aria-label="Adicionar link">↗</button>
+       <button type="button" data-md-command="inlineCode" title="Código inline" aria-label="Código inline">⌘</button>
+     </div>
+     <div class="tool-group" aria-label="Elementos de bloco">
+       <button type="button" data-md-command="bullet" title="Lista com marcadores" aria-label="Lista com marcadores">☷</button>
+       <button type="button" data-md-command="number" title="Lista numerada" aria-label="Lista numerada">1.</button>
+       <button type="button" data-md-command="task" title="Lista de tarefas" aria-label="Lista de tarefas">☑</button>
+       <button type="button" data-md-command="quote" title="Citação" aria-label="Citação">❝</button>
+       <button type="button" data-md-command="fence" title="Bloco de código" aria-label="Bloco de código">{ }</button>
+       <button type="button" data-md-command="rule" title="Separador horizontal" aria-label="Separador horizontal">―</button>
+     </div>
+
+    </div>
+    <div class="source-editor-surface"><div class="source-gutter" id="sourceGutter" aria-hidden="true"></div><textarea id="source" aria-label="Editor Markdown" spellcheck="false"></textarea></div>
+ <details id="outlineDisclosure" class="outline-drawer"><summary><ds-icon name="list-tree" size="15"></ds-icon> Estrutura <span id="outlineCount">0 seções</span><ds-icon name="chevron-up" size="14"></ds-icon></summary><nav id="outlineList" class="outline-list" aria-label="Títulos do documento"></nav></details></div>
+  <div id="atsView" class="view hidden"><div class="scroll"><h2>Revisão do Markdown</h2><p class="muted">Hierarquia, estrutura e dicas para apresentar melhor qualquer documento. Sem modificar seu texto.</p><div id="atsResults"></div></div></div>
+
+ </section>
+ <ds-splitter id="editorSplitter" data-target="editor" role="separator" tabindex="0" aria-label="Redimensionar editor e canvas" aria-orientation="vertical"></ds-splitter>
+ <section class="preview-panel"><div class="panel-head canvas-head">
+ <div class="panel-heading"><span class="panel-kicker">CANVAS / DOCUMENTO</span><strong>Prévia de impressão</strong></div>
+ <div class="canvas-controls">
+  <span class="canvas-live"><span aria-hidden="true"></span> Render ao vivo</span>
+  <div class="canvas-control-divider"></div>
+  <label class="canvas-control-select"><ds-icon name="file" size="14"></ds-icon><select id="paperSize" aria-label="Formato do papel"><option value="a4">A4</option><option value="letter">Letter</option></select></label>
+  <div class="canvas-zoom-controls"><button id="zoomOut" class="ds-button ds-button--icon ds-button--quiet" title="Reduzir zoom" aria-label="Reduzir zoom"><ds-icon name="minus"></ds-icon></button><select id="zoom" aria-label="Zoom"><option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.25">125%</option><option value="1.5">150%</option></select><button id="zoomIn" class="ds-button ds-button--icon ds-button--quiet" title="Aumentar zoom" aria-label="Aumentar zoom"><ds-icon name="plus"></ds-icon></button><button id="zoomFit" class="ds-button ds-button--icon ds-button--quiet" title="Enquadrar página" aria-label="Enquadrar página"><ds-icon name="maximize-2"></ds-icon></button></div>
+  <button id="designToggle" class="ds-button ds-button--outline" aria-expanded="false" aria-controls="themesView"><ds-icon name="sliders-horizontal" size="15"></ds-icon><span>Propriedades</span><ds-icon name="chevron-right" size="13"></ds-icon></button>
+ </div>
+</div><div class="preview-body"><div class="preview-scroll">
+ <div class="page-status-bar" role="status"><span id="paginationStatus">Calculando páginas…</span><span id="pageCounter">1 página</span></div>
+ <div id="pageStack" class="page-stack"><article id="paper" class="paper"><div id="rendered" class="page-content"></div></article></div>
+ <div class="page-navigation" role="group" aria-label="Navegação entre páginas"><button id="prevPage" title="Página anterior" disabled>‹</button><span id="currentPage">1 / 1</span><button id="nextPage" title="Próxima página" disabled>›</button></div>
+ <small class="muted page-preview-note">Páginas físicas no preview. Quebras recalculadas após edição e mudança de tema. Ajustes manuais por seção e fonte mapeada no Markdown ainda estão em desenvolvimento.</small>
+ </div><ds-splitter id="inspectorSplitter" data-target="inspector" role="separator" tabindex="0" aria-label="Redimensionar painel de propriedades" aria-orientation="vertical"></ds-splitter> <aside id="themesView" class="design-inspector hidden" aria-label="Design do documento">
+ <div class="inspector-header">
+  <span class="inspector-eyebrow">DOCUMENTO</span>
+  <strong>Propriedades</strong>
+  <p>Personalize o PDF sem modificar o Markdown.</p>
+ </div>
+ <div class="inspector-tabs" role="tablist" aria-label="Painéis de design">
+  <button role="tab" id="inspector-tab-style" aria-controls="inspector-style" aria-selected="true" tabindex="0" data-inspector-tab="style"><ds-icon name="palette" size="13"></ds-icon><span>Estilo</span></button>
+  <button role="tab" id="inspector-tab-sections" aria-controls="inspector-sections" aria-selected="false" tabindex="-1" data-inspector-tab="sections"><ds-icon name="layout-template" size="13"></ds-icon><span>Seções</span></button>
+  <button role="tab" id="inspector-tab-page" aria-controls="inspector-page" aria-selected="false" tabindex="-1" data-inspector-tab="page"><ds-icon name="file-text" size="13"></ds-icon><span>Página</span></button>
+  <button role="tab" id="inspector-tab-background" aria-controls="inspector-background" aria-selected="false" tabindex="-1" data-inspector-tab="background"><ds-icon name="layers" size="13"></ds-icon><span>Fundo</span></button>
+  <button role="tab" id="inspector-tab-ai" aria-controls="inspector-ai" aria-selected="false" tabindex="-1" data-inspector-tab="ai"><ds-icon name="sparkles" size="13"></ds-icon><span>IA</span></button>
+ </div>
+ <div class="inspector-scroll">
+  <section class="inspector-panel" id="inspector-style" role="tabpanel" aria-labelledby="inspector-tab-style" data-inspector-panel="style">
+   <div class="property-section"><div class="property-section-heading"><strong>Tema</strong><span>Documento atual</span></div>
+    <div class="theme-explorer-intro"><strong>Explore estilos prontos</strong><p>Presets prontos para personalizar.</p></div>
+    <div id="themeRecipeGallery" class="theme-recipe-gallery" aria-label="Coleção de estilos Markdown"></div>
+    <div class="theme-explorer-controls"><div><strong>Surpreenda-me</strong><small id="themeLockSummary">Tudo livre para variar</small></div></div>
+    <div class="theme-surprise-actions" role="group" aria-label="Randomização de temas">
+      <button id="shuffleTheme" type="button" class="ds-button ds-button--outline"><ds-icon name="sliders-horizontal" size="14"></ds-icon> Visual + seções</button>
+      <button id="shuffleColors" type="button" class="ds-button ds-button--outline ds-button--color-only"><ds-icon name="palette" size="15"></ds-icon> Só cores</button>
+    </div>
+    <div class="theme-palette-preview"><div id="surpriseColorSwatches" class="theme-palette-swatches" aria-label="Cores atuais do documento"></div><p>Somente cores · layout preservado.</p></div>
+    <div class="theme-lock-list" role="group" aria-label="Travas do Surpreenda-me">
+<button type="button" data-theme-lock="colors" aria-pressed="false"><ds-icon name="palette" size="14"></ds-icon><span>Paleta</span><span class="theme-lock-icon"><ds-icon name="lock-open" size="14"></ds-icon></span></button>
+<button type="button" data-theme-lock="typography" aria-pressed="false"><ds-icon name="type" size="14"></ds-icon><span>Fonte</span><span class="theme-lock-icon"><ds-icon name="lock-open" size="14"></ds-icon></span></button>
+<button type="button" data-theme-lock="spacing" aria-pressed="false"><ds-icon name="move-horizontal" size="14"></ds-icon><span>Espaços</span><span class="theme-lock-icon"><ds-icon name="lock-open" size="14"></ds-icon></span></button>
+<button type="button" data-theme-lock="background" aria-pressed="false"><ds-icon name="layers" size="14"></ds-icon><span>Fundo</span><span class="theme-lock-icon"><ds-icon name="lock-open" size="14"></ds-icon></span></button>
+<button type="button" data-theme-lock="sections" aria-pressed="false"><ds-icon name="layout-template" size="14"></ds-icon><span>Seções</span><span class="theme-lock-icon"><ds-icon name="lock-open" size="14"></ds-icon></span></button>
+</div>
+    <label class="property-row">Preset<select id="resumeTheme"><option value="minimal">Minimal</option><option value="swiss">Swiss</option><option value="technical">Technical</option><option value="oled">OLED Pure</option><option value="graphite">Graphite Mechanical</option><option value="sand">Retro Sand</option><option value="neon">Neon Night</option></select></label>
+   </div>
+   <div class="property-section"><div class="property-section-heading"><strong>Cores</strong><span>Paleta</span></div>
+    <label class="property-row">Destaque<input id="accentColor" type="color"></label>
+    <label class="property-row">Papel<input id="backgroundColor" type="color"></label>
+    <label class="property-row">Texto<input id="textColor" type="color"></label>
+   </div>
+   <div class="property-section"><div class="property-section-heading"><strong>Tipografia</strong><span>Hierarquia</span></div>
+    <label class="property-row">Fonte<select id="fontChoice"><optgroup label="Sem serifa"><option value="system">Sans padrão</option><option value="arial">Arial</option><option value="verdana">Verdana</option><option value="trebuchet">Trebuchet MS</option><option value="tahoma">Tahoma</option></optgroup><optgroup label="Serifadas"><option value="serif">Georgia</option><option value="times">Times New Roman</option><option value="palatino">Palatino</option><option value="bookman">Bookman</option></optgroup><optgroup label="Monoespaçadas"><option value="mono">Consolas</option><option value="courier">Courier New</option><option value="lucida-mono">Lucida Console</option></optgroup></select></label>
+    <label class="property-row">Corpo<input id="fontSize" type="range" min="9" max="14" step="0.5"><output id="fontSizeValue"></output></label>
+    <label class="property-row">Entrelinhas<input id="lineHeight" type="range" min="1.1" max="2.2" step="0.05"></label>
+    <label class="property-row">Título<input id="titleScale" type="range" min="1.4" max="3.4" step="0.1"></label>
+   </div>
+   <div class="property-section"><div class="property-section-heading"><strong>Biblioteca de temas</strong><span>Offline</span></div>
+    <label class="property-row">Meus temas<select id="savedThemePicker"><option value="">Selecionar tema salvo</option></select></label>
+    <div class="property-actions"><button id="saveThemePreset">Salvar como tema</button><button id="deleteThemePreset">Excluir salvo</button></div>
+    <div class="property-actions"><button id="shareTheme">Copiar código</button><button id="importTheme">Importar código</button></div>
+   </div>
+   <div class="property-section"><button class="property-reset" id="resetResumeTheme">Redefinir estilo do documento</button></div>
+  </section>
+  <section class="inspector-panel hidden" id="inspector-sections" role="tabpanel" aria-labelledby="inspector-tab-sections" data-inspector-panel="sections">
+   <div class="property-section composer-context"><div class="property-section-heading"><strong>Composição</strong></div>
+    <div class="composer-mode-switch" role="group" aria-label="Editar composição"><button type="button" data-composer-mode="section" aria-pressed="true">Seção</button><button type="button" data-composer-mode="element" aria-pressed="false">Elemento</button></div>
+    <div id="sectionComposerView">
+    <label class="property-row section-style-target"><span class="composer-target-label">Aplicar em</span><select id="sectionStyleTarget" aria-label="Seção a personalizar"><option value="all">Todas as seções</option></select></label>
+    <div class="compact-style-control" id="sectionStyleControl" role="group" aria-label="Estilo da seção"><button type="button" class="style-prev" data-style-nav="section:-1" aria-label="Estilo anterior">‹</button><span class="style-current" id="sectionStyleCurrent">Essencial</span><button type="button" class="style-next" data-style-nav="section:1" aria-label="Próximo estilo">›</button><button type="button" class="style-more" data-style-gallery="section" aria-expanded="false" aria-label="Ver todos os estilos">▦</button></div><div id="sectionStyleGallery" class="section-style-gallery" hidden role="group" aria-label="Estilos visuais de seções"></div>
+    </div>
+    <div class="element-styles-editor" id="elementComposerView" hidden>
+      <h3>Elemento selecionado</h3>
+      
+      <label class="property-row">Elemento<select id="markdownElementTarget" aria-label="Elemento Markdown a estilizar"></select></label>
+      <div class="element-instance-toolbar"><span id="markdownElementScope" role="status">Todos os elementos</span><button type="button" id="markdownElementAll" class="ds-button ds-button--quiet">Editar todos deste tipo</button></div>
+      <div class="compact-style-control" id="elementStyleControl" role="group" aria-label="Estilo do elemento"><button type="button" class="style-prev" data-style-nav="element:-1" aria-label="Estilo anterior">‹</button><span class="style-current" id="elementStyleCurrent">Original</span><button type="button" class="style-next" data-style-nav="element:1" aria-label="Próximo estilo">›</button><button type="button" class="style-more" data-style-gallery="element" aria-expanded="false" aria-label="Ver todos os estilos">▦</button></div><div id="markdownElementGallery" class="section-style-gallery" hidden role="group" aria-label="Layouts do elemento"></div>
+    </div>
+    <p id="sectionStyleStatus" class="section-style-target-caption visually-hidden" role="status">Escolha um estilo para seus blocos.</p>
+   </div>
+   <div class="property-section"><div class="property-section-heading"><strong>Espaçamento</strong></div>
+    <div class="section-style-density" role="group" aria-label="Densidade visual">
+     <button type="button" data-section-density="compact" aria-pressed="false"><ds-icon name="list-tree" size="13"></ds-icon> Compacto</button>
+     <button type="button" data-section-density="normal" aria-pressed="true"><ds-icon name="columns-2" size="13"></ds-icon> Normal</button>
+     <button type="button" data-section-density="airy" aria-pressed="false"><ds-icon name="maximize-2" size="13"></ds-icon> Amplo</button>
+    </div>
+    <div class="section-style-actions"><button id="sectionStyleReset" type="button" class="ds-button ds-button--outline"><ds-icon name="rotate-ccw" size="14"></ds-icon> Restaurar</button></div>
+    <p class="section-style-hint">Design no preview e no PDF, sem alterar o Markdown.</p>
+   </div>
+  </section>
+  <section class="inspector-panel hidden" id="inspector-page" role="tabpanel" aria-labelledby="inspector-tab-page" data-inspector-panel="page">
+   <div class="property-section"><div class="property-section-heading"><strong>Geometria</strong><span>A4 / Letter</span></div>
+    <p class="property-hint">O tamanho do papel é selecionado no cabeçalho do preview e pode ser alterado na exportação.</p>
+    <label class="property-row">Margens<input id="marginMm" type="number" min="8" max="35" step="1" aria-label="Margens em milímetros"></label>
+    <label class="property-row">Entre seções<input id="sectionGapEm" type="range" min="0.4" max="3" step="0.1"></label>
+    <label class="property-row">Separador<select id="sectionRule"><option value="line">Linha</option><option value="none">Sem borda</option><option value="block">Bloco</option></select></label>
+   </div>
+   <div class="property-section"><div class="property-section-heading"><strong>Composição vertical</strong><span>Por seção</span></div>
+    <label class="property-row">Seção<select id="bottomSectionTarget" aria-label="Seção para alinhar ao final da página"></select></label>
+    <label class="property-row"><span>Alinhar ao rodapé</span><input type="checkbox" id="bottomSectionEnabled" aria-label="Posicionar seção no final da página"></label>
+    <p class="section-style-hint">Distribui o espaço livre acima da seção, sem alterar o Markdown. Aplicado quando a seção cabe na página.</p>
+   </div>
+   <div class="property-section"><div class="property-section-heading"><strong>Paginação</strong></div>
+    <div class="pagination-inspector-summary"><span id="inspectorPageCount">1 página</span><span id="inspectorLayoutWarning">Sem avisos</span></div>
+    <label class="property-row">Marcações de página<input id="showPageGuides" type="checkbox" checked></label>
+    <div class="page-break-inspector"><div class="page-break-inspector-title">Iniciar seção em nova página</div>
+    <p id="pageBreakDescription" class="property-hint">Selecione uma seção para controlar sua quebra.</p>
+    <div id="pageBreakList" class="page-break-list" aria-label="Quebras por seção"></div></div>
+   </div>
+  </section>
+  <section class="inspector-panel hidden" id="inspector-background" role="tabpanel" aria-labelledby="inspector-tab-background" data-inspector-panel="background">
+   <div class="property-section"><div class="property-section-heading"><strong>Galeria de fundos</strong><span>15 presets</span></div>
+    <p class="property-hint">Fundos permanecem separados do conteúdo e podem ser simplificados na exportação.</p>
+    <div id="backgroundGallery" class="bg-gallery" aria-label="Presets de backgrounds"></div>
+   </div>
+   <div class="property-section"><div class="property-section-heading"><strong>Propriedades do fundo</strong><span>CSS</span></div>
+    <label class="property-row">Tipo<select id="bgKind"><option value="solid">Sólido</option><option value="gradient">Gradiente</option><option value="dots">Pontos</option><option value="lines">Linhas</option><option value="grid">Grid</option><option value="radial">Radial</option><option value="mesh">Soft Mesh</option><option value="crosshatch">Trama</option><option value="checker">Xadrez sutil</option></select></label>
+    <label class="property-row">Cor auxiliar<input type="color" id="bgSecondary"></label>
+    <label class="property-row">Ângulo<input type="range" id="bgAngle" min="0" max="360" step="5"></label>
+    <label class="property-row">Escala<input type="range" id="bgPatternSize" min="8" max="64" step="2"></label>
+    <label class="property-row">Intensidade<input type="range" id="bgOpacity" min="0.02" max="0.6" step="0.02"></label>
+   </div>
+   <div id="meshControls" class="mesh-controls hidden" aria-label="Editor Mesh">
+    <div class="mesh-header"><strong>Pontos de cor</strong><button id="meshAddPoint" type="button">+ Novo ponto</button></div>
+    <p class="property-hint">Arraste os pontos ou use as setas do teclado. Ajuste cores e raios abaixo.</p>
+    <div id="meshCanvas" class="mesh-canvas" aria-label="Canvas Mesh"></div>
+    <div id="meshPointControls" class="mesh-point-controls"></div>
+    <label class="property-row">Suavidade<input id="meshSoftness" type="range" min="0" max="100" step="5"></label>
+   </div>
+  </section>
+  <section class="inspector-panel hidden" id="inspector-ai" role="tabpanel" aria-labelledby="inspector-tab-ai" data-inspector-panel="ai">
+   <div class="property-section"><div class="property-section-heading"><strong>Criar tema com IA</strong><span>JSON validado</span></div>
+    <p class="property-hint">Não sabe o que pedir? Escolha uma direção visual. O briefing será preenchido para você.</p>
+    <div class="ai-brief-suggestions" role="group" aria-label="Sugestões de criação">
+      <button type="button" data-ai-brief="Editorial sofisticado para artigos e ensaios, com tipografia serifada, margens generosas e contraste confortável.">Editorial sofisticado</button>
+      <button type="button" data-ai-brief="Documentação técnica minimalista, títulos claros, hierarquia precisa, fonte legível e fundo muito leve.">Documentação clean</button>
+      <button type="button" data-ai-brief="Tema noturno criativo com acentos vibrantes, contraste elevado e fundo elegante discreto.">Noturno criativo</button>
+      <button type="button" data-ai-brief="Documento moderno de alto contraste, leve para PDF, com pouca decoração e leitura muito fácil.">Clareza máxima</button>
+      <button type="button" data-ai-brief="Visual suave com cores pastéis, gradientes delicados e estrutura editorial confortável.">Pastéis e Mesh</button>
+      <button type="button" data-ai-brief="Composição geométrica contemporânea com padrões vetoriais sutis e tipografia forte.">Geometria sutil</button>
+    </div>
+    <label class="property-field">Sua direção visual<textarea id="agentBrief" rows="3" placeholder="Escolha uma sugestão acima ou descreva uma ideia sua…"></textarea></label>
+    <button id="tryWithoutAI" type="button" class="ds-button ds-button--outline">Experimentar variação sem IA</button>
+    <p class="property-hint">A geração por LLM no próprio app ainda depende de conectar um provedor. Por enquanto, você pode copiar o pedido estruturado para qualquer IA e colar o JSON de volta.</p>
+    <button id="copyAgentPrompt">Copiar prompt para LLM</button>
+    <label class="property-field">Tema gerado (JSON)<textarea id="agentJSON" rows="5" placeholder="Cole aqui o JSON gerado pelo agente…"></textarea></label>
+    <div class="property-actions"><button id="previewAgentTheme">Validar proposta</button><button id="applyAgentTheme" disabled>Aplicar tema</button></div>
+   </div>
+  </section>
+ </div>
+</aside></div></section>
+</main>
+<dialog id="settingsDialog" class="app-dialog"><form method="dialog"><h2>Configurações da interface</h2><p class="muted">Não altera o documento nem o PDF.</p><label>Aparência do site<select id="appTheme"><option value="mdress">mdress Glass</option><option value="studio">Studio Light</option><option value="graphite">Graphite</option><option value="oled">OLED</option><option value="sand">Retro Sand</option><option value="neon">Neon Night</option></select></label><button value="close">Fechar</button></form></dialog>
+<dialog id="newDocumentDialog" class="app-dialog"><form method="dialog" id="newDocumentForm"><h2>Novo documento</h2><label>Nome<input id="newDocumentName" value="Novo documento" maxlength="100" required></label><label>Conteúdo inicial<select id="newDocumentStarter"><option value="blank">Em branco</option><option value="article">Artigo</option><option value="documentation">Documentação</option><option value="readme">README</option><option value="proposal">Proposta</option><option value="portfolio">Portfólio</option><option value="resume">Currículo (opcional)</option></select></label><label>Estilo inicial<select id="newDocumentTheme"><option value="minimal">Minimal</option><option value="swiss">Swiss</option><option value="technical">Technical</option><option value="oled">OLED Pure</option><option value="graphite">Graphite Mechanical</option><option value="sand">Retro Sand</option><option value="neon">Neon Night</option></select></label><div class="toolbar wrap"><button type="button" id="cancelNewDocument">Cancelar</button><button type="submit" class="primary">Criar e editar</button></div></form></dialog>
+<dialog id="exportSettingsDialog" class="app-dialog pdf-dialog">
+ <form method="dialog">
+ <h2>Exportar PDF</h2>
+ <p class="muted">Todos os modos preservam o conteúdo Markdown em texto real. A legibilidade automática depende da estrutura, das fontes e do leitor de PDF — não apenas do fundo.</p>
+ <fieldset class="pdf-profile-choices">
+  <legend>Escolha um ponto de partida</legend>
+  <label><input type="radio" name="pdfPreset" value="full" checked><span><strong>Design completo</strong><small>Preserva cores, gradientes e padrões</small></span></label>
+  <label><input type="radio" name="pdfPreset" value="light"><span><strong>Design simplificado</strong><small>Mantém a cor sólida, sem gradientes ou padrões</small></span></label>
+  <label><input type="radio" name="pdfPreset" value="contrast"><span><strong>Alto contraste</strong><small>Papel branco e texto escuro</small></span></label>
+ </fieldset>
+ <div class="pdf-export-advanced" aria-label="Personalizar exportação">
+  <div class="pdf-section-header"><strong>Ajustes de exportação</strong><small id="pdfSelectionStatus">Design completo</small></div>
+  <label>Fundo<select id="pdfBackgroundMode"><option value="full">Tema completo</option><option value="solid">Apenas cor sólida</option><option value="none">Sem fundo (branco)</option></select></label>
+  <label>Cores do texto<select id="pdfTextMode"><option value="document">Originais do tema</option><option value="dark">Texto escuro de alto contraste</option></select></label>
+  <label>Formato do papel<select id="pdfPaper"><option value="a4">A4</option><option value="letter">Carta / Letter</option></select></label>
+ </div>
+ <div id="pdfProfileNotes" class="pdf-export-notes" role="status"></div>
+ <div class="pdf-benchmark">
+  <strong>Qual é a diferença de tamanho?</strong>
+  <p>Referência medida em nosso teste Chromium: PDF simples <b>37 KB</b>; Soft Mesh <b>42 KB</b>; Mesh sem fundo <b>37 KB</b>. O seu documento pode ter valores diferentes.</p>
+  <label class="pdf-file-check">Comparar tamanho dos PDFs salvos<input id="pdfCheckFile" type="file" multiple accept=".pdf,application/pdf"></label>
+  <output id="pdfSizeResult" role="status">Escolha um ou mais PDFs após salvar. O tamanho é lido somente no seu dispositivo.</output>
+ </div>
+ <p class="muted">O navegador abrirá a impressão: escolha <strong>Salvar como PDF</strong>, sem cabeçalhos e rodapés. A legibilidade do PDF deve ser conferida antes de compartilhar.</p>
+ <div class="toolbar wrap"><button value="cancel">Cancelar</button><button id="confirmPrint" type="button" class="primary">Abrir impressão</button></div>
+ </form></dialog>
+<dialog id="linkDialog" class="app-dialog"><form id="linkForm" method="dialog"><h2>Inserir link</h2><p class="muted">O texto selecionado será usado como rótulo.</p><label>Endereço URL<input id="linkURL" type="url" placeholder="https://exemplo.com" required></label><div class="toolbar wrap"><button type="button" id="cancelLink">Cancelar</button><button type="submit" class="primary">Inserir link</button></div></form></dialog>
+<dialog id="shortcutsDialog" class="app-dialog"><form method="dialog"><h2>Atalhos do editor</h2><p>Ctrl/Cmd + B — Negrito</p><p>Ctrl/Cmd + I — Itálico</p><p>Ctrl/Cmd + K — Link</p><p>Ctrl/Cmd + Z — Desfazer</p><p>Ctrl/Cmd + Shift + Z — Refazer</p><p>Ctrl/Cmd + S — Salvar</p><button>Fechar</button></form></dialog>
+<div id="previewStyleControl" class="preview-style-control" role="group" aria-label="Estilo do elemento selecionado" hidden>
+  <button type="button" data-preview-style-step="-1" aria-label="Estilo anterior">‹</button>
+  <span class="preview-style-name" aria-live="polite">Elemento · Original</span>
+  <button type="button" data-preview-style-step="1" aria-label="Próximo estilo">›</button>
+  <button type="button" data-preview-style-reset aria-label="Limpar personalização individual" title="Herdar estilo padrão">↺</button>
+  <button type="button" data-preview-style-properties aria-label="Ajustes do elemento" aria-expanded="false" title="Tipografia e layout">☷</button>
+  <button type="button" data-preview-style-close aria-label="Fechar seleção">×</button>
+  <div class="preview-property-panel" id="previewPropertyPanel" hidden>
+   <div class="preview-property-heading"><strong>Ajustar elemento</strong><button type="button" data-preview-property-reset aria-label="Restaurar propriedades">Restaurar</button></div>
+   <label>Tamanho <span><input data-element-property="fontSize" type="number" min="8" max="96" step="1" placeholder="Auto" aria-label="Tamanho da fonte em pixels"> px</span></label>
+   <label>Peso <select data-element-property="fontWeight" aria-label="Peso da fonte"><option value="">Herdar</option><option value="400">Normal</option><option value="500">Médio</option><option value="600">Seminegrito</option><option value="700">Negrito</option><option value="800">Extra negrito</option><option value="900">Black</option></select></label>
+   <label>Entrelinha <input data-element-property="lineHeight" type="number" min="1" max="2.5" step=".1" placeholder="Auto" aria-label="Altura de linha"></label>
+   <label>Espaço abaixo <span><input data-element-property="spacing" type="number" min="0" max="48" step="1" placeholder="Auto" aria-label="Espaçamento abaixo em pixels"> px</span></label>
+   <label>Alinhamento <select data-element-property="align" aria-label="Alinhamento"><option value="">Herdar</option><option value="left">Esquerda</option><option value="center">Centro</option><option value="right">Direita</option><option value="justify">Justificar</option></select></label>
+  </div>
+</div>
+<div id="toast" role="status"></div>
+<script type="module" src="app.js"></script><script type="module" src="studio-shell.js"></script>
+</body></html>

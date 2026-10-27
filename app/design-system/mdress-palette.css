@@ -1,0 +1,42 @@
+/* mdress palette from the supplied Balsa config: native CSS, no Balsa dependency.
+ * Exact palette colors; glass surfaces composed with native CSS.
+ * Applies to studio chrome only, never the printable Markdown page.
+ */
+body[data-theme=mdress]{
+ color-scheme:light;
+ --ds-bg:#fff8fa;--ds-text:#262324;--ds-panel:#f8eef1;--ds-panel-raised:#fff8fa;
+ --ds-panel-hover:#eadfe2;--ds-rail:#f8eef1;--ds-stage:#eadfe2;
+ --ds-stage-grid:rgba(38,35,36,.055);--ds-text-secondary:#6e5c63;--ds-text-tertiary:#927c85;
+ --ds-brand:#ec4899;--ds-brand-strong:#b88297;--ds-brand-soft:rgba(236,72,153,.11);
+ --ds-border:rgba(184,130,151,.30);--ds-border-subtle:rgba(184,130,151,.17);
+ --ds-focus:#d53836;--ds-danger:#d53836;--ds-success:#297d57;--ds-warning:#b16b2f;
+ --ds-paper-shadow:0 4px 12px rgba(38,35,36,.08),0 22px 46px rgba(38,35,36,.11);
+ --bg:var(--ds-bg);--panel:var(--ds-panel);--panel2:var(--ds-panel-raised);
+ --text:var(--ds-text);--muted:var(--ds-text-secondary);--border:var(--ds-border);
+ --accent:var(--ds-brand);
+ background:var(--ds-bg);color:var(--ds-text);
+}
+body[data-theme=mdress] .topbar,
+body[data-theme=mdress] .ds-rail,
+body[data-theme=mdress] .design-inspector,
+body[data-theme=mdress] .editor-panel .panel-head,
+body[data-theme=mdress] .preview-panel .panel-head{
+ background:color-mix(in srgb,#f8eef1 75%,transparent);
+ border-color:color-mix(in srgb,#b88297 27%,transparent);
+ backdrop-filter:blur(18px) saturate(140%);
+ -webkit-backdrop-filter:blur(18px) saturate(140%);
+}
+body[data-theme=mdress] .ds-panel,
+body[data-theme=mdress] .property-section,
+body[data-theme=mdress] .section-style-preset{
+ border-color:color-mix(in srgb,#b88297 25%,transparent);
+}
+@media (prefers-reduced-transparency:reduce){
+ body[data-theme=mdress] .topbar,
+ body[data-theme=mdress] .ds-rail,
+ body[data-theme=mdress] .design-inspector,
+ body[data-theme=mdress] .editor-panel .panel-head,
+ body[data-theme=mdress] .preview-panel .panel-head{
+  background:#f8eef1;backdrop-filter:none;-webkit-backdrop-filter:none;
+ }
+}

@@ -1,0 +1,38 @@
+/** MDRESS / REAL COMPONENT CONTRACTS
+ * Native controls + custom elements, with DS state and accessible keyboard behaviors.
+ * Classes are composable: ds-button, ds-icon-button, ds-segmented, ds-field,
+ * ds-surface, ds-rail, ds-status, ds-panel and ds-divider.
+ */
+ds-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:1em;height:1em;vertical-align:-.16em;color:inherit}
+ds-icon svg{display:block;width:100%;height:100%}
+ds-splitter{display:block;position:absolute;z-index:20;touch-action:none;user-select:none;cursor:col-resize}
+ds-splitter:focus-visible{outline:2px solid var(--ds-focus);outline-offset:-2px}
+.ds-button,button,select,input,textarea{font-family:var(--ds-font)}
+.ds-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;padding:0 12px;min-height:var(--ds-control-height);height:var(--ds-control-height);border-radius:var(--ds-radius-sm);border:1px solid transparent;color:var(--ds-text);font-size:var(--ds-text-md);font-weight:550;background:var(--ds-panel-raised);transition:background var(--ds-speed),border-color var(--ds-speed),transform var(--ds-speed)}
+.ds-button:hover{background:var(--ds-panel-hover);filter:none}
+.ds-button:active{transform:translateY(1px)}
+.ds-button--quiet,.ds-button--subtle{background:transparent;color:var(--ds-text-secondary)}
+.ds-button--quiet:hover,.ds-button--subtle:hover{background:var(--ds-panel-hover);color:var(--ds-text)}
+.ds-button--icon{width:34px;height:34px;padding:0;flex:0 0 auto}
+.ds-button--outline{border-color:var(--ds-border);background:var(--ds-panel);color:var(--ds-text)}
+.ds-button--outline:hover{border-color:var(--ds-brand-strong);background:var(--ds-panel-raised)}
+.ds-button--primary{background:var(--ds-brand);color:var(--ds-on-brand);font-weight:750;box-shadow:0 2px 11px rgba(80,82,160,.13)}
+.ds-button--primary:hover{background:var(--ds-brand-strong);color:var(--ds-on-brand)}
+.ds-button:disabled,button:disabled{cursor:not-allowed;opacity:.44}
+.ds-segmented{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--ds-border);background:var(--ds-bg);border-radius:var(--ds-radius-md);padding:3px;min-height:38px}
+.ds-segmented button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:29px;padding:0 10px;border:0;border-radius:var(--ds-radius-sm);font-size:11px;font-weight:600;color:var(--ds-text-tertiary);background:transparent;white-space:nowrap}
+.ds-segmented button:hover{background:var(--ds-panel-raised);color:var(--ds-text)}
+.ds-segmented button.mode-active,.ds-segmented button[aria-pressed=true]{background:var(--ds-panel-raised);color:var(--ds-text);box-shadow:0 1px 3px rgba(0,0,0,.17)}
+.ds-segmented ds-icon{font-size:14px}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible,[role=separator]:focus-visible{outline:2px solid var(--ds-focus)!important;outline-offset:2px!important}
+input[type=color]{cursor:pointer;min-width:0}
+select{cursor:pointer}
+button[aria-pressed=true]:not(.mode-active){background:var(--ds-brand-soft)}
+.ds-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--ds-border);border-radius:999px;font-size:10px;line-height:1.2;font-weight:650;color:var(--ds-text-secondary);white-space:nowrap}
+.ds-divider{display:block;background:var(--ds-border-subtle);width:1px;height:22px;flex:0 0 auto}
+.ds-status{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ds-text-secondary)}
+.ds-status[data-status=ready]::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--ds-success)}
+.ds-status[data-status=needs-review]::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--ds-warning)}
+.ds-status[data-status=busy]::before{content:'';width:6px;height:6px;border:1px solid var(--ds-text-tertiary);border-top-color:transparent;border-radius:50%;animation:ds-spin .75s linear infinite}
+@keyframes ds-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}

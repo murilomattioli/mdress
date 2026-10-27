@@ -1,0 +1,14 @@
+import {test} from 'node:test';
+import {strict as assert} from 'node:assert';
+import {defaults,validateTheme,backgroundCSS,themeCode,decodeTheme} from '../app/resume-themes.js';
+import {createThemeAgentPrompt,parseThemeAgentResponse,requestThemeFromProvider} from '../app/theme-agent.js';
+test('accepts legacy theme config',()=>assert.equal(validateTheme({theme:'minimal',accent:'#245f81'}).paper,'a4'));
+test('gradient renders as CSS image',()=>{const t=validateTheme({...defaults,backgroundStyle:{kind:'gradient',secondary:'#e4e4e4'}});assert.match(backgroundCSS(t),/linear-gradient/);});
+test('rejects dangerous extra key',()=>assert.throws(()=>validateTheme({...defaults,script:'alert(1)'})));
+test('rejects image URL for background',()=>assert.throws(()=>validateTheme({...defaults,backgroundStyle:{kind:'image',url:'https://example.com'}})));
+test('rejects margin above max',()=>assert.throws(()=>validateTheme({...defaults,layout:{marginMm:99}})));
+test('share code preserves appearance',()=>{const t=validateTheme({...defaults,backgroundStyle:{kind:'dots',secondary:'#252525'}});assert.deepEqual(decodeTheme(themeCode(t)),t);});
+test('agent prompt carries only design briefing',()=>{const text=createThemeAgentPrompt('visual editorial forte');assert.ok(text.includes('editorial'));assert.ok(!text.includes('alex@example.com'));});
+test('agent response validated',()=>assert.equal(parseThemeAgentResponse(JSON.stringify(defaults)).theme,'minimal'));
+test('rejects invalid LLM output',()=>assert.throws(()=>parseThemeAgentResponse(JSON.stringify({...defaults,malicious:'CSS'}))));
+test('mock LLM adapter',async()=>{const got=await requestThemeFromProvider('estilo limpo',{generateTheme:async()=>JSON.stringify(defaults)});assert.equal(got.theme,'minimal');});
