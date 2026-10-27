@@ -189,6 +189,21 @@ try {
  await page.locator('.ds-select-popover').screenshot({path:'test-results/ux-audit/inspector-select-option-focused.png',animations:'disabled'});
  await page.locator('.ds-select-option').filter({hasText:'Swiss'}).click();
  assert.equal(await page.locator('#resumeTheme').inputValue(),'swiss');
+ // A disabled native select must also disable the visible combobox and prevent opening.
+ const themeNative=page.locator('#resumeTheme');
+ await themeNative.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#resumeTheme')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.disabled);
+ assert.equal(await themePicker.isDisabled(),true,'Disabled native select must disable custom trigger');
+ await themePicker.evaluate(el=>el.click());
+ assert.equal(await themePicker.getAttribute('aria-expanded'),'false','Disabled select must not open a listbox');
+ assert.equal(await page.locator('.ds-select-popover').count(),0);
+ await themePicker.locator('..').screenshot({path:'test-results/ux-audit/inspector-select-disabled.png',animations:'disabled'});
+ await themeNative.evaluate(el=>{el.disabled=false;});
+ await page.waitForFunction(()=>!document.querySelector('#resumeTheme')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.disabled);
+ await themePicker.click();
+ assert.equal(await themePicker.getAttribute('aria-expanded'),'true','Re-enabled select must open normally');
+ await page.keyboard.press('Escape');
+ assert.equal(await themePicker.getAttribute('aria-expanded'),'false');
  const colorControl=page.locator('.ds-property-color').filter({has:page.locator('#accentColor')});
  const colorHex=colorControl.locator('.ds-color-hex');
  const previousAccent=await page.locator('#accentColor').inputValue();
