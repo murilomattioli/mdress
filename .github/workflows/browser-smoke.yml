@@ -35,6 +35,8 @@ jobs:
       - run: node scripts/e2e.mjs
       - name: Component UX Audit
         run: node scripts/component-ux-audit.mjs
+      - name: Inspector and toolbar interaction matrix
+        run: node scripts/supervised-ux-qa.mjs --auto --headless
       # Temporary, read-only evidence transport. Not the permanent PR image publisher.
       # No repository write permission; PNGs are already compressed.
       - name: Upload short-lived UX review bundle
@@ -45,7 +47,9 @@ jobs:
           name: ux-audit-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             test-results/ux-audit/*.png
+            test-results/ux-audit/supervised/*.png
             test-results/component-ux-audit.json
+            test-results/supervised-ux-qa.json
           if-no-files-found: warn
           retention-days: 2
           compression-level: 0

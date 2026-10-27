@@ -139,6 +139,7 @@ try {
  await precise.fill('15');await precise.dispatchEvent('change');
  assert.equal(await precise.inputValue(),'15','Out-of-range slider draft must remain editable');
  assert.equal(await precise.getAttribute('aria-invalid'),'true','Invalid slider precision needs accessible feedback');
+ assert.equal(await rangeControl.locator('.ds-prop-error').isVisible(),true,'Range validation must explain the error');
  assert.equal(await page.locator('#fontSize').inputValue(),'11','Invalid slider draft must not change the document');
  await rangeControl.screenshot({path:'test-results/ux-audit/inspector-range-invalid.png',animations:'disabled'});
  await precise.press('Escape');
@@ -201,6 +202,7 @@ try {
  await colorHex.fill('#BAD');await colorHex.dispatchEvent('change');
  assert.equal(await colorHex.inputValue(),'#BAD','Invalid hex must stay editable instead of silently reverting');
  assert.equal(await colorHex.getAttribute('aria-invalid'),'true','Invalid color needs accessible feedback');
+ assert.equal(await colorControl.locator('.ds-prop-error').isVisible(),true,'Color validation must explain the expected format');
  assert.equal(await page.locator('#accentColor').inputValue(),previousAccent,'Invalid hex must not update document color');
  await colorControl.screenshot({path:'test-results/ux-audit/inspector-color-invalid.png',animations:'disabled'});
  await colorHex.fill('#A1744B');await colorHex.dispatchEvent('change');
