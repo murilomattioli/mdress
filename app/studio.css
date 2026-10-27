@@ -338,3 +338,12 @@ button,select,input,textarea{font:inherit}
  .editor-panel .markdown-toolbar{padding-inline:8px}
  .editor-panel .markdown-toolbar .tool-group select{width:106px;max-width:106px}
 }
+
+/* Overflow affordances stay outside the scrolling toolbar so they remain visible. */
+.editor-panel .markdown-toolbar-shell{display:flex;align-items:stretch;min-width:0;flex:0 0 auto;background:var(--ds-panel);border-bottom:1px solid var(--ds-border-subtle)}
+.editor-panel .markdown-toolbar-shell .markdown-toolbar{flex:1 1 auto;min-width:0;border-bottom:0}
+.editor-panel .toolbar-scroll-button{display:grid;place-items:center;flex:0 0 28px;width:28px;min-width:28px;padding:0;border:0;border-radius:0;background:var(--ds-panel-raised);color:var(--ds-text);font-size:23px;cursor:pointer}
+.editor-panel .toolbar-scroll-button:hover:not(:disabled){background:var(--ds-panel-hover)}
+.editor-panel .toolbar-scroll-button:focus-visible{outline:2px solid var(--ds-brand);outline-offset:-2px}
+.editor-panel .toolbar-scroll-button:disabled{opacity:.35;cursor:default}
+.editor-panel .toolbar-scroll-button[hidden]{display:none}

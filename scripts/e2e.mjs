@@ -11,6 +11,28 @@ try {
  await page.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent!=='Carregando…');
  const source=page.locator('#source');
  assert.ok((await source.inputValue()).includes('O título do artigo'));
+ // Toolbar overflow remains discoverable and reachable by keyboard at split widths.
+ await page.setViewportSize({width:1024,height:900});
+ const toolbar=page.locator('.markdown-toolbar');
+ const nextTools=page.getByRole('button',{name:'Rolar ferramentas para a direita'});
+ const previousTools=page.getByRole('button',{name:'Rolar ferramentas para a esquerda'});
+ await nextTools.waitFor({state:'visible'});
+ assert.equal(await previousTools.isDisabled(),true);
+ await nextTools.click();
+ await page.waitForFunction(()=>document.querySelector('.markdown-toolbar').scrollLeft>10);
+ assert.equal(await previousTools.isDisabled(),false);
+ await previousTools.click();
+ await page.waitForFunction(()=>document.querySelector('.markdown-toolbar').scrollLeft<2);
+ await page.locator('#headingCommand').focus();
+ for(let i=0;i<11;i++)await page.keyboard.press('Tab');
+ assert.equal(await page.evaluate(()=>document.activeElement?.dataset.mdCommand),'rule');
+ const focusVisible=await toolbar.evaluate(root=>{
+  const viewport=root.getBoundingClientRect(),control=document.activeElement.getBoundingClientRect();
+  return control.left>=viewport.left-2&&control.right<=viewport.right+2;
+ });
+ assert.equal(focusVisible,true,'Last toolbar action must be visible on keyboard focus');
+ await page.setViewportSize({width:1600,height:950});
+
  await source.evaluate(el=>el.setSelectionRange(0,0));
  await page.locator('[data-md-command="bold"]').click();
  assert.ok((await source.inputValue()).startsWith('**'));
