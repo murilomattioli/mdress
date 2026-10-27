@@ -11,11 +11,20 @@ try {
  await page.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent!=='Carregando…');
  const source=page.locator('#source');
  assert.ok((await source.inputValue()).includes('O título do artigo'));
- // Toolbar overflow remains discoverable and reachable by keyboard at split widths.
+ // Wrap complete groups at split widths, preserving scroll arrows as a narrow-width fallback.
  await page.setViewportSize({width:1024,height:900});
  const toolbar=page.locator('.markdown-toolbar');
  const nextTools=page.getByRole('button',{name:'Rolar ferramentas para a direita'});
  const previousTools=page.getByRole('button',{name:'Rolar ferramentas para a esquerda'});
+ await page.waitForFunction(()=>{
+  const el=document.querySelector('.markdown-toolbar');
+  return el.scrollWidth<=el.clientWidth+2;
+ });
+ const groupRows=await toolbar.locator('.tool-group').evaluateAll(groups=>groups.map(el=>Math.round(el.getBoundingClientRect().top)));
+ assert.ok(groupRows[2]>groupRows[0],'Block actions should wrap onto a visible second row');
+ assert.equal(await nextTools.isVisible(),false,'No scroll arrows needed when all groups fit');
+ // At exceptionally narrow editor widths, keep overflow discoverable and keyboard reachable.
+ await toolbar.evaluate(el=>{el.parentElement.style.width='180px';});
  await nextTools.waitFor({state:'visible'});
  assert.equal(await previousTools.isDisabled(),true);
  await nextTools.click();
@@ -23,6 +32,11 @@ try {
  assert.equal(await previousTools.isDisabled(),false);
  await previousTools.click();
  await page.waitForFunction(()=>document.querySelector('.markdown-toolbar').scrollLeft<2);
+ await toolbar.evaluate(el=>{el.parentElement.style.removeProperty('width');});
+ await page.waitForFunction(()=>{
+  const el=document.querySelector('.markdown-toolbar');
+  return el.scrollWidth<=el.clientWidth+2;
+ });
  await page.locator('#headingCommand').focus();
  for(let i=0;i<11;i++)await page.keyboard.press('Tab');
  assert.equal(await page.evaluate(()=>document.activeElement?.dataset.mdCommand),'rule');
