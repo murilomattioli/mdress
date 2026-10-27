@@ -1,7 +1,8 @@
 name: Quality
 on:
   pull_request:
-    branches: [master]
+    # Validate small PRs stacked on the v0.1.0 migration branch before merging.
+    branches: [master, 'chore/3-import-v0-snapshot']
   workflow_dispatch:
 permissions:
   contents: read
