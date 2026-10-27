@@ -32,7 +32,7 @@ export function formatControlValue(v,unit=''){
  const body=Number.isInteger(value)?String(value):String(Number(value.toFixed(3)));
  return body+(unit&&unit!=='×'?' '+unit:unit);
 }
-function validationMessage(input,min,max,unit=''){
+export function validationMessage(input,min,max,unit=''){
  if(input.value.trim()==='')return 'Informe um valor.';
  if(input.validity.rangeUnderflow||input.validity.rangeOverflow)return 'Use um valor entre '+min+' e '+max+(unit?' '+unit:'')+'.';
  if(input.validity.stepMismatch)return 'Use um valor compatível com o incremento permitido.';
