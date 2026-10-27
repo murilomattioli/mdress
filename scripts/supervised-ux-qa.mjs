@@ -60,7 +60,7 @@ async function exercise(page,theme,width){
  const originalRange=await page.locator('#fontSize').inputValue();
  await precise.fill('9999');await precise.dispatchEvent('change');
  assert.equal(await precise.getAttribute('aria-invalid'),'true');
- assert.equal(await range.locator('.ds-prop-error').isVisible(),true);
+ assert.equal(await range.locator('..').locator('.ds-prop-error').isVisible(),true);
  assert.equal(await page.locator('#fontSize').inputValue(),originalRange,'Invalid range must not mutate the document');
  await capture(page,theme,width,'range-invalid');
  await precise.press('Escape');
@@ -72,7 +72,7 @@ async function exercise(page,theme,width){
  const originalColor=await page.locator('#accentColor').inputValue();
  await hex.fill('#BAD');await hex.dispatchEvent('change');
  assert.equal(await hex.getAttribute('aria-invalid'),'true');
- assert.equal(await color.locator('.ds-prop-error').isVisible(),true);
+ assert.equal(await color.locator('..').locator('.ds-prop-error').isVisible(),true);
  assert.equal(await page.locator('#accentColor').inputValue(),originalColor);
  await capture(page,theme,width,'color-invalid');
  await hex.press('Escape');
@@ -95,7 +95,7 @@ async function exercise(page,theme,width){
  const originalNumber=await input.inputValue();
  await input.fill('9999');await input.dispatchEvent('change');
  assert.equal(await input.getAttribute('aria-invalid'),'true');
- assert.equal(await number.locator('.ds-prop-error').isVisible(),true);
+ assert.equal(await number.locator('..').locator('.ds-prop-error').isVisible(),true);
  await capture(page,theme,width,'number-invalid');
  await input.press('Escape');
  assert.equal(await input.inputValue(),originalNumber);
