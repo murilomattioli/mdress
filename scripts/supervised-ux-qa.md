@@ -5,7 +5,7 @@ O runner automatiza as interações e gera evidências, **não aprova a UX visua
 ## Preparar uma instalação nova (PowerShell)
 
 ```powershell
-cd F:\\Projects\\lumu\\tools\\mdress
+cd F:\Projects\lumu\tools\mdress
 git status --short # preserve alterações locais antes de trocar de branch
 git fetch origin
 git switch feat/23-property-controls-ux-qa
