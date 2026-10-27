@@ -73,7 +73,7 @@ button,select,input,textarea{font:inherit}
 .markdown-toolbar .tool-group select{height:30px;min-height:30px;width:117px;max-width:117px;background:var(--ds-panel-raised);color:var(--ds-text);border:1px solid var(--ds-border);border-radius:6px;padding:4px 7px;font-size:10px}
 .source-editor-surface{display:flex;flex:1 1 auto;min-height:0;position:relative;overflow:hidden;background:var(--ds-panel)}
 #source{display:block;flex:1;min-width:0;min-height:0;width:100%;margin:0;background:transparent;color:var(--ds-text);border:0!important;border-radius:0;padding:20px 22px 30px 15px;outline:none!important;resize:none;font:12.25px/1.86 var(--ds-mono);tab-size:2;letter-spacing:-.012em;caret-color:var(--ds-brand);white-space:pre;overflow:auto}
-#source:focus-visible{outline:none!important}
+#source:focus-visible{outline:2px solid var(--ds-brand)!important;outline-offset:-2px}
 .source-gutter{flex:0 0 42px;width:42px;padding:20px 8px 30px 0;overflow:hidden;background:var(--ds-panel);border-right:1px solid var(--ds-border-subtle);text-align:right;font:11px/2.07 var(--ds-mono);color:var(--ds-text-tertiary);user-select:none;pointer-events:none;white-space:pre}
 .source-gutter>span{display:block;height:22.8px;line-height:22.8px}
 .source-gutter .line-active{color:var(--ds-brand)}
