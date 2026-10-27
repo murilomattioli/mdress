@@ -12,7 +12,11 @@ import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
 
 const args=new Set(process.argv.slice(2));
-const automated=args.has('--auto')||!stdin.isTTY;
+const automated=args.has('--auto');
+if(!automated&&!stdin.isTTY){
+ console.error('[UX QA] O modo supervisionado exige um terminal interativo. Use --auto --headless para CI.');
+ process.exit(2);
+}
 const headless=args.has('--headless');
 const url=process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173';
 const directory='test-results/ux-audit/supervised';
@@ -145,17 +149,21 @@ try{
    if(stopped)break;
    const page=await browser.newPage({viewport:{width,height:900}});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+   let toolbarPassed=false,inspectorPassed=false,scenarioPassed=false;
    try{
     await page.goto(url,{waitUntil:'networkidle'});
     await page.locator('#source').waitFor();
     await page.locator('body').evaluate((el,value)=>el.dataset.theme=value,theme);
     await capture(page,theme,width,'workspace');
-    try{await toolbarAudit(page,theme,width);}catch(e){error('toolbar',theme,width,e);}
-    try{await exercise(page,theme,width);}catch(e){error('inspector',theme,width,e);}
+    try{await toolbarAudit(page,theme,width);toolbarPassed=true;}catch(e){error('toolbar',theme,width,e);}
+    try{await exercise(page,theme,width);inspectorPassed=true;}catch(e){error('inspector',theme,width,e);}
     for(const message of errors)findings.push({severity:'error',phase:'runtime',theme,width,message});
-    coverage.push({theme,width,inspector:true,toolbar:true,errors:errors.length});
+    scenarioPassed=true;
    }catch(e){error('scenario',theme,width,e);}
-   finally{await page.close();}
+   finally{
+    coverage.push({theme,width,scenario:scenarioPassed,inspector:inspectorPassed,toolbar:toolbarPassed,errors:errors.length});
+    await page.close();
+   }
   }
  }
 }catch(e){if(!stopped)error('browser','global',0,e);}
