@@ -137,6 +137,17 @@ try {
  await themePicker.click();
  assert.equal(await themePicker.getAttribute('aria-expanded'),'true');
  assert.ok(await page.locator('.ds-select-popover [role="option"]').count()>=7);
+ // Arrow navigation must expose a visible focus indicator inside the portaled listbox.
+ await page.keyboard.press('ArrowDown');
+ const focusedThemeOption=page.locator('.ds-select-popover [role="option"]:focus-visible');
+ assert.equal(await focusedThemeOption.count(),1,'Inspector listbox needs keyboard-visible option focus');
+ const optionFocus=await focusedThemeOption.evaluate(el=>({
+  width:getComputedStyle(el).outlineWidth,
+  style:getComputedStyle(el).outlineStyle
+ }));
+ assert.equal(optionFocus.width,'2px','Inspector option needs a 2px focus ring');
+ assert.equal(optionFocus.style,'solid','Inspector option focus ring must not be suppressed');
+ await page.locator('.ds-select-popover').screenshot({path:'test-results/ux-audit/inspector-select-option-focused.png',animations:'disabled'});
  await page.locator('.ds-select-option').filter({hasText:'Swiss'}).click();
  assert.equal(await page.locator('#resumeTheme').inputValue(),'swiss');
  const colorHex=page.locator('.ds-property-color').filter({has:page.locator('#accentColor')}).locator('.ds-color-hex');
