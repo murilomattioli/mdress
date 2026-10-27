@@ -35,9 +35,30 @@ jobs:
       - run: node scripts/e2e.mjs
       - name: Component UX Audit
         run: node scripts/component-ux-audit.mjs
+      # Temporary, read-only evidence transport. Not the permanent PR image publisher.
+      # No repository write permission; PNGs are already compressed.
+      - name: Upload short-lived UX review bundle
+        id: evidence
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ux-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/ux-audit/*.png
+            test-results/component-ux-audit.json
+          if-no-files-found: warn
+          retention-days: 2
+          compression-level: 0
       - name: Evidence status
         if: always()
+        env:
+          EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}
         run: |
           echo '## Evidências visuais' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Screenshots geradas localmente; publicação em PR requer workflow separado e seguro. Revisão visual pendente.' >> "$GITHUB_STEP_SUMMARY"
-          find test-results -name '*.png' 2>/dev/null | wc -l >> "$GITHUB_STEP_SUMMARY"
+          echo 'Revisão visual ainda pendente; checks verdes não aprovam UX.' >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$EVIDENCE_URL" ]; then
+            echo "[Baixar pacote temporário de screenshots e relatório JSON]($EVIDENCE_URL) (expira em 2 dias; requer acesso ao GitHub)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Nenhum pacote disponível nesta execução.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          find test-results/ux-audit -name '*.png' 2>/dev/null | wc -l >> "$GITHUB_STEP_SUMMARY"
