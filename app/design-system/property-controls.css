@@ -261,3 +261,21 @@
 @media(prefers-reduced-motion:reduce){
  .ds-property-range,.ds-property-number,.ds-property-color,.ds-property-select,.ds-property-segment{transition:none}
 }
+
+/* Disabled native sources must look disabled in their enhanced surfaces.
+ * Keep labels readable; mute only the editable value and interactive affordance. */
+.ds-property-range:has(.ds-range-native:disabled),
+.ds-property-number:has(.ds-number-native:disabled),
+.ds-property-color:has(.ds-color-native:disabled){
+ background:var(--ds-panel);border-color:var(--ds-border-subtle);
+}
+.ds-property-range .ds-prop-number:disabled,
+.ds-property-number .ds-number-native:disabled,
+.ds-property-color .ds-color-hex:disabled{
+ color:var(--ds-text-tertiary)!important;
+ -webkit-text-fill-color:var(--ds-text-tertiary);
+ cursor:not-allowed;
+}
+.ds-property-range:has(.ds-range-native:disabled) .ds-prop-track,
+.ds-property-color:has(.ds-color-native:disabled) .ds-color-swatch{opacity:.5}
+.ds-property-number .ds-number-step:disabled{opacity:.38;cursor:not-allowed}
