@@ -19,6 +19,21 @@ try {
  assert.equal(editorFocus.style,'solid','Markdown editor focus ring must not be suppressed');
  await mkdir('test-results/ux-audit',{recursive:true});
  await page.screenshot({path:'test-results/ux-audit/source-editor-focused.png',animations:'disabled'});
+ // The document picker suppresses the native select outline; its container must
+ // show focus for keyboard users without highlighting mouse-only or sibling focus.
+ await page.locator('#newDoc').focus();
+ await page.keyboard.press('Shift+Tab');
+ const pickerFocused=await page.locator('#docPicker').evaluate(el=>el.matches(':focus-visible'));
+ assert.equal(pickerFocused,true,'Document picker must receive keyboard-visible focus');
+ const pickerRing=await page.locator('.document-selector').evaluate(el=>({
+  width:getComputedStyle(el).outlineWidth,
+  style:getComputedStyle(el).outlineStyle
+ }));
+ assert.equal(pickerRing.width,'2px','Document picker needs a 2px focus ring');
+ assert.equal(pickerRing.style,'solid','Document picker focus ring must be visible');
+ await page.locator('.topbar').screenshot({path:'test-results/ux-audit/document-picker-focused.png',animations:'disabled'});
+ await page.keyboard.press('Tab');
+ assert.equal(await page.locator('.document-selector').evaluate(el=>getComputedStyle(el).outlineStyle),'none','Picker ring must not persist on sibling button focus');
  // Wrap complete groups at split widths, preserving scroll arrows as a narrow-width fallback.
  await page.setViewportSize({width:1024,height:900});
  const toolbar=page.locator('.markdown-toolbar');
