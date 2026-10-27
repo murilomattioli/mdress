@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {deduplicateAuditFindings} from './component-ux-findings.mjs';
+import {deduplicateAuditFindings, summarizeAuditFindings} from './component-ux-findings.mjs';
 
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const findings=[],coverage=[],screenshots=[];
@@ -59,8 +59,9 @@ try{
  }
 }finally{await browser.close();}
 const unique=deduplicateAuditFindings(findings);
-const report={schema:1,commit:process.env.GITHUB_SHA||'local',generatedAt:new Date().toISOString(),coverage,screenshots,findings:unique,critical:unique.filter(x=>x.severity==='error').length};
+const summary=summarizeAuditFindings(unique,coverage);
+const report={schema:1,commit:process.env.GITHUB_SHA||'local',generatedAt:new Date().toISOString(),coverage,screenshots,findings:unique,critical:summary.critical,warnings:summary.warnings,scenarioSummary:summary.scenarios};
 await mkdir('test-results',{recursive:true});
 await writeFile('test-results/component-ux-audit.json',JSON.stringify(report,null,2)+'\n');
-console.log('COMPONENT UX AUDIT',JSON.stringify({coverage:coverage.map(x=>x.theme+'/'+x.width+':'+x.controls),critical:report.critical,findings:unique.slice(0,6)}));
+console.log('COMPONENT UX AUDIT',JSON.stringify({coverage:coverage.map(x=>x.theme+'/'+x.width+':'+x.controls),critical:report.critical,warnings:report.warnings,scenarioSummary:report.scenarioSummary,findings:unique.slice(0,6)}));
 if(report.critical){process.exitCode=1;}
