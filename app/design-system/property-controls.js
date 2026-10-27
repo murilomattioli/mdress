@@ -242,8 +242,14 @@ function makeListbox(label,select,title){
  select.replaceWith(field);field.append(name,trigger,select);
  const popupId='ds-select-list-'+(++nextUid);
  trigger.setAttribute('aria-controls',popupId);
- const update=()=>{const o=select.selectedOptions[0];value.textContent=o?.label||o?.textContent||'Selecionar';};
+ const update=()=>{
+  const o=select.selectedOptions[0];value.textContent=o?.label||o?.textContent||'Selecionar';
+  // The hidden native select owns availability; the visible combobox must follow it.
+  trigger.disabled=select.disabled;
+  if(select.disabled&&openSelect?.trigger===trigger)closePopup({restoreFocus:false});
+ };
  const open=()=>{
+  if(select.disabled)return;
   if(openSelect?.trigger===trigger){closePopup();return;}
   closePopup({restoreFocus:false});
   const popup=document.createElement('div');popup.id=popupId;popup.className='ds-select-popover';
