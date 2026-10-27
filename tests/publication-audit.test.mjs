@@ -56,3 +56,25 @@ test('publication audit detects a tracked env file without printing its contents
     rmSync(root, {recursive:true, force:true});
   }
 });
+
+
+test('publication audit rejects Git-index symlinks without reading their targets', () => {
+  const root = mkdtempSync(join(tmpdir(), 'mdress-publication-symlink-'));
+  try {
+    execFileSync('git', ['init', '-q', root]);
+    // Write a symlink entry directly to the Git index. This is portable even
+    // when Windows has core.symlinks=false and cannot create OS symlinks.
+    const sha = execFileSync('git', ['-C', root, 'hash-object', '-w', '--stdin'], {
+      input: '../../outside.md',
+    }).toString('utf8').trim();
+    execFileSync('git', ['-C', root, 'update-index', '--add', '--cacheinfo',
+      `120000,${sha},docs/external.md`]);
+    const result = auditTrackedFiles(root);
+    assert.deepEqual(result.findings, [
+      {path:'docs/external.md', line:1, rule:'tracked-symlink'},
+    ]);
+    assert.equal(result.filesChecked, 1);
+  } finally {
+    rmSync(root, {recursive:true, force:true});
+  }
+});
