@@ -43,3 +43,9 @@ O CI executa Chromium headless, sem interação humana. Checks verdes indicam ap
 
 ### Estados disabled e nomes acessíveis
 Os campos derivados de range e color agora refletem o `disabled` do controle nativo; os steppers do number também são desativados e o input numérico possui nome acessível explícito. A matriz inclui capturas `range-disabled`, `color-disabled` e `number-disabled` em todos os temas e larguras. Isso evita controles aparentemente interativos quando o source of truth está bloqueado.
+
+## Matriz de evidências obrigatórias (issue #23)
+
+O relatório de QA (schema 4) valida **42 estados visuais × 2 temas × 3 larguras = 252 capturas**. Um cenário funcional aprovado não é suficiente se alguma captura obrigatória estiver ausente ou duplicada: `screenshotCoverage.missing` e `screenshotCoverage.duplicates` geram finding de erro, impedem o veredito positivo do runner e bloqueiam a pergunta de aprovação humana. Os screenshots incluem novos casos de slider com limites/incrementos alterados em tempo real, entrada inválida, `step="any"` e estado desabilitado.
+
+A revisão humana precisa verificar legibilidade, foco, hierarquia, ergonomia e clipping das **252 capturas** e interagir no navegador. `humanReview.status=approved` só pode ser registrado após essa revisão explícita. O CI registra `not-applicable` mesmo quando todas as assertivas e evidências automatizadas estão completas. A issue continua aberta até a homologação do usuário.
