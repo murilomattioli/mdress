@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {deduplicateAuditFindings, summarizeAuditFindings} from './component-ux-findings.mjs';
+import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding} from './component-ux-findings.mjs';
 
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const findings=[],coverage=[],screenshots=[];
@@ -53,7 +53,8 @@ try{
     coverage.push({theme,width,...{controls:data.count,types:data.categories,inspectorWidth:data.inspectorWidth},screenshot});
     for(const violation of data.violations)emit(violation.rule,violation.severity,violation.component,violation.detail,{theme,width,html:violation.html});
     for(const error of errors)emit('runtime-error','error','app',error,{theme,width});
-    if(data.controls===0)emit('coverage','error','app','Nenhum controle visível foi inventariado',{theme,width});
+    const missingCoverage=auditCoverageFinding(data.count,{theme,width});
+    if(missingCoverage)findings.push(missingCoverage);
    }finally{await page.close();}
   }
  }
