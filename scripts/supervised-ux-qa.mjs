@@ -81,6 +81,13 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'range-invalid');
  await precise.press('Escape');
  assert.equal(await precise.getAttribute('aria-invalid'),null);
+ // Valid drafts must commit through the native range (source of truth).
+ const nextRange=originalRange==='12.5'?'11.5':'12.5';
+ await precise.fill(nextRange);await precise.dispatchEvent('change');
+ assert.equal(await page.locator('#fontSize').inputValue(),nextRange);
+ await capture(page,theme,width,'range-valid');
+ await precise.fill(originalRange);await precise.dispatchEvent('change');
+ assert.equal(await page.locator('#fontSize').inputValue(),originalRange);
  await page.locator('#fontSize').evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>document.querySelector('.ds-property-range .ds-prop-number')?.disabled===true);
  await capture(page,theme,width,'range-disabled');
@@ -97,6 +104,12 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'color-invalid');
  await hex.press('Escape');
  assert.equal(await hex.getAttribute('aria-invalid'),null);
+ const nextColor=originalColor.toLowerCase()==='#abcdef'?'#123456':'#abcdef';
+ await hex.fill(nextColor);await hex.dispatchEvent('change');
+ assert.equal(await page.locator('#accentColor').inputValue(),nextColor);
+ await capture(page,theme,width,'color-valid');
+ await hex.fill(originalColor);await hex.dispatchEvent('change');
+ assert.equal(await page.locator('#accentColor').inputValue(),originalColor);
  await page.locator('#accentColor').evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>document.querySelector('.ds-property-color .ds-color-hex')?.disabled===true);
  await capture(page,theme,width,'color-disabled');
@@ -166,6 +179,12 @@ async function exercise(page,theme,width){
  await input.press('Escape');
  assert.equal(await input.inputValue(),originalNumber);
  assert.equal(await input.getAttribute('aria-invalid'),null);
+ const nextNumber=originalNumber==='18'?'19':'18';
+ await input.fill(nextNumber);await input.dispatchEvent('change');
+ assert.equal(await input.inputValue(),nextNumber);
+ await capture(page,theme,width,'number-valid');
+ await input.fill(originalNumber);await input.dispatchEvent('change');
+ assert.equal(await input.inputValue(),originalNumber);
  assert.match(await input.getAttribute('aria-label'),/margens/i,'Numeric control must preserve its existing accessible name');
  await input.evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>[...document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelectorAll('.ds-number-step')||[]].every(b=>b.disabled));
@@ -178,6 +197,12 @@ async function exercise(page,theme,width){
  await binary.scrollIntoViewIfNeeded();
  await capture(page,theme,width,'binary-disabled');
  await native.evaluate(el=>{el.disabled=false;});
+ const originalBinary=await native.isChecked();
+ await binary.locator('.ds-binary-option').nth(originalBinary?0:1).click();
+ assert.equal(await native.isChecked(),!originalBinary,'Binary buttons must update native checkbox');
+ await capture(page,theme,width,'binary-toggled');
+ await binary.locator('.ds-binary-option').nth(originalBinary?1:0).click();
+ assert.equal(await native.isChecked(),originalBinary);
  // Segmented selects must skip disabled options and preserve focus when
  // an active option becomes unavailable while the inspector remains open.
  const segment=page.locator('.ds-property-segment').filter({has:page.locator('#sectionRule')});
