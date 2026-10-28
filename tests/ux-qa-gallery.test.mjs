@@ -7,17 +7,17 @@ const all=UX_QA_MATRIX.flatMap(({theme,width})=>UX_QA_REQUIRED_SCREENSHOTS.map(s
  theme,width,state,path:'test-results/ux-audit/supervised/'+theme+'-'+width+'-'+state+'.png'
 })));
 
-test('offline gallery renders all 294 comparisons and supports filtering',()=>{
+test('offline gallery renders all 300 comparisons and supports filtering',()=>{
  const html=renderUxQaGallery(all,summarizeScreenshotCoverage(all));
  assert.match(html,/<html lang="pt-BR">/);
  assert.match(html,/id="filter"/);
  assert.match(html,/id="review-progress"/);
  assert.match(html,/id="export-review"/);
  assert.match(html,/id="only-pending"/);
- assert.equal((html.match(/class="review-status"/g)||[]).length,49);
- assert.equal((html.match(/class="review-note"/g)||[]).length,49);
- assert.equal((html.match(/class="image-warning"/g)||[]).length,49);
- assert.equal((html.match(/class="review-status" disabled/g)||[]).length,49);
+ assert.equal((html.match(/class="review-status"/g)||[]).length,50);
+ assert.equal((html.match(/class="review-note"/g)||[]).length,50);
+ assert.equal((html.match(/class="image-warning"/g)||[]).length,50);
+ assert.equal((html.match(/class="review-status" disabled/g)||[]).length,50);
  assert.match(html,/async function verifyImages/);
  assert.match(html,/await img\.decode\(\)/);
  assert.match(html,/await Promise\.all\(states\.map\(verifyImages\)\)/);
@@ -25,8 +25,8 @@ test('offline gallery renders all 294 comparisons and supports filtering',()=>{
  assert.match(html,/binary-disabled-focus-handoff/);
  assert.match(html,/segment-live-focus-handoff/);
  assert.match(html,/graphite-1440-workspace.png/);
- assert.equal((html.match(/<figure>/g)||[]).length,294);
- assert.equal((html.match(/<details class="state"/g)||[]).length,49);
+ assert.equal((html.match(/<figure>/g)||[]).length,300);
+ assert.equal((html.match(/<details class="state"/g)||[]).length,50);
 });
 
 test('invalid evidence path is not inserted as HTML or a clickable link',()=>{
