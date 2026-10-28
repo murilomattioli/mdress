@@ -12,3 +12,11 @@ export function summarizeUxCoverage(coverage,findings,stopped=false){
  const status=stopped?'stopped':complete&&passing===expected.size&&errors===0?'passed':'failed';
  return {status,expected:expected.size,completed:coverage.length,passing,failed:coverage.length-passing,errors,complete,stopped};
 }
+
+/** A green automated matrix is not a human UX sign-off. */
+export function parseHumanReviewChoice(choice){
+ const value=String(choice??'').trim().toLowerCase();
+ if(value==='a')return 'approved';
+ if(value==='r')return 'rejected';
+ return 'not-reviewed';
+}
