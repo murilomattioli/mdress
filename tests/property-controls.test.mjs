@@ -1,5 +1,5 @@
 import {test} from 'node:test';import {strict as assert} from 'node:assert';
-import {normalizeRange,formatControlValue,validationMessage,isSelectOptionDisabled} from '../app/design-system/property-controls.js';
+import {normalizeRange,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex} from '../app/design-system/property-controls.js';
 test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(11.22,9,14,.5),11);
  assert.equal(normalizeRange(1.174,1.1,2.2,.05),1.15);
@@ -34,4 +34,21 @@ test('combobox respects disabled options and inherited disabled optgroups',()=>{
  group.disabled=false;
  assert.equal(isSelectOptionDisabled({disabled:false,parentElement:group}),false);
  assert.equal(isSelectOptionDisabled({disabled:false,parentElement:null}),false);
+});
+
+test('combobox typeahead skips disabled items and cycles matching initials',()=>{
+ const options=[
+  {label:'Sans',disabled:true},
+  {label:'Serif',disabled:false},
+  {label:'Mono',disabled:false},
+  {label:'System',disabled:false},
+  {label:'Script',disabled:true}
+ ];
+ assert.equal(findEnabledOptionIndex(options,'s',2),3,'Search from current focus should wrap and skip disabled matches');
+ assert.equal(findEnabledOptionIndex(options,'s',3),1,'Repeated initial cycles to next enabled match');
+ assert.equal(findEnabledOptionIndex(options,'m',1),2);
+ assert.equal(findEnabledOptionIndex(options,'x',2),-1);
+ assert.equal(findEnabledOptionIndex(options,'',2),-1);
+ assert.equal(findEnabledOptionIndex([], 's'),-1);
+ assert.equal(findEnabledOptionIndex([{label:'Árvore',disabled:false}], 'á'),0,'Unicode labels remain searchable');
 });
