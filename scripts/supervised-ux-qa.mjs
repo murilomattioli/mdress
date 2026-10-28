@@ -69,6 +69,10 @@ async function revealInspector(page,tab){
 }
 async function exercise(page,theme,width){
  await revealInspector(page,'style');
+ const labelReadability=await page.locator('.design-inspector .ds-property-row .ds-prop-name:visible').evaluateAll(labels=>
+  labels.map(el=>({fontSize:parseFloat(getComputedStyle(el).fontSize),text:el.textContent,title:el.title})));
+ assert.ok(labelReadability.length>0&&labelReadability.every(item=>item.fontSize>=12&&item.title===item.text),
+  'Property labels must remain readable and expose untruncated text: '+JSON.stringify(labelReadability));
  const range=page.locator('.ds-property-range').filter({has:page.locator('#fontSize')});
  const precise=range.locator('.ds-prop-number');
  await range.scrollIntoViewIfNeeded();
