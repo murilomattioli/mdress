@@ -58,7 +58,7 @@ export function formatControlValue(v,unit=''){
  // stripping floating-point noise from typical slider calculations.
  const body=Number.isInteger(value)?String(value):
   Number.isFinite(value)&&Math.abs(value)<1e21?
-   value.toFixed(12).replace(/0+$/,'').replace(/\\.$/,''):String(value);
+   value.toFixed(12).replace(/0+$/,'').replace(/[.]$/,''):String(value);
  return body+(unit&&unit!=='×'?' '+unit:unit);
 }
 export function validationMessage(input,min,max,unit=''){
