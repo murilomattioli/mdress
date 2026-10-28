@@ -23,7 +23,12 @@ function span(cls,text=''){const x=document.createElement('span');x.className=cl
 function button(cls,title){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=title;return b;}
 export function normalizeRange(value,min,max,step){
  if(![value,min,max,step].every(Number.isFinite)||min>=max||step<=0)throw Error('Faixa inválida');
- const snapped=Math.round((clamp(value,min,max)-min)/step)*step+min;
+ // The upper bound is not necessarily on the step grid. Clamping a
+ // rounded step to max would produce a stepMismatch (e.g. 10 for 0..10/6).
+ // Restrict the index before reconstructing the value instead.
+ const lastIndex=Math.floor((max-min)/step+1e-9);
+ const index=clamp(Math.round((clamp(value,min,max)-min)/step),0,lastIndex);
+ const snapped=min+index*step;
  // Both the step and the minimum define the legal decimal grid. For
  // min=0.05, step=0.1, rounding to the step's single decimal would corrupt
  // valid values (0.15 becomes 0.1). Handle scientific notation as well.
