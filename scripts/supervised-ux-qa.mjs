@@ -289,11 +289,29 @@ async function exercise(page,theme,width){
  // is open: adding, hiding and removing options must not strand keyboard focus.
  await page.locator('#fontChoice').evaluate(el=>{
   const option=document.createElement('option');
-  option.value='qa-temporary';option.textContent='QA temporary';
+  option.value='qa-temporary';
+  option.textContent='ÁrvoreTipográficaExtremamenteLongaSemEspaçosParaTestarOverflowDoCombobox';
   el.querySelector('optgroup').append(option);
  });
  const injected=page.locator('.ds-select-popover [data-value="qa-temporary"]');
  await injected.waitFor({state:'visible'});
+ // A long, unbroken label must never widen the portalled listbox beyond
+ // the viewport. Ellipsis is allowed only if the full text is discoverable.
+ await page.locator('.ds-select-popover [data-value="serif"]').focus();
+ await page.keyboard.type('arv',{delay:45});
+ assert.equal(await injected.evaluate(el=>el===document.activeElement),true,
+  'Typing arv must focus Árvore even without its accent');
+ const longOption=await injected.evaluate(el=>{
+  const popup=el.closest('.ds-select-popover'),label=el.querySelector('.ds-option-label');
+  return {popupOverflow:popup.scrollWidth-popup.clientWidth,
+   optionOverflow:el.scrollWidth-el.clientWidth,
+   clipped:label.scrollWidth>label.clientWidth,
+   title:el.title,label:label.textContent};
+ });
+ assert.ok(longOption.popupOverflow<=1&&longOption.optionOverflow<=1&&
+  longOption.clipped&&longOption.title===longOption.label,
+  'Long option must be ellipsized without clipping the popup or hiding its full tooltip: '+JSON.stringify(longOption));
+ await capture(page,theme,width,'select-long-option');
  await injected.focus();
  assert.equal(await injected.evaluate(el=>el===document.activeElement),true);
  // A live native value change must update data-value and preserve focus on
