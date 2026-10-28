@@ -88,6 +88,12 @@ test('combobox typeahead skips disabled items and cycles matching initials',()=>
  assert.equal(findEnabledOptionIndex(options,'',2),-1);
  assert.equal(findEnabledOptionIndex([], 's'),-1);
  assert.equal(findEnabledOptionIndex([{label:'Árvore',disabled:false}], 'á'),0,'Unicode labels remain searchable');
+ assert.equal(findEnabledOptionIndex([{label:'Árvore tipográfica',disabled:false}], 'arv'),0,
+  'Portuguese diacritics must not prevent unaccented keyboard searches');
+ assert.equal(findEnabledOptionIndex([{label:'A\u0301rvore tipográfica',disabled:false}], 'ÁRV'),0,
+  'Decomposed Unicode and case variants must normalize consistently');
+ assert.equal(findEnabledOptionIndex([{label:'Árvore',disabled:true},{label:'Arvoredo',disabled:false}], 'arv'),1,
+  'Accent-insensitive typeahead must still skip disabled options');
 });
 
 
