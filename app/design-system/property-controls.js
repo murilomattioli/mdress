@@ -306,7 +306,7 @@ export function selectPopupNeedsRefresh(rendered,visible){
  return visible.some((option,index)=>{
   const group=option.parentElement?.tagName==='OPTGROUP'?option.parentElement.label:null;
   const label=option.label||option.textContent;
-  return rendered[index].option!==option||rendered[index].group!==group||rendered[index].label!==label;
+  return rendered[index].option!==option||rendered[index].group!==group||rendered[index].label!==label||rendered[index].value!==option.value;
  });
 }
 // Native-select-style typeahead: skip disabled options and cycle repeated initials.
@@ -446,7 +446,7 @@ function makeListbox(label,select,title){
      if(index!==-1){e.preventDefault();buttons[index].focus();}
     }
    });
-   popup.append(item);buttons.push(item);optionItems.push({option:opt,item,group,label:text.textContent});
+   popup.append(item);buttons.push(item);optionItems.push({option:opt,item,group,label:text.textContent,value:opt.value});
   }
   document.body.append(popup);
   const reposition=()=>{
@@ -470,7 +470,7 @@ function makeListbox(label,select,title){
  trigger.addEventListener('click',event=>{event.preventDefault();open();});
  trigger.addEventListener('keydown',e=>{if(['Enter',' ','ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();open();}});
  select.addEventListener('change',update);
- const observer=new MutationObserver(update);observer.observe(select,{childList:true,subtree:true,attributes:true,attributeFilter:['selected','label','disabled','hidden'],characterData:true});
+ const observer=new MutationObserver(update);observer.observe(select,{childList:true,subtree:true,attributes:true,attributeFilter:['selected','label','disabled','hidden','value'],characterData:true});
  controllers.push(update);update();
 }
 function accordionChevron(){
