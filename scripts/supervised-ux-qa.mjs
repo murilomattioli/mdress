@@ -507,6 +507,12 @@ try{
 }catch(e){if(!stopped)error('browser','global',0,e);}
 finally{
  await browser?.close();
+ // Incomplete visual evidence must block the reviewer approval prompt.
+ const screenshotCoverage=summarizeScreenshotCoverage(screenshots);
+ if(!stopped&&(screenshotCoverage.missing.length||screenshotCoverage.duplicates.length)){
+  findings.push({severity:'error',phase:'screenshot-coverage',theme:'all',width:0,
+   message:'Missing: '+screenshotCoverage.missing.join(', ')+'; duplicates: '+screenshotCoverage.duplicates.join(', ')});
+ }
  // A successful functional matrix never implies that someone inspected the
  // screenshots. Record an explicit verdict only in an interactive session.
  if(io&&!stopped&&summarizeUxCoverage(coverage,findings,stopped).status==='passed'){
@@ -517,11 +523,6 @@ finally{
   }catch(e){error('human-review','global',0,e);}
  }
  io?.close();
- const screenshotCoverage=summarizeScreenshotCoverage(screenshots);
- if(!stopped&&(screenshotCoverage.missing.length||screenshotCoverage.duplicates.length)){
-  findings.push({severity:'error',phase:'screenshot-coverage',theme:'all',width:0,
-   message:'Missing: '+screenshotCoverage.missing.join(', ')+'; duplicates: '+screenshotCoverage.duplicates.join(', ')});
- }
  const summary=summarizeUxCoverage(coverage,findings,stopped);
  const report={schema:4,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,screenshotCoverage,
   humanReview:{status:automated?'not-applicable':humanReview,requiresExplicitApproval:true},
