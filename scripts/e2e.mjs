@@ -55,6 +55,18 @@ try {
  assert.equal(await previousTools.isDisabled(),false);
  await previousTools.click();
  await page.waitForFunction(()=>document.querySelector('.markdown-toolbar').scrollLeft<2);
+ // Scroll arrows must not lose keyboard focus when they become disabled
+ // at either boundary. The opposite direction remains operable.
+ await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Rolar ferramentas para a direita');
+ await nextTools.focus();
+ await toolbar.evaluate(el=>{el.scrollLeft=el.scrollWidth;});
+ await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Rolar ferramentas para a esquerda');
+ assert.equal(await nextTools.isDisabled(),true,'End of toolbar disables the forward arrow');
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-scroll-end-focus-handoff.png',animations:'disabled'});
+ await toolbar.evaluate(el=>{el.scrollLeft=0;});
+ await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Rolar ferramentas para a direita');
+ assert.equal(await previousTools.isDisabled(),true,'Start of toolbar disables the backward arrow');
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-scroll-start-focus-handoff.png',animations:'disabled'});
  await toolbar.evaluate(el=>{el.parentElement.style.removeProperty('width');});
  await page.locator('#headingCommand').focus();
  for(let i=0;i<11;i++)await page.keyboard.press('Tab');
