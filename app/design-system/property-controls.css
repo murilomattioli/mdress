@@ -181,7 +181,7 @@
 .ds-select-option[aria-selected=true] .ds-option-check{opacity:1}
 .ds-property-segment{grid-template-columns:minmax(52px,74px) minmax(0,1fr)}
 .ds-segment-buttons{display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--ds-border);border-radius:7px;background:var(--ds-panel)}
-.ds-segment-option{flex:1;min-width:0;height:25px;min-height:25px;padding:0 5px;border:0;border-radius:5px;background:transparent;color:var(--ds-text-secondary);font-size:10px;font-weight:550;white-space:nowrap}
+.ds-segment-option{flex:1;min-width:0;height:25px;min-height:25px;padding:0 5px;border:0;border-radius:5px;background:transparent;color:var(--ds-text-secondary);font-size:10px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ds-segment-option:hover{background:var(--ds-panel-hover);color:var(--ds-text)}
 .ds-segment-option[aria-pressed=true]{background:var(--ds-panel-hover);color:var(--ds-text);box-shadow:0 1px 3px #0001;font-weight:780}
 .design-inspector .property-reset{min-height:34px;border:1px solid var(--ds-border);border-radius:7px;background:var(--prop-bg)!important;font-size:11px;font-weight:620}
