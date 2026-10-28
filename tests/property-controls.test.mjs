@@ -33,6 +33,10 @@ test('value formatting preserves exact custom units',()=>{
  assert.equal(formatControlValue(0.18,''),'0.18');
  assert.equal(formatControlValue(1.5,'×'),'1.5×');
  assert.equal(formatControlValue(18,'mm'),'18 mm');
+ assert.equal(formatControlValue(0.0000003,'mm'),'0.0000003 mm','Fine slider increments must not display as zero');
+ assert.equal(formatControlValue(-0.0000003),'-0.0000003');
+ assert.equal(formatControlValue(1.23456789,'pt'),'1.23456789 pt');
+ assert.equal(formatControlValue(0.30000000000000004),'0.3','Floating-point noise must not leak into UI');
 });
 
 test('property validation explains missing, out-of-range, step and nonnumeric values',()=>{
