@@ -3,8 +3,10 @@ import {strict as assert} from 'node:assert';
 import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
 import {deflateSync} from 'node:zlib';
+import {UX_QA_REQUIRED_SCREENSHOTS} from './ux-qa-coverage.mjs';
 
 const html=await readFile('test-results/ux-audit/supervised/index.html','utf8');
+const stateCount=UX_QA_REQUIRED_SCREENSHOTS.length;
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 try{
  const context=await browser.newContext({acceptDownloads:true});
@@ -56,13 +58,13 @@ try{
  await page.goto('http://mdress-qa.test/gallery');
  const status=page.locator('.review-status').first();
  const note=page.locator('.review-note').first();
- assert.equal(await page.locator('.review-status').count(),50);
- assert.match(await page.locator('#review-progress').innerText(),/0\/50 estados aprovados/);
+ assert.equal(await page.locator('.review-status').count(),stateCount);
+ assert.match(await page.locator('#review-progress').innerText(),new RegExp('0/'+stateCount+' estados aprovados'));
  await status.waitFor({state:'visible'});
  await page.waitForFunction(()=>!document.querySelector('.review-status').disabled);
  await status.selectOption('approved');
  await note.fill('Foco, contraste e clipping verificados manualmente neste cenário de teste.');
- assert.match(await page.locator('#review-progress').innerText(),/1\/50 estados aprovados/);
+ assert.match(await page.locator('#review-progress').innerText(),new RegExp('1/'+stateCount+' estados aprovados'));
  await page.reload();
  assert.equal(await status.inputValue(),'approved','Review must survive reload in this session');
  assert.match(await note.inputValue(),/Foco, contraste/);
@@ -88,7 +90,7 @@ try{
  assert.equal(exported.schema,1);
  assert.equal(exported.states.workspace.status,'approved');
  assert.match(exported.states.workspace.note,/Foco, contraste/);
- assert.equal(Object.keys(exported.states).length,50);
+ assert.equal(Object.keys(exported.states).length,stateCount);
  assert.ok(exported.sessionId);
  // Regression: the reviewer approved this state, then one PNG disappeared.
  // A cached img.decode() must NOT allow an approval to survive export.
@@ -127,7 +129,7 @@ try{
  page.once('dialog',dialog=>dialog.accept());
  await page.locator('#reset-review').click();
  assert.equal(await status.inputValue(),'pending');
- assert.match(await page.locator('#review-progress').innerText(),/0\/50 estados aprovados/);
+ assert.match(await page.locator('#review-progress').innerText(),new RegExp('0/'+stateCount+' estados aprovados'));
  // An absent image must block a previously approved state from being signed
  // off. The exported record is downgraded to pending, never approved.
  await page.goto('http://mdress-qa.test/broken/gallery');
