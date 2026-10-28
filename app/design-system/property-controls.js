@@ -53,7 +53,12 @@ export function rangeConstraints(input){
 }
 export function formatControlValue(v,unit=''){
  const value=Number(v);
- const body=Number.isInteger(value)?String(value):String(Number(value.toFixed(3)));
+ // A 3-decimal display silently turned fine-grained range values into zero
+ // (e.g. 0.0000003). Match the precision supported by normalizeRange while
+ // stripping floating-point noise from typical slider calculations.
+ const body=Number.isInteger(value)?String(value):
+  Number.isFinite(value)&&Math.abs(value)<1e21?
+   value.toFixed(12).replace(/0+$/,'').replace(/\\.$/,''):String(value);
  return body+(unit&&unit!=='×'?' '+unit:unit);
 }
 export function validationMessage(input,min,max,unit=''){
