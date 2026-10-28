@@ -139,6 +139,16 @@ async function exercise(page,theme,width){
  assert.equal(await color.locator('..').locator('.ds-prop-error').isVisible(),true);
  assert.equal(await page.locator('#accentColor').inputValue(),originalColor);
  await capture(page,theme,width,'color-invalid');
+ // A redraw/sync of the inspector must not erase the draft the user is
+ // correcting or clear the aria-live validation message.
+ await page.evaluate(async()=>{
+  const {syncPropertyControls}=await import('/design-system/property-controls.js');
+  syncPropertyControls();
+ });
+ assert.equal(await hex.inputValue(),'#BAD','Inspector sync must preserve an uncommitted hex draft');
+ assert.equal(await hex.getAttribute('aria-invalid'),'true');
+ assert.equal(await page.locator('#accentColor').inputValue(),originalColor);
+ await capture(page,theme,width,'color-draft-sync');
  await hex.press('Escape');
  assert.equal(await hex.getAttribute('aria-invalid'),null);
  const nextColor=originalColor.toLowerCase()==='#abcdef'?'#123456':'#abcdef';

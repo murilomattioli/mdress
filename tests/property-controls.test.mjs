@@ -8,6 +8,8 @@ test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(0.15,0.05,1.05,0.1),0.15,'A fractional minimum must not lose precision');
  assert.equal(normalizeRange(0.45,0.05,1.05,0.1),0.45);
  assert.equal(normalizeRange(0.0000003,0,0.000001,1e-7),0.0000003,'Scientific notation steps must preserve precision');
+ assert.equal(normalizeRange(3e-13,0,1e-12,1e-13),3e-13,'Steps smaller than 1e-12 must not collapse to zero');
+ assert.equal(normalizeRange(1e-16,0,1e-15,1e-16),1e-16,'Sub-femtoscale steps must survive normalization');
  assert.equal(normalizeRange(10,0,10,6),6,'A max outside the step grid must not be returned as an invalid value');
  assert.equal(normalizeRange(10,1,10,4),9,'An offset minimum defines the last legal step');
  assert.equal(normalizeRange(1,0,1,2),0,'Steps larger than the range have only one legal value');
@@ -37,6 +39,8 @@ test('value formatting preserves exact custom units',()=>{
  assert.equal(formatControlValue(-0.0000003),'-0.0000003');
  assert.equal(formatControlValue(1.23456789,'pt'),'1.23456789 pt');
  assert.equal(formatControlValue(0.30000000000000004),'0.3','Floating-point noise must not leak into UI');
+ assert.equal(formatControlValue(3e-13,'mm'),'0.0000000000003 mm','Very small values must not be displayed as zero');
+ assert.equal(formatControlValue(1e-16,'mm'),'1e-16 mm','Sub-femtoscale values need unambiguous scientific notation');
 });
 
 test('property validation explains missing, out-of-range, step and nonnumeric values',()=>{

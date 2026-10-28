@@ -31,15 +31,10 @@ export function normalizeRange(value,min,max,step){
  const lastIndex=Math.floor((max-min)/step+1e-9);
  const index=clamp(Math.round((clamp(value,min,max)-min)/step),0,lastIndex);
  const snapped=min+index*step;
- // Both the step and the minimum define the legal decimal grid. For
- // min=0.05, step=0.1, rounding to the step's single decimal would corrupt
- // valid values (0.15 becomes 0.1). Handle scientific notation as well.
- const decimals=number=>{
-  const [mantissa,exponent='0']=String(number).toLowerCase().split('e');
-  return Math.max(0,(mantissa.split('.')[1]||'').length-Number(exponent));
- };
- const precision=Math.min(12,Math.max(decimals(step),decimals(min)));
- return Number(clamp(Number(snapped.toFixed(precision)),min,max).toFixed(precision));
+ // Decimal-place caps silently turn sub-picosecond / micro-scale steps into
+ // zero. Round floating-point noise using significant digits instead: this
+ // retains scientific-notation steps and fractional step bases alike.
+ return clamp(Number(snapped.toPrecision(15)),min,max);
 }
 // Match the precision input to the live native slider, including range
 // defaults and the unrestricted step="any" case.
@@ -53,12 +48,12 @@ export function rangeConstraints(input){
 }
 export function formatControlValue(v,unit=''){
  const value=Number(v);
- // A 3-decimal display silently turned fine-grained range values into zero
- // (e.g. 0.0000003). Match the precision supported by normalizeRange while
- // stripping floating-point noise from typical slider calculations.
- const body=Number.isInteger(value)?String(value):
-  Number.isFinite(value)&&Math.abs(value)<1e21?
-   value.toFixed(12).replace(/0+$/,'').replace(/[.]$/,''):String(value);
+ // Significant digits remove floating-point noise without turning tiny
+ // valid increments into 0. Prefer expanded decimals down to 1e-15; below
+ // that, scientific notation is safer than a misleading zero.
+ const rounded=Number.isFinite(value)?Number(value.toPrecision(15)):value;
+ const body=Number.isFinite(rounded)&&rounded!==0&&Math.abs(rounded)>=1e-15&&Math.abs(rounded)<1?
+  rounded.toFixed(15).replace(/0+$/,'').replace(/[.]$/,''):String(rounded);
  return body+(unit&&unit!=='×'?' '+unit:unit);
 }
 export function validationMessage(input,min,max,unit=''){
@@ -240,22 +235,31 @@ function enhanceColor(label,input,title){
  input.replaceWith(field);
  field.append(name,right);right.append(swatch,hex);swatch.append(input);
  const isHex=v=>/^#[0-9a-f]{6}$/i.test(v);
- const update=()=>{const v=input.value.toUpperCase();hex.value=v;hex.disabled=input.disabled;setError('');swatch.style.backgroundColor=v;};
- // Keep invalid user input visible for correction instead of replacing it with
- // the last saved color while leaving a stale aria-invalid state behind.
+ let editing=false;
+ const update=()=>{
+  const v=input.value.toUpperCase();
+  if(input.disabled)editing=false;
+  // App-level inspector synchronization must not discard an uncommitted
+  // hex draft (especially an invalid one) or clear its error announcement.
+  if(!editing){hex.value=v;setError('');}
+  hex.disabled=input.disabled;swatch.style.backgroundColor=v;
+ };
  hex.addEventListener('input',()=>{
+  editing=true;
   setError(isHex(hex.value.trim())?'':'Use uma cor hexadecimal com seis dígitos (#RRGGBB).');
  });
  hex.addEventListener('change',()=>{
   const v=hex.value.trim();
-  if(!isHex(v)){setError('Use uma cor hexadecimal com seis dígitos (#RRGGBB).');return;}
-  setError('');nativeCommit(input,v);update();
+  if(!isHex(v)){editing=true;setError('Use uma cor hexadecimal com seis dígitos (#RRGGBB).');return;}
+  editing=false;setError('');nativeCommit(input,v);update();
  });
  hex.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){update();hex.blur();}
+  if(e.key==='Escape'){editing=false;update();hex.blur();}
   if(e.key==='Enter'){hex.dispatchEvent(new Event('change'));if(isHex(hex.value.trim()))hex.blur();}
  });
- input.addEventListener('input',update);input.addEventListener('change',update);
+ // A real native swatch edit takes precedence over the pending text draft.
+ const nativeUpdate=()=>{editing=false;update();};
+ input.addEventListener('input',nativeUpdate);input.addEventListener('change',nativeUpdate);
  new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
  controllers.push(update);update();
 }
