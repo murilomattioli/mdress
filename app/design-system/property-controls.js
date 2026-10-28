@@ -28,7 +28,18 @@ export function normalizeRange(value,min,max,step){
  // The upper bound is not necessarily on the step grid. Clamping a
  // rounded step to max would produce a stepMismatch (e.g. 10 for 0..10/6).
  // Restrict the index before reconstructing the value instead.
- const lastIndex=Math.floor((max-min)/step+1e-9);
+ // A fixed epsilon in *step indices* can accept a maximum that is
+ // genuinely off-grid (e.g. max=0.99999999995, step=0.1). Only compensate
+ // for IEEE-754 rounding at the magnitude of the actual candidate value.
+ const ratio=(max-min)/step;
+ let lastIndex=Math.max(0,Math.floor(ratio));
+ const fits=index=>{
+  const candidate=min+index*step;
+  const tolerance=Number.EPSILON*4*Math.max(Math.abs(min),Math.abs(max),Math.abs(candidate));
+  return candidate<=max+tolerance;
+ };
+ if(lastIndex>0&&!fits(lastIndex))lastIndex--;
+ if(fits(lastIndex+1))lastIndex++;
  const index=clamp(Math.round((clamp(value,min,max)-min)/step),0,lastIndex);
  const snapped=min+index*step;
  // Decimal-place caps silently turn sub-picosecond / micro-scale steps into
@@ -253,6 +264,7 @@ function enhanceColor(label,input,title){
  const swatch=document.createElement('span');swatch.className='ds-color-swatch';
  const hex=document.createElement('input');hex.type='text';hex.className='ds-color-hex';hex.maxLength=7;
  hex.spellcheck=false;hex.autocomplete='off';hex.setAttribute('aria-label',title+' — hexadecimal');
+ if(!input.hasAttribute('aria-label'))input.setAttribute('aria-label',title+' — seletor de cor');
  hex.setAttribute('inputmode','text');
  const setError=feedbackFor(label,hex);
  const restoreNativeFocus=watchDisabledNativeFocus(input);
