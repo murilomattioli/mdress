@@ -48,7 +48,7 @@ async function capture(page,theme,width,name){
  assert.ok(png.length>=24&&png.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex'))&&
   png.readUInt32BE(16)>0&&png.readUInt32BE(20)>0,'Invalid PNG evidence: '+path);
  screenshots.push({theme,width,state:name,path});
- await checkpoint(theme+'/'+width+'/'+name);
+ // Interactive review pauses once per viewport, not once per PNG.
 }
 function error(phase,theme,width,e){
  findings.push({severity:'error',phase,theme,width,message:e?.stack||String(e)});
@@ -378,6 +378,25 @@ async function exercise(page,theme,width){
   'Disabling an open select must hand focus to an enabled inspector control: '+JSON.stringify(disabledFocus));
  await capture(page,theme,width,'select-disabled-focus-handoff');
  await capture(page,theme,width,'select-disabled');
+ // A closed combobox can own focus too. Disabling it must not strand
+ // keyboard users on document.body.
+ await page.locator('#fontChoice').evaluate(el=>{el.disabled=false;});
+ await page.waitForFunction(()=>!document.querySelector('#fontChoice')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.disabled);
+ await trigger.focus();
+ assert.equal(await trigger.evaluate(el=>el===document.activeElement),true);
+ await page.locator('#fontChoice').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#fontChoice')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.disabled);
+ const closedDisabledFocus=await page.evaluate(()=>{
+  const el=document.activeElement,rect=el.getBoundingClientRect();
+  const scroller=el.closest('.inspector-scroll'),bounds=scroller?.getBoundingClientRect();
+  return {inInspector:Boolean(el.closest('.design-inspector')),isBody:el===document.body,
+   disabled:Boolean(el.disabled),visible:rect.bottom>0&&rect.top<innerHeight&&rect.right>0&&rect.left<innerWidth&&
+    (!bounds||rect.bottom>bounds.top&&rect.top<bounds.bottom)};
+ });
+ assert.ok(closedDisabledFocus.inInspector&&!closedDisabledFocus.isBody&&
+  !closedDisabledFocus.disabled&&closedDisabledFocus.visible,
+  'Disabling a focused closed combobox must hand focus to a visible enabled inspector control: '+JSON.stringify(closedDisabledFocus));
+ await capture(page,theme,width,'select-disabled-trigger-focus-handoff');
  await page.locator('#fontChoice').evaluate(el=>{el.disabled=false;});
  await revealInspector(page,'page');
  const number=page.locator('.ds-property-number').filter({has:page.locator('#marginMm')});
@@ -547,6 +566,9 @@ try{
     await capture(page,theme,width,'workspace');
     try{await toolbarAudit(page,theme,width);toolbarPassed=true;}catch(e){if(e instanceof ReviewStopped)throw e;error('toolbar',theme,width,e);}
     try{await exercise(page,theme,width);inspectorPassed=true;}catch(e){if(e instanceof ReviewStopped)throw e;error('inspector',theme,width,e);}
+    // Keep the headed browser available for inspection between viewports.
+    // Six checkpoints replace 282 interruptions while preserving m/q/ENTER.
+    await checkpoint(theme+'/'+width+' — capturas concluídas; m=inspecionar, ENTER=próxima largura');
     for(const message of errors)findings.push({severity:'error',phase:'runtime',theme,width,message});
     scenarioPassed=toolbarPassed&&inspectorPassed&&errors.length===0;
    }catch(e){if(e instanceof ReviewStopped)stopped=true;else error('scenario',theme,width,e);}
