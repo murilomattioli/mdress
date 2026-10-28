@@ -116,6 +116,22 @@ async function exercise(page,theme,width){
   .every(item=>item.disabled));
  assert.equal(await page.locator('.ds-select-popover [data-value="system"]').isDisabled(),true);
  assert.equal(await page.evaluate(()=>document.activeElement?.matches('.ds-select-popover [role="option"]:not(:disabled)')),true,'Focus must move to an enabled popup option');
+ // Collision regression: typeahead must skip a disabled option even when it
+ // precedes the first enabled match. Restore labels before visual capture.
+ const enabledOptions=page.locator('.ds-select-popover [role="option"]:not([disabled])');
+ assert.ok(await enabledOptions.count()>1,'Typeahead regression needs two enabled options');
+ const firstEnabled=enabledOptions.first(),lastEnabled=enabledOptions.last();
+ const disabledLabel=page.locator('.ds-select-popover [data-value="system"] .ds-option-label');
+ const enabledLabel=firstEnabled.locator('.ds-option-label');
+ const originalDisabledLabel=await disabledLabel.textContent();
+ const originalEnabledLabel=await enabledLabel.textContent();
+ await disabledLabel.evaluate(el=>{el.textContent='Z blocked';});
+ await enabledLabel.evaluate(el=>{el.textContent='Z eligible';});
+ await lastEnabled.focus();
+ await page.keyboard.press('z');
+ assert.equal(await firstEnabled.evaluate(el=>el===document.activeElement),true,'Typeahead must skip disabled matching options');
+ await disabledLabel.evaluate((el,text)=>{el.textContent=text;},originalDisabledLabel);
+ await enabledLabel.evaluate((el,text)=>{el.textContent=text;},originalEnabledLabel);
  await capture(page,theme,width,'select-group-disabled');
  await firstGroup.evaluate(el=>{el.disabled=false;});
  await page.waitForFunction(()=>document.querySelector('.ds-select-popover [data-value="system"]')?.disabled===false);
