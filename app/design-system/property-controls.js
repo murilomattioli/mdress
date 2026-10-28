@@ -456,12 +456,15 @@ export function selectPopupNeedsRefresh(rendered,visible){
 }
 // Native-select-style typeahead: skip disabled options and cycle repeated initials.
 export function findEnabledOptionIndex(options,prefix,afterIndex=-1){
- const query=String(prefix).trim().toLocaleLowerCase();
+ // Normalize accents so typing "arv" can find "Árvore" in Portuguese.
+ // Keep the original label for visual display and screen readers.
+ const fold=text=>String(text).normalize('NFD').replace(/\p{M}/gu,'').trim().toLocaleLowerCase();
+ const query=fold(prefix);
  if(!query||!options.length)return -1;
  for(let offset=1;offset<=options.length;offset++){
   const index=(afterIndex+offset+options.length)%options.length;
   const option=options[index];
-  if(!option.disabled&&String(option.label).trim().toLocaleLowerCase().startsWith(query))return index;
+  if(!option.disabled&&fold(option.label).startsWith(query))return index;
  }
  return -1;
 }
@@ -598,6 +601,7 @@ function makeListbox(label,select,title){
    check.setAttribute('aria-hidden','true');
    check.append(checkIcon);item.append(text,check);
    item.dataset.value=opt.value;
+   item.title=text.textContent; // Full label remains discoverable when ellipsized.
    item.addEventListener('click',()=>{if(isSelectOptionDisabled(opt))return;nativeCommit(select,opt.value);closePopup();});
    item.addEventListener('keydown',e=>{
     const move=(dir)=>{const available=buttons.filter(b=>!b.disabled);const cur=available.indexOf(item);available[(cur+dir+available.length)%available.length]?.focus();};
@@ -611,7 +615,7 @@ function makeListbox(label,select,title){
      closePopup({restoreFocus:false});
      trigger.focus({preventScroll:true});
     }
-    if(e.key.length===1&&/[\p{L}\p{N}]/u.test(e.key)&&!e.altKey&&!e.ctrlKey&&!e.metaKey){
+    if(!e.isComposing&&e.key.length===1&&/[\p{L}\p{N}]/u.test(e.key)&&!e.altKey&&!e.ctrlKey&&!e.metaKey){
      // Search full labels while typing quickly; repeated initials still cycle.
      const now=Date.now(),query=now-lastTypedAt<700?typeahead+e.key:e.key;
      const options=buttons.map(b=>({disabled:b.disabled,label:b.querySelector('.ds-option-label')?.textContent||''}));
