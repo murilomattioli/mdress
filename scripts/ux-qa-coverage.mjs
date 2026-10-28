@@ -3,6 +3,7 @@
 export const UX_QA_VIEWPORT_HEIGHT=900;
 // A PNG header alone is not evidence: reject truncated, malformed or
 // checksum-corrupted screenshots before they can be reported as captured.
+import {inflateSync} from 'node:zlib';
 const PNG_SIGNATURE=Buffer.from('89504e470d0a1a0a','hex');
 const CRC_TABLE=Uint32Array.from({length:256},(_,index)=>{
  let crc=index;
@@ -18,7 +19,8 @@ function pngCrc32(bytes,start,end){
 export function validateScreenshotViewport(png,width,height=UX_QA_VIEWPORT_HEIGHT){
  if(!Buffer.isBuffer(png)||png.length<57||
   !png.subarray(0,8).equals(PNG_SIGNATURE))return false;
- let offset=8,hasHeader=false,hasImageData=false;
+ let offset=8,hasHeader=false,idatEnded=false,bytesPerPixel=0;
+ const compressed=[];
  while(offset+12<=png.length){
   const length=png.readUInt32BE(offset);
   if(length>png.length-offset-12)return false;
@@ -29,10 +31,31 @@ export function validateScreenshotViewport(png,width,height=UX_QA_VIEWPORT_HEIGH
    if(type!=='IHDR'||length!==13||
     png.readUInt32BE(offset+8)!==width||
     png.readUInt32BE(offset+12)!==height)return false;
+   // Playwright screenshots are 8-bit, non-interlaced RGB or RGBA.
+   // Reject unsupported formats instead of claiming to have decoded them.
+   const colorType=png[offset+17];
+   if(png[offset+16]!==8||![2,6].includes(colorType)||
+    png[offset+18]!==0||png[offset+19]!==0||png[offset+20]!==0)return false;
+   bytesPerPixel=colorType===6?4:3;
    hasHeader=true;
   }else if(type==='IHDR')return false;
-  if(type==='IDAT')hasImageData=true;
-  if(type==='IEND')return length===0&&hasImageData&&end===png.length;
+  if(type==='IDAT'){
+   if(idatEnded)return false; // IDAT chunks must be consecutive.
+   compressed.push(png.subarray(offset+8,end-4));
+  }else if(compressed.length)idatEnded=true;
+  if(type==='IEND'){
+   if(length!==0||!compressed.length||end!==png.length)return false;
+   const rowLength=width*bytesPerPixel+1;
+   const expectedLength=rowLength*height;
+   try{
+    // CRC validates the container; zlib and scanline checks validate actual
+    // pixel data. A CRC-correct PNG with an empty/bogus IDAT is not evidence.
+    const pixels=inflateSync(Buffer.concat(compressed),{maxOutputLength:expectedLength+1});
+    if(pixels.length!==expectedLength)return false;
+    for(let row=0;row<height;row++)if(pixels[row*rowLength]>4)return false;
+    return true;
+   }catch{return false;}
+  }
   offset=end;
  }
  return false;
