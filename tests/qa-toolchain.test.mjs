@@ -21,5 +21,6 @@ test('UX QA records traces for failed scenarios without archiving successful run
  assert.match(runner,/context\.tracing\.stop\(\{path\}\)/);
  assert.match(runner,/else await context\.tracing\.stop\(\)/);
  assert.match(runner,/screenshots,traces,findings/,'Reports must link captured failure traces');
+ assert.match(runner,/#toast\.show'\)\.waitFor\(\{state:'hidden'/,'Visual captures must wait for the startup toast to clear');
  assert.match(smoke,/supervised\/\*-trace\.zip/,'CI should preserve failure traces');
 });
