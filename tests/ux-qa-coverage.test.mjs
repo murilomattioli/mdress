@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {summarizeUxCoverage,summarizeScreenshotCoverage,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS,parseHumanReviewChoice,validateHumanReviewEvidence} from '../scripts/ux-qa-coverage.mjs';
+import {summarizeUxCoverage,summarizeScreenshotCoverage,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT} from '../scripts/ux-qa-coverage.mjs';
 
 const full=()=>UX_QA_MATRIX.map(({theme,width})=>({theme,width,scenario:true,inspector:true,toolbar:true,errors:0}));
 
@@ -91,4 +91,18 @@ test('human review requires a matching session and explicit approval of all 50 s
  assert.deepEqual(validateHumanReviewEvidence(extra,session).unexpected,['unverified-extra']);
  assert.equal(validateHumanReviewEvidence(extra,session).valid,false);
  assert.equal(validateHumanReviewEvidence(null,session).valid,false);
+});
+
+test('PNG evidence requires exact viewport dimensions and IHDR',()=>{
+ const png=Buffer.alloc(33);
+ Buffer.from('89504e470d0a1a0a','hex').copy(png,0);
+ png.writeUInt32BE(13,8);png.write('IHDR',12);
+ png.writeUInt32BE(1440,16);png.writeUInt32BE(UX_QA_VIEWPORT_HEIGHT,20);
+ assert.equal(validateScreenshotViewport(png,1440),true);
+ assert.equal(validateScreenshotViewport(png,1024),false);
+ png.writeUInt32BE(1,16);
+ assert.equal(validateScreenshotViewport(png,1440),false,'1px placeholder must fail');
+ png.writeUInt32BE(1440,16);png.write('IDAT',12);
+ assert.equal(validateScreenshotViewport(png,1440),false,'IHDR is mandatory');
+ assert.equal(validateScreenshotViewport(Buffer.from('not a PNG'),1440),false);
 });

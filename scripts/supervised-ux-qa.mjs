@@ -11,7 +11,7 @@ import {mkdir,stat,writeFile,readFile} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
-import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice,validateHumanReviewEvidence} from './ux-qa-coverage.mjs';
+import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT} from './ux-qa-coverage.mjs';
 import {renderUxQaGallery} from './ux-qa-gallery.mjs';
 
 const args=new Set(process.argv.slice(2));
@@ -47,8 +47,8 @@ async function capture(page,theme,width,name){
  const path=directory+'/'+theme+'-'+width+'-'+name+'.png';
  const png=await page.screenshot({path,animations:'disabled'});
  // Evidence must be an actual nonempty PNG, not only a reached checkpoint.
- assert.ok(png.length>=24&&png.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex'))&&
-  png.readUInt32BE(16)>0&&png.readUInt32BE(20)>0,'Invalid PNG evidence: '+path);
+ assert.ok(validateScreenshotViewport(png,width),
+  'PNG evidence must match the full '+width+'×'+UX_QA_VIEWPORT_HEIGHT+' viewport: '+path);
  screenshots.push({theme,width,state:name,path});
  // Interactive review pauses once per viewport, not once per PNG.
 }
@@ -611,7 +611,7 @@ try{
  for(const theme of ['graphite','studio']){
   for(const width of [1440,1024,768]){
    if(stopped)break;
-   const context=await browser.newContext({viewport:{width,height:900}});
+   const context=await browser.newContext({viewport:{width,height:UX_QA_VIEWPORT_HEIGHT}});
    const page=await context.newPage();
    await context.tracing.start({screenshots:true,snapshots:true,sources:true});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));

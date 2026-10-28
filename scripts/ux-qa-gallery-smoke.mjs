@@ -2,6 +2,7 @@
 import {strict as assert} from 'node:assert';
 import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
+import {deflateSync} from 'node:zlib';
 
 const html=await readFile('test-results/ux-audit/supervised/index.html','utf8');
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
@@ -11,14 +12,41 @@ try{
  // A synthetic local origin enables storage/download tests without an external service.
  // Serve real decodable PNG bytes: an HTML fallback must never count as reviewed evidence.
  const pixel=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC','base64');
- let breakFreshReview=false;
+ // Generate small, decodable full-viewport PNGs to exercise dimension checks.
+ const pngChunk=(type,data)=>{
+  const name=Buffer.from(type,'ascii'),length=Buffer.alloc(4),crcBytes=Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  let crc=0xffffffff;
+  for(const byte of Buffer.concat([name,data])){
+   crc^=byte;
+   for(let bit=0;bit<8;bit++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);
+  }
+  crcBytes.writeUInt32BE((crc^0xffffffff)>>>0);
+  return Buffer.concat([length,name,data,crcBytes]);
+ };
+ const viewportPng=width=>{
+  const ihdr=Buffer.alloc(13);
+  ihdr.writeUInt32BE(width,0);ihdr.writeUInt32BE(900,4);
+  ihdr[8]=8;ihdr[9]=2;
+  return Buffer.concat([
+   Buffer.from('89504e470d0a1a0a','hex'),
+   pngChunk('IHDR',ihdr),
+   pngChunk('IDAT',deflateSync(Buffer.alloc((width*3+1)*900))),
+   pngChunk('IEND',Buffer.alloc(0))
+  ]);
+ };
+ const fixtures=new Map([1440,1024,768].map(width=>[width,viewportPng(width)]));
+ let breakFreshReview=false,wrongViewport=false;
  await page.route('http://mdress-qa.test/**',route=>{
   const address=new URL(route.request().url());
   if(address.pathname.endsWith('.png')){
    if(address.pathname.includes('graphite-1440-workspace.png')&&
       (address.pathname.startsWith('/broken/')||(breakFreshReview&&address.searchParams.has('mdress-verify'))))
     return route.fulfill({status:404,body:'Missing screenshot'});
-   return route.fulfill({status:200,contentType:'image/png',body:pixel});
+   const width=Number(address.pathname.match(/-(1440|1024|768)-/)?.[1]);
+   const wrongSize=wrongViewport&&address.pathname.includes('graphite-1440-workspace.png')&&
+    address.searchParams.has('mdress-verify');
+   return route.fulfill({status:200,contentType:'image/png',body:wrongSize?pixel:fixtures.get(width)});
   }
   return route.fulfill({status:200,contentType:'text/html',body:html});
  });
@@ -74,6 +102,19 @@ try{
  const restored=JSON.parse(await readFile(await (await restoredDownload).path(),'utf8'));
  assert.equal(restored.states.workspace.status,'pending','Restoring evidence must not auto-approve UX');
  assert.equal(await status.isDisabled(),false,'Reviewer can inspect restored evidence again');
+ await status.selectOption('approved');
+ wrongViewport=true;
+ const resizedDownload=page.waitForEvent('download');
+ await page.locator('#export-review').click();
+ const resized=JSON.parse(await readFile(await (await resizedDownload).path(),'utf8'));
+ assert.equal(resized.states.workspace.status,'pending','Wrong-size PNG must revoke prior approval');
+ assert.equal(await status.isDisabled(),true);
+ wrongViewport=false;
+ const repairedDownload=page.waitForEvent('download');
+ await page.locator('#export-review').click();
+ const repaired=JSON.parse(await readFile(await (await repairedDownload).path(),'utf8'));
+ assert.equal(repaired.states.workspace.status,'pending','Repair cannot silently approve a state');
+ assert.equal(await status.isDisabled(),false);
  page.once('dialog',dialog=>dialog.accept());
  await page.locator('#reset-review').click();
  assert.equal(await status.inputValue(),'pending');
@@ -89,6 +130,6 @@ try{
  const broken=JSON.parse(await readFile(await (await brokenDownload).path(),'utf8'));
  assert.equal(broken.states.workspace.status,'pending');
  assert.match(await missing.locator('.image-warning').innerText(),/seis capturas/);
- console.log('Gallery smoke passed: review, modal keyboard, persistence, fresh export revalidation, missing-PNG guard.');
+ console.log('Gallery smoke passed: review, modal keyboard, persistence, fresh export revalidation, missing/wrong-size PNG guards.');
  await context.close();
 }finally{await browser.close();}

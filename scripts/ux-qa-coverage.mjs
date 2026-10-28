@@ -1,4 +1,12 @@
 /** Explicit coverage contract: incomplete, duplicate or interrupted matrices never pass. */
+// Full-viewport evidence is required; tiny or cropped PNGs cannot be approved.
+export const UX_QA_VIEWPORT_HEIGHT=900;
+export function validateScreenshotViewport(png,width,height=UX_QA_VIEWPORT_HEIGHT){
+ if(!Buffer.isBuffer(png)||png.length<33)return false;
+ return png.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex'))&&
+  png.readUInt32BE(8)===13&&png.toString('ascii',12,16)==='IHDR'&&
+  png.readUInt32BE(16)===width&&png.readUInt32BE(20)===height;
+}
 export const UX_QA_MATRIX=[
  ...['graphite','studio'].flatMap(theme=>[1440,1024,768].map(width=>({theme,width})))
 ];
