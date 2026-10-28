@@ -205,6 +205,9 @@ try{
    try{
     await page.goto(url,{waitUntil:'networkidle'});
     await page.locator('#source').waitFor();
+    // The initial "Documento criado" toast obscures inspector controls in QA screenshots.
+    // Wait for its normal dismissal; do not suppress subsequent error feedback.
+    await page.locator('#toast.show').waitFor({state:'hidden',timeout:6500});
     await page.locator('body').evaluate((el,value)=>el.dataset.theme=value,theme);
     await capture(page,theme,width,'workspace');
     try{await toolbarAudit(page,theme,width);toolbarPassed=true;}catch(e){if(e instanceof ReviewStopped)throw e;error('toolbar',theme,width,e);}
