@@ -5,6 +5,9 @@ test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(1.174,1.1,2.2,.05),1.15);
  assert.equal(normalizeRange(100,8,35,1),35);
  assert.equal(normalizeRange(-20,8,35,1),8);
+ assert.equal(normalizeRange(0.15,0.05,1.05,0.1),0.15,'A fractional minimum must not lose precision');
+ assert.equal(normalizeRange(0.45,0.05,1.05,0.1),0.45);
+ assert.equal(normalizeRange(0.0000003,0,0.000001,1e-7),0.0000003,'Scientific notation steps must preserve precision');
 });
 test('precision control rejects unsupported numeric states',()=>{
  assert.throws(()=>normalizeRange(NaN,0,1,.1));
