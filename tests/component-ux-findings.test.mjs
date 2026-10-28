@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {deduplicateAuditFindings, summarizeAuditFindings} from '../scripts/component-ux-findings.mjs';
+import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding} from '../scripts/component-ux-findings.mjs';
 
 const finding = (theme, width, severity = 'warning') => ({
   rule: 'scrollable-toolbar',
@@ -54,4 +54,14 @@ test('summarizes warnings and errors per scenario without treating warnings as p
     {theme: 'studio', width: 768, critical: 1, warnings: 0, rules: ['scrollable-toolbar']},
     {theme: 'graphite', width: 1440, critical: 0, warnings: 0, rules: []},
   ]);
+});
+
+test('a viewport with zero inventoried controls fails rather than silently passing',()=>{
+ assert.equal(auditCoverageFinding(24,{theme:'studio',width:768}),null);
+ for(const count of [0,undefined,NaN,-1]){
+  const finding=auditCoverageFinding(count,{theme:'studio',width:768});
+  assert.equal(finding.severity,'error');
+  assert.equal(finding.rule,'coverage');
+  assert.equal(summarizeAuditFindings([finding],[{theme:'studio',width:768}]).critical,1);
+ }
 });
