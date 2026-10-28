@@ -221,6 +221,19 @@ function enhanceBinary(label,input,title){
  new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
  controllers.push(update);update();
 }
+// Keyboard navigation must never land on a disabled segment (including disabled optgroups).
+export function nextEnabledSegmentIndex(disabled,current,key){
+ const length=disabled.length;
+ if(!length||disabled.every(Boolean))return -1;
+ if(key==='Home')return disabled.findIndex(value=>!value);
+ if(key==='End')return disabled.findLastIndex(value=>!value);
+ const direction=key==='ArrowLeft'?-1:1;
+ for(let offset=1;offset<=length;offset++){
+  const index=(current+direction*offset+length*2)%length;
+  if(!disabled[index])return index;
+ }
+ return -1;
+}
 function enhanceSegment(label,select,title){
  label.classList.add('ds-property-row','ds-property-row--segment');
  const field=document.createElement('div');field.className='ds-property-segment';
@@ -238,21 +251,29 @@ function enhanceSegment(label,select,title){
   const btn=button('ds-segment-option',compact[option.value]||option.textContent);
   btn.setAttribute('aria-pressed',String(select.value===option.value));
   btn.dataset.value=option.value;
-  btn.onclick=()=>nativeCommit(select,option.value);
+  btn.onclick=()=>{if(!select.disabled&&!isSelectOptionDisabled(option))nativeCommit(select,option.value);};
   btn.addEventListener('keydown',e=>{
    if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
    e.preventDefault();
-   const index=elements.indexOf(btn);
-   const next=e.key==='Home'?0:e.key==='End'?elements.length-1:(index+(e.key==='ArrowRight'?1:-1)+elements.length)%elements.length;
-   elements[next].focus();elements[next].click();
+   const next=nextEnabledSegmentIndex(elements.map(item=>item.disabled),elements.indexOf(btn),e.key);
+   if(next!==-1){elements[next].focus();elements[next].click();}
   });
   elements.push(btn);group.append(btn);
  }
- const update=()=>{for(const [index,btn] of elements.entries()){
-  btn.setAttribute('aria-pressed',String(btn.dataset.value===select.value));
-  btn.disabled=select.disabled||select.options[index]?.disabled||false;
- }};
- new MutationObserver(update).observe(select,{attributes:true,attributeFilter:['disabled']});
+ const update=()=>{
+  const focused=elements.indexOf(document.activeElement);
+  for(const [index,btn] of elements.entries()){
+   btn.setAttribute('aria-pressed',String(btn.dataset.value===select.value));
+   btn.disabled=select.disabled||isSelectOptionDisabled(select.options[index]);
+  }
+  // When the active option becomes disabled, keep keyboard focus in the group.
+  if(focused!==-1&&elements[focused].disabled){
+   const next=nextEnabledSegmentIndex(elements.map(item=>item.disabled),focused,'ArrowRight');
+   if(next!==-1)elements[next].focus();
+   else {group.tabIndex=-1;group.focus();}
+  }
+ };
+ new MutationObserver(update).observe(select,{subtree:true,attributes:true,attributeFilter:['disabled']});
  select.addEventListener('change',update);controllers.push(update);update();
 }
 function closePopup({restoreFocus=true}={}){
