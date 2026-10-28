@@ -107,6 +107,18 @@ async function exercise(page,theme,width){
  await trigger.focus();await trigger.press('ArrowDown');
  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
  await capture(page,theme,width,'select-open');
+ // An optgroup's disabled state must propagate to every enhanced option,
+ // including when the native select changes while its popup is open.
+ const firstGroup=page.locator('#fontChoice optgroup').first();
+ await firstGroup.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>[...document.querySelectorAll('.ds-select-popover [data-value]')]
+  .filter(item=>['system','arial','verdana','trebuchet','tahoma'].includes(item.dataset.value))
+  .every(item=>item.disabled));
+ assert.equal(await page.locator('.ds-select-popover [data-value="system"]').isDisabled(),true);
+ assert.equal(await page.evaluate(()=>document.activeElement?.disabled===true),false,'Focus must leave disabled popup options');
+ await capture(page,theme,width,'select-group-disabled');
+ await firstGroup.evaluate(el=>{el.disabled=false;});
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover [data-value="system"]')?.disabled===false);
  await page.keyboard.press('Escape');
  await page.locator('#fontChoice').evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>document.querySelector('#fontChoice')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.disabled);
