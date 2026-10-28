@@ -120,8 +120,10 @@ try{
  await page.locator('#export-review').click();
  const repaired=JSON.parse(await readFile(await (await repairedDownload).path(),'utf8'));
  assert.equal(repaired.states.workspace.status,'pending','Repair cannot silently approve a state');
-  await page.waitForFunction(()=>!document.querySelector('.review-status').disabled);
- assert.equal(await status.isDisabled(),false);
+ const repairedDisabled=await status.isDisabled();
+ if(repairedDisabled)console.error('Repaired evidence requests:',JSON.stringify(workspaceRequests.slice(-20)));
+ assert.equal(repairedDisabled,false,
+  'Restored dimensions must re-enable review: '+await page.locator('.state').first().locator('.image-warning').innerText());
  page.once('dialog',dialog=>dialog.accept());
  await page.locator('#reset-review').click();
  assert.equal(await status.inputValue(),'pending');
