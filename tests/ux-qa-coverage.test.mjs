@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {summarizeUxCoverage,UX_QA_MATRIX,parseHumanReviewChoice} from '../scripts/ux-qa-coverage.mjs';
+import {summarizeUxCoverage,summarizeScreenshotCoverage,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS,parseHumanReviewChoice} from '../scripts/ux-qa-coverage.mjs';
 
 const full=()=>UX_QA_MATRIX.map(({theme,width})=>({theme,width,scenario:true,inspector:true,toolbar:true,errors:0}));
 
@@ -37,4 +37,20 @@ test('human visual sign-off is explicit and separate from passing automated chec
  assert.equal(parseHumanReviewChoice(null), 'not-reviewed');
  assert.equal(summarizeUxCoverage(full(),[],false).status,'passed',
   'Automated status remains a separate functional result');
+});
+
+test('visual evidence requires every control state in every viewport exactly once',()=>{
+ const all=UX_QA_MATRIX.flatMap(({theme,width})=>
+  UX_QA_REQUIRED_SCREENSHOTS.map(state=>({theme,width,state,path:theme+'-'+width+'-'+state+'.png'})));
+ const complete=summarizeScreenshotCoverage(all);
+ assert.equal(complete.expected,252);
+ assert.equal(complete.captured,252);
+ assert.deepEqual(complete.missing,[]);
+ assert.deepEqual(complete.duplicates,[]);
+ const missing=summarizeScreenshotCoverage(all.slice(1));
+ assert.deepEqual(missing.missing,['graphite:1440:workspace']);
+ const repeated=summarizeScreenshotCoverage([...all,all[0]]);
+ assert.deepEqual(repeated.duplicates,['graphite:1440:workspace']);
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-any'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-tab-backward'));
 });
