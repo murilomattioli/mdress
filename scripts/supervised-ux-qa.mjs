@@ -106,6 +106,10 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'range-invalid');
  await precise.press('Escape');
  assert.equal(await precise.getAttribute('aria-invalid'),null);
+ assert.equal(await precise.evaluate(el=>el===document.activeElement),true,
+  'Cancelling an invalid precision draft must preserve keyboard focus');
+ assert.equal(await precise.inputValue(),originalRange,'Escape restores native range value');
+ await capture(page,theme,width,'range-escape-focused');
  // Dragging the real slider must override an abandoned invalid numeric draft.
  await precise.fill('9999');
  await page.locator('#fontSize').evaluate(el=>{
@@ -191,6 +195,10 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'color-draft-sync');
  await hex.press('Escape');
  assert.equal(await hex.getAttribute('aria-invalid'),null);
+ assert.equal(await hex.evaluate(el=>el===document.activeElement),true,
+  'Cancelling an invalid hex draft must preserve keyboard focus');
+ assert.equal((await hex.inputValue()).toLowerCase(),originalColor.toLowerCase());
+ await capture(page,theme,width,'color-escape-focused');
  const nextColor=originalColor.toLowerCase()==='#abcdef'?'#123456':'#abcdef';
  await hex.fill(nextColor);await hex.dispatchEvent('change');
  assert.equal(await page.locator('#accentColor').inputValue(),nextColor);
