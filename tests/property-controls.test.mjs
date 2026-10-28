@@ -47,6 +47,9 @@ test('combobox typeahead skips disabled items and cycles matching initials',()=>
  assert.equal(findEnabledOptionIndex(options,'s',2),3,'Search from current focus should wrap and skip disabled matches');
  assert.equal(findEnabledOptionIndex(options,'s',3),1,'Repeated initial cycles to next enabled match');
  assert.equal(findEnabledOptionIndex(options,'m',1),2);
+ assert.equal(findEnabledOptionIndex(options,'ser',2),1,'Multiple typed characters narrow to the full label');
+ assert.equal(findEnabledOptionIndex(options,'sys',1),3,'Prefix search can find a later enabled match');
+ assert.equal(findEnabledOptionIndex(options,'scr',2),-1,'Disabled prefix matches must not receive focus');
  assert.equal(findEnabledOptionIndex(options,'x',2),-1);
  assert.equal(findEnabledOptionIndex(options,'',2),-1);
  assert.equal(findEnabledOptionIndex([], 's'),-1);
