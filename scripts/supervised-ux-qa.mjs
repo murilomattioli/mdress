@@ -10,7 +10,7 @@ import {strict as assert} from 'node:assert';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
-import {summarizeUxCoverage} from './ux-qa-coverage.mjs';
+import {summarizeUxCoverage,parseHumanReviewChoice} from './ux-qa-coverage.mjs';
 
 const args=new Set(process.argv.slice(2));
 const automated=args.has('--auto');
@@ -22,7 +22,7 @@ const headless=args.has('--headless');
 const url=process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173';
 const directory='test-results/ux-audit/supervised';
 const findings=[],screenshots=[],traces=[],coverage=[];
-let stopped=false;
+let stopped=false,humanReview='not-reviewed';
 class ReviewStopped extends Error {constructor(){super('Interrompido pelo revisor');this.name='ReviewStopped';}}
 const io=!automated?createInterface({input:stdin,output:stdout}):null;
 async function checkpoint(label){
@@ -411,10 +411,21 @@ try{
 }catch(e){if(!stopped)error('browser','global',0,e);}
 finally{
  await browser?.close();
+ // A successful functional matrix never implies that someone inspected the
+ // screenshots. Record an explicit verdict only in an interactive session.
+ if(io&&!stopped&&summarizeUxCoverage(coverage,findings,stopped).status==='passed'){
+  try{
+   const choice=await io.question('Revisão visual humana: a=aprovar | r=reprovar | ENTER=pendente | q=parar > ');
+   if(choice.trim().toLowerCase()==='q')stopped=true;
+   else humanReview=parseHumanReviewChoice(choice);
+  }catch(e){error('human-review','global',0,e);}
+ }
  io?.close();
  const summary=summarizeUxCoverage(coverage,findings,stopped);
- const report={schema:2,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,coverage,screenshots,traces,findings};
+ const report={schema:3,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,
+  humanReview:{status:automated?'not-applicable':humanReview,requiresExplicitApproval:true},
+  coverage,screenshots,traces,findings};
  await writeFile('test-results/supervised-ux-qa.json',JSON.stringify(report,null,2)+'\n');
- console.log('[UX QA] report: test-results/supervised-ux-qa.json | status: '+summary.status+' | scenarios: '+summary.passing+'/'+summary.expected+' | screenshots: '+screenshots.length+' | findings: '+findings.length);
- if(summary.status!=='passed')process.exitCode=1;
+ console.log('[UX QA] report: test-results/supervised-ux-qa.json | status: '+summary.status+' | human review: '+report.humanReview.status+' | scenarios: '+summary.passing+'/'+summary.expected+' | screenshots: '+screenshots.length+' | findings: '+findings.length);
+ if(summary.status!=='passed'||humanReview==='rejected')process.exitCode=1;
 }
