@@ -7,10 +7,11 @@
  */
 import {chromium} from 'playwright';
 import {strict as assert} from 'node:assert';
-import {mkdir,stat,writeFile} from 'node:fs/promises';
+import {mkdir,stat,writeFile,readFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
-import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice} from './ux-qa-coverage.mjs';
+import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice,validateHumanReviewEvidence} from './ux-qa-coverage.mjs';
 import {renderUxQaGallery} from './ux-qa-gallery.mjs';
 
 const args=new Set(process.argv.slice(2));
@@ -23,7 +24,8 @@ const headless=args.has('--headless');
 const url=process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173';
 const directory='test-results/ux-audit/supervised';
 const findings=[],screenshots=[],traces=[],coverage=[];
-let stopped=false,humanReview='not-reviewed';
+let stopped=false,humanReview='not-reviewed',humanReviewEvidence=null;
+const reviewSessionId=randomUUID();
 class ReviewStopped extends Error {constructor(){super('Interrompido pelo revisor');this.name='ReviewStopped';}}
 const io=!automated?createInterface({input:stdin,output:stdout}):null;
 async function checkpoint(label){
@@ -619,7 +621,7 @@ finally{
  let galleryPath=null;
  try{
   const path=directory+'/index.html';
-  await writeFile(path,renderUxQaGallery(screenshots,screenshotCoverage));
+  await writeFile(path,renderUxQaGallery(screenshots,screenshotCoverage,reviewSessionId));
   galleryPath=path;
   console.log('[UX QA] Galeria visual offline: '+path);
  }catch(e){error('gallery','global',0,e);}
@@ -629,13 +631,31 @@ finally{
   try{
    const choice=await io.question('Revisão visual humana: a=aprovar | r=reprovar | ENTER=pendente | q=parar > ');
    if(choice.trim().toLowerCase()==='q')stopped=true;
-   else humanReview=parseHumanReviewChoice(choice);
+   else {
+    humanReview=parseHumanReviewChoice(choice);
+    if(humanReview==='approved'){
+     const reviewPath=(await io.question('Caminho completo do JSON exportado pela galeria > ')).trim().replace(/^["']|["']$/g,'');
+     try{
+      const review=JSON.parse(await readFile(reviewPath,'utf8'));
+      const validation=validateHumanReviewEvidence(review,reviewSessionId);
+      humanReviewEvidence={file:reviewPath,...validation};
+      if(!validation.valid){
+       humanReview='not-reviewed';
+       console.error('[UX QA] Aprovação recusada: sessão incorreta ou estados pendentes/reprovados. '+JSON.stringify(validation));
+      }
+     }catch(e){
+      humanReview='not-reviewed';
+      humanReviewEvidence={file:reviewPath,valid:false,error:e.message};
+      console.error('[UX QA] Não foi possível validar a revisão exportada: '+e.message);
+     }
+    }
+   }
   }catch(e){error('human-review','global',0,e);}
  }
  io?.close();
  const summary=summarizeUxCoverage(coverage,findings,stopped);
- const report={schema:4,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,screenshotCoverage,
-  humanReview:{status:automated?'not-applicable':humanReview,requiresExplicitApproval:true},
+ const report={schema:5,reviewSessionId,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,screenshotCoverage,
+  humanReview:{status:automated?'not-applicable':humanReview,requiresExplicitApproval:true,evidence:humanReviewEvidence},
   gallery:galleryPath,coverage,screenshots,traces,findings};
  await writeFile('test-results/supervised-ux-qa.json',JSON.stringify(report,null,2)+'\n');
  console.log('[UX QA] report: test-results/supervised-ux-qa.json | status: '+summary.status+' | human review: '+report.humanReview.status+' | scenarios: '+summary.passing+'/'+summary.expected+' | screenshots: '+screenshots.length+' | findings: '+findings.length);
