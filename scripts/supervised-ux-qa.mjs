@@ -10,7 +10,7 @@ import {strict as assert} from 'node:assert';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
-import {summarizeUxCoverage,parseHumanReviewChoice} from './ux-qa-coverage.mjs';
+import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice} from './ux-qa-coverage.mjs';
 
 const args=new Set(process.argv.slice(2));
 const automated=args.has('--auto');
@@ -92,6 +92,40 @@ async function exercise(page,theme,width){
  await page.waitForFunction(()=>document.querySelector('.ds-property-range .ds-prop-number')?.disabled===true);
  await capture(page,theme,width,'range-disabled');
  await page.locator('#fontSize').evaluate(el=>{el.disabled=false;});
+ // Inspect live native range constraints in every theme and viewport, using
+ // an isolated fixture that never touches persisted document settings.
+ await page.evaluate(async()=>{
+  const label=document.createElement('label');
+  label.className='property-row';label.textContent='QA faixa dinâmica';
+  const input=document.createElement('input');
+  input.id='qaSupervisedRange';input.type='range';
+  input.min='0';input.max='10';input.step='2';input.value='4';
+  label.append(input);document.querySelector('#fontSize').closest('label').after(label);
+  const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+  enhancePropertyControls();
+ });
+ const liveNative=page.locator('#qaSupervisedRange');
+ const liveRow=page.locator('.ds-property-range').filter({has:liveNative});
+ const livePrecision=liveRow.locator('.ds-prop-number');
+ await liveNative.evaluate(el=>{el.min='2';el.max='14';el.step='3';});
+ await page.waitForFunction(()=>document.querySelector('#qaSupervisedRange')?.closest('.ds-property-range')?.querySelector('.ds-prop-number')?.step==='3');
+ await livePrecision.fill('8');await livePrecision.dispatchEvent('change');
+ assert.equal(await liveNative.inputValue(),'8');
+ await liveRow.scrollIntoViewIfNeeded();
+ await capture(page,theme,width,'range-live-valid');
+ await livePrecision.fill('9');await livePrecision.dispatchEvent('change');
+ assert.equal(await livePrecision.getAttribute('aria-invalid'),'true');
+ assert.equal(await liveNative.inputValue(),'8');
+ await capture(page,theme,width,'range-live-invalid');
+ await liveNative.evaluate(el=>{el.step='any';});
+ await page.waitForFunction(()=>document.querySelector('#qaSupervisedRange')?.closest('.ds-property-range')?.querySelector('.ds-prop-number')?.step==='any');
+ await livePrecision.fill('9.25');await livePrecision.dispatchEvent('change');
+ assert.equal(await liveNative.inputValue(),'9.25');
+ await capture(page,theme,width,'range-live-any');
+ await liveNative.evaluate(el=>{el.disabled=true;});
+ assert.equal(await livePrecision.isDisabled(),true);
+ await capture(page,theme,width,'range-live-disabled');
+ await liveNative.evaluate(el=>el.closest('label').remove());
  const color=page.locator('.ds-property-color').filter({has:page.locator('#accentColor')});
  const hex=color.locator('.ds-color-hex');
  await color.scrollIntoViewIfNeeded();
@@ -483,8 +517,13 @@ finally{
   }catch(e){error('human-review','global',0,e);}
  }
  io?.close();
+ const screenshotCoverage=summarizeScreenshotCoverage(screenshots);
+ if(!stopped&&(screenshotCoverage.missing.length||screenshotCoverage.duplicates.length)){
+  findings.push({severity:'error',phase:'screenshot-coverage',theme:'all',width:0,
+   message:'Missing: '+screenshotCoverage.missing.join(', ')+'; duplicates: '+screenshotCoverage.duplicates.join(', ')});
+ }
  const summary=summarizeUxCoverage(coverage,findings,stopped);
- const report={schema:3,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,
+ const report={schema:4,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,screenshotCoverage,
   humanReview:{status:automated?'not-applicable':humanReview,requiresExplicitApproval:true},
   coverage,screenshots,traces,findings};
  await writeFile('test-results/supervised-ux-qa.json',JSON.stringify(report,null,2)+'\n');
