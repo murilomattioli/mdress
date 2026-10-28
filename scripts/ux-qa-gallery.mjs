@@ -42,36 +42,51 @@ async function verifyImages(section,{fresh=false}={}){
  const check=(async()=>{
   const images=[...section.querySelectorAll("figure img")];
   if(images.length!==6)throw Error("Matriz incompleta");
-  // Decode only one full-viewport image at a time to bound Chromium memory.
+  // Decode one screenshot at a time. For HTTP origins, fetch uncached bytes
+  // and close ImageBitmaps explicitly: Chromium may retain a prior 404 in
+  // its image decoder even after the file has been restored. Local file://
+  // galleries use Image.decode(), since browsers often block file:// fetch.
   for(const img of images){
-   // Each export uses fresh URLs, but repeated full-viewport decodes can
-   // exhaust browser image memory. Release each temporary image after
-   // checking it, and retry transient decode errors once (never dimensions).
-   for(let attempt=0;attempt<(fresh?2:1);attempt++){
-    const candidate=fresh?new Image():img;
-    if(fresh){
-     const source=new URL(img.src,location.href);
-     source.searchParams.set("mdress-verify",String(++verificationNonce));
-     candidate.src=source.href;
-    }else img.loading="eager";
-    let decoded=false;
-    try{await candidate.decode();decoded=true;}
-    catch{}
-    if(!decoded){
+   const figure=img.closest("figure");
+   const expectedWidth=Number(figure?.dataset.viewportWidth);
+   const expectedHeight=Number(figure?.dataset.viewportHeight);
+   let actualWidth=0,actualHeight=0;
+   if(fresh&&location.protocol!=="file:"&&typeof createImageBitmap==="function"){
+    const source=new URL(img.src,location.href);
+    source.searchParams.set("mdress-verify",String(++verificationNonce));
+    let response;
+    try{response=await fetch(source.href,{cache:"no-store"});}
+    catch{throw Error(img.alt+": arquivo indisponível ou ilegível");}
+    if(!response.ok)throw Error(img.alt+": arquivo indisponível ou ilegível");
+    let bitmap;
+    try{bitmap=await createImageBitmap(await response.blob());}
+    catch{throw Error(img.alt+": arquivo indisponível ou ilegível");}
+    actualWidth=bitmap.width;actualHeight=bitmap.height;
+    bitmap.close();
+   }else{
+    for(let attempt=0;attempt<(fresh?2:1);attempt++){
+     const candidate=fresh?new Image():img;
+     if(fresh){
+      const source=new URL(img.src,location.href);
+      source.searchParams.set("mdress-verify",String(++verificationNonce));
+      candidate.src=source.href;
+     }else img.loading="eager";
+     let decoded=false;
+     try{await candidate.decode();decoded=true;}
+     catch{}
+     if(!decoded){
+      if(fresh)candidate.removeAttribute("src");
+      if(attempt+1<(fresh?2:1))continue;
+      throw Error(img.alt+": arquivo indisponível ou ilegível");
+     }
+     actualWidth=candidate.naturalWidth;actualHeight=candidate.naturalHeight;
      if(fresh)candidate.removeAttribute("src");
-     if(attempt+1<(fresh?2:1))continue;
-     throw Error(img.alt+": arquivo indisponível ou ilegível");
+     break;
     }
-    const figure=img.closest("figure");
-    const expectedWidth=Number(figure?.dataset.viewportWidth);
-    const expectedHeight=Number(figure?.dataset.viewportHeight);
-    const actualWidth=candidate.naturalWidth,actualHeight=candidate.naturalHeight;
-    if(fresh)candidate.removeAttribute("src");
-    if(actualWidth!==expectedWidth||actualHeight!==expectedHeight)
-     throw Error(img.alt+": esperado "+expectedWidth+"×"+expectedHeight+
-      ", recebido "+actualWidth+"×"+actualHeight);
-    break;
    }
+   if(actualWidth!==expectedWidth||actualHeight!==expectedHeight)
+    throw Error(img.alt+": esperado "+expectedWidth+"×"+expectedHeight+
+     ", recebido "+actualWidth+"×"+actualHeight);
   }
   select.disabled=false;
   warningEl.hidden=true;
