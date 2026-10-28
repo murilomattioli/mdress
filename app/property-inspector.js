@@ -1,4 +1,5 @@
 import {initializePropertyControls,syncPropertyControls} from './design-system/property-controls.js';
+import {organizeInspector} from './inspector-organization.js';
 /** Contextual document inspector: accessible tab navigation + compact numeric range fields. */
 const $=id=>document.getElementById(id);
 let currentTab='style';
@@ -26,6 +27,7 @@ export function inspectorPageSummary(count,diagnostics=[]){
 }
 export function updatePropertyReadouts(){syncPropertyControls();}
 export function initializeInspector(){
+ organizeInspector();
  const tabs=[...document.querySelectorAll('[data-inspector-tab]')];
  for(const [index,tab] of tabs.entries()){
   tab.onclick=()=>setInspectorTab(tab.dataset.inspectorTab);

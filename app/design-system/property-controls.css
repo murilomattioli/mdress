@@ -301,3 +301,32 @@
 .design-inspector .ds-segment-option:disabled:hover{
  background:transparent;color:var(--ds-text-secondary);
 }
+
+/* Entity-first inspector: labels and values have their own space. */
+.design-inspector .ds-accordion-body{gap:8px;padding:8px 0 20px}
+.design-inspector .ds-accordion-title{font-size:13px;font-weight:650}
+.design-inspector .ds-property-row{margin:0!important}
+.design-inspector .ds-property-range,
+.design-inspector .ds-property-number,
+.design-inspector .ds-property-color,
+.design-inspector .ds-property-select,
+.design-inspector .ds-property-segment,
+.design-inspector .ds-property-binary{
+ grid-template-columns:minmax(0,1fr);gap:8px;padding:10px 12px;
+ border-radius:6px;background:transparent;border:1px solid var(--ds-border-subtle);
+}
+.design-inspector .ds-property-row .ds-prop-name{
+ font-size:12px;line-height:1.4;white-space:normal;overflow:visible;
+}
+.design-inspector .ds-property-range{grid-template-columns:minmax(0,1fr) auto}
+.design-inspector .ds-property-range .ds-prop-name{grid-column:1 / -1}
+.design-inspector .ds-color-right,.design-inspector .ds-number-actions{justify-content:flex-end}
+.design-inspector .ds-segment-buttons,.design-inspector .ds-binary-group{width:100%}
+.design-inspector .ds-binary-option{flex:1}
+.design-inspector .ds-select-trigger{padding-inline:10px;min-height:36px}
+.design-inspector .property-field{display:flex;flex-direction:column;gap:8px;font-size:12px}
+.design-inspector .property-field textarea{width:100%;box-sizing:border-box;font:12px/1.5 var(--ds-font);padding:10px}
+.design-inspector .property-actions{gap:8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.design-inspector .property-actions button{min-height:36px;white-space:normal}
+.design-inspector .composer-mode-switch{margin-bottom:12px}
+.design-inspector .section-style-actions{margin-top:12px}

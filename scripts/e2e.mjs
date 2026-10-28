@@ -8,6 +8,11 @@ page.on('pageerror',e=>errors.push(e.message));
 try {
  await page.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
  await page.locator('#source').waitFor();
+ // Entity grouping must preserve original controls and their scope.
+ assert.equal(await page.locator('#sectionComposerView #sectionStyleReset').count(),1);
+ assert.equal(await page.locator('#inspector-page .ds-accordion').count(),4);
+ assert.equal(await page.locator('#inspector-ai .ds-accordion').count(),2);
+ assert.equal(await page.locator('#inspector-style .property-section').first().locator('#fontChoice').count(),1);
  await page.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent!=='Carregando…');
  const source=page.locator('#source');
  assert.ok((await source.inputValue()).includes('O título do artigo'));
