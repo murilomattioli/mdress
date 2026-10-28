@@ -24,7 +24,7 @@ test('offline gallery renders all 300 comparisons and supports filtering',()=>{
  assert.match(html,/actualWidth!==expectedWidth/);
  assert.match(html,/actualHeight!==expectedHeight/);
  assert.match(html,/data-viewport-width="1440" data-viewport-height="900"/);
- assert.match(html,/states\.slice\(offset,offset\+3\)\.map\(section=>verifyImages\(section,\{fresh:true\}\)\)/);
+ assert.match(html,/await verifyImages\(states\[offset\],\{fresh:true\}\)/);
  assert.match(html,/source\.searchParams\.set\("mdress-verify"/);
  assert.match(html,/id="image-viewer"/);
  assert.match(html,/viewer\.showModal\(\)/);
