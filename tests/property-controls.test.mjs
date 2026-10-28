@@ -8,6 +8,11 @@ test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(0.15,0.05,1.05,0.1),0.15,'A fractional minimum must not lose precision');
  assert.equal(normalizeRange(0.45,0.05,1.05,0.1),0.45);
  assert.equal(normalizeRange(0.0000003,0,0.000001,1e-7),0.0000003,'Scientific notation steps must preserve precision');
+ assert.equal(normalizeRange(10,0,10,6),6,'A max outside the step grid must not be returned as an invalid value');
+ assert.equal(normalizeRange(10,1,10,4),9,'An offset minimum defines the last legal step');
+ assert.equal(normalizeRange(1,0,1,2),0,'Steps larger than the range have only one legal value');
+ assert.equal(normalizeRange(0.95,0.05,1,0.2),0.85,'A fractional grid must stay aligned at the upper edge');
+ assert.equal(normalizeRange(10,0,10,5),10,'An aligned maximum must remain selectable');
 });
 test('precision control rejects unsupported numeric states',()=>{
  assert.throws(()=>normalizeRange(NaN,0,1,.1));
