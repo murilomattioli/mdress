@@ -238,7 +238,33 @@ async function exercise(page,theme,width){
   'Resize must restore focus from detached popup option to combobox trigger');
  await page.setViewportSize({width,height:900});
  await capture(page,theme,width,'select-resize-focus');
- await trigger.press('ArrowDown');
+ // Scrolling an inspector control out of view must dismiss its portalled
+ // listbox without dropping focus onto document.body (keyboard trap).
+ await trigger.scrollIntoViewIfNeeded();
+ await trigger.focus();await trigger.press('ArrowDown');
+ assert.equal(await trigger.getAttribute('aria-expanded'),'true');
+ const inspectorScroll=page.locator('.inspector-scroll');
+ await inspectorScroll.evaluate(el=>el.dispatchEvent(new Event('scroll')));
+ assert.equal(await trigger.getAttribute('aria-expanded'),'true',
+  'Scrolling while the trigger remains visible must preserve the popup');
+ const scrolled=await inspectorScroll.evaluate(el=>{
+  el.scrollTop=el.scrollHeight;
+  el.dispatchEvent(new Event('scroll'));
+  return el.scrollTop;
+ });
+ assert.ok(scrolled>0,'Inspector must be scrollable for the focus-handoff regression');
+ await page.waitForFunction(()=>document.querySelector('#fontChoice')?.closest('.ds-property-select')
+  ?.querySelector('.ds-select-trigger')?.getAttribute('aria-expanded')==='false');
+ const scrollFocus=await page.evaluate(()=>{
+  const el=document.activeElement,rect=el.getBoundingClientRect();
+  return {inInspector:Boolean(el.closest('.design-inspector')),isBody:el===document.body,
+   disabled:Boolean(el.disabled),visible:rect.bottom>0&&rect.top<innerHeight&&rect.right>0&&rect.left<innerWidth};
+ });
+ assert.ok(scrollFocus.inInspector&&!scrollFocus.isBody&&!scrollFocus.disabled&&scrollFocus.visible,
+  'Scrolling a portalled option away must hand focus to a visible inspector control: '+JSON.stringify(scrollFocus));
+ await trigger.scrollIntoViewIfNeeded();
+ await capture(page,theme,width,'select-scroll-focus-handoff');
+ await trigger.focus();await trigger.press('ArrowDown');
  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
  await page.keyboard.press('Escape');
  // A portalled listbox must preserve normal document tab order when closed.
