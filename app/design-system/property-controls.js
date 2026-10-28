@@ -22,7 +22,9 @@ const labelOf=(label)=>{
 function span(cls,text=''){const x=document.createElement('span');x.className=cls;x.textContent=text;return x;}
 function button(cls,title){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=title;return b;}
 export function normalizeRange(value,min,max,step){
- if(![value,min,max,step].every(Number.isFinite)||min>=max||step<=0)throw Error('Faixa inválida');
+ if(![value,min,max].every(Number.isFinite)||min>=max)throw Error('Faixa inválida');
+ if(step==='any')return clamp(value,min,max);
+ if(!Number.isFinite(step)||step<=0)throw Error('Faixa inválida');
  // The upper bound is not necessarily on the step grid. Clamping a
  // rounded step to max would produce a stepMismatch (e.g. 10 for 0..10/6).
  // Restrict the index before reconstructing the value instead.
@@ -39,6 +41,16 @@ export function normalizeRange(value,min,max,step){
  const precision=Math.min(12,Math.max(decimals(step),decimals(min)));
  return Number(clamp(Number(snapped.toFixed(precision)),min,max).toFixed(precision));
 }
+// Match the precision input to the live native slider, including range
+// defaults and the unrestricted step="any" case.
+export function rangeConstraints(input){
+ const min=input.min===''?0:Number(input.min);
+ const max=input.max===''?100:Number(input.max);
+ const step=input.step===''?1:input.step==='any'?'any':Number(input.step);
+ const valid=Number.isFinite(min)&&Number.isFinite(max)&&min<max&&
+  (step==='any'||Number.isFinite(step)&&step>0);
+ return {min,max,step,valid};
+}
 export function formatControlValue(v,unit=''){
  const value=Number(v);
  const body=Number.isInteger(value)?String(value):String(Number(value.toFixed(3)));
@@ -46,7 +58,12 @@ export function formatControlValue(v,unit=''){
 }
 export function validationMessage(input,min,max,unit=''){
  if(input.value.trim()==='')return 'Informe um valor.';
- if(input.validity.rangeUnderflow||input.validity.rangeOverflow)return 'Use um valor entre '+min+' e '+max+(unit?' '+unit:'')+'.';
+ if(input.validity.rangeUnderflow||input.validity.rangeOverflow){
+  const suffix=unit?' '+unit:'';
+  if(Number.isFinite(min)&&Number.isFinite(max))return 'Use um valor entre '+min+' e '+max+suffix+'.';
+  if(input.validity.rangeUnderflow&&Number.isFinite(min))return 'Use um valor maior ou igual a '+min+suffix+'.';
+  if(input.validity.rangeOverflow&&Number.isFinite(max))return 'Use um valor menor ou igual a '+max+suffix+'.';
+ }
  if(input.validity.stepMismatch)return 'Use um valor compatível com o incremento permitido.';
  return 'Informe um número válido.';
 }
@@ -72,9 +89,8 @@ function nativeCommit(input,next){
  input.dispatchEvent(new Event('change',{bubbles:true}));
 }
 function enhanceRange(label,input,title){
- const min=Number(input.min),max=Number(input.max),step=Number(input.step||1);
  const unit=unitOf(input);
- if(![min,max,step].every(Number.isFinite)||min>=max)return;
+ if(!rangeConstraints(input).valid)return;
  label.classList.add('ds-property-row','ds-property-row--range');
  const field=document.createElement('div');field.className='ds-property-range';
  const name=span('ds-prop-name',title);
@@ -82,7 +98,14 @@ function enhanceRange(label,input,title){
  const fill=span('ds-prop-fill'),ticks=span('ds-prop-ticks'),thumb=span('ds-prop-thumb');
  const valueBox=document.createElement('div');valueBox.className='ds-prop-numberbox';
  const numeric=document.createElement('input');numeric.type='number';numeric.className='ds-prop-number';
- numeric.min=input.min;numeric.max=input.max;numeric.step=input.step||'1';
+ const syncConstraints=()=>{
+  const constraints=rangeConstraints(input);
+  numeric.min=String(constraints.min);
+  numeric.max=String(constraints.max);
+  numeric.step=String(constraints.step);
+  return constraints;
+ };
+ syncConstraints();
  numeric.setAttribute('aria-label',title+' — valor'+(unit?' em '+unit:''));
  const setError=feedbackFor(label,numeric);
  const unitBadge=span('ds-prop-unit',unit);
@@ -98,19 +121,23 @@ function enhanceRange(label,input,title){
  const valid=()=>numeric.value.trim()!==''&&numeric.validity.valid&&Number.isFinite(numeric.valueAsNumber);
  let editing=false;
  const update=()=>{
-  const value=Number(input.value),pct=(clamp(value,min,max)-min)/(max-min)*100;
+  const {min,max,valid:boundsValid}=syncConstraints();
+  const value=Number(input.value);
+  const pct=boundsValid?(clamp(value,min,max)-min)/(max-min)*100:0;
   field.style.setProperty('--ds-range-progress',pct+'%');
   if(input.disabled)editing=false;
   numeric.disabled=input.disabled;
   if(!editing)numeric.value=input.value;
-  setError(!input.disabled&&editing&&!valid()?validationMessage(numeric,min,max,unit):'');
+  setError(!input.disabled&&editing?
+   (!boundsValid?'Verifique os limites e o incremento da faixa.':!valid()?validationMessage(numeric,min,max,unit):''):'');
   if(!Number.isNaN(value))field.setAttribute('data-value',formatControlValue(value,unit));
  };
  input.addEventListener('input',update);
  input.addEventListener('change',update);
  numeric.addEventListener('input',()=>{editing=true;update();});
  numeric.addEventListener('change',()=>{
-  if(!valid()){editing=true;update();return;}
+  const {min,max,step,valid:boundsValid}=syncConstraints();
+  if(!boundsValid||!valid()){editing=true;update();return;}
   const value=numeric.valueAsNumber;
   editing=false;
   nativeCommit(input,normalizeRange(value,min,max,step));
@@ -123,9 +150,12 @@ function enhanceRange(label,input,title){
  // Double-click resets only when an explicit initial value is available.
  const initial=Number(input.defaultValue);
  if(input.hasAttribute('value')&&Number.isFinite(initial))field.title='Clique duas vezes na régua para restaurar';
- if(input.hasAttribute('value'))progress.addEventListener('dblclick',()=>nativeCommit(input,normalizeRange(initial,min,max,step)));
+ if(input.hasAttribute('value'))progress.addEventListener('dblclick',()=>{
+  const {min,max,step,valid}=rangeConstraints(input);
+  if(valid)nativeCommit(input,normalizeRange(initial,min,max,step));
+ });
  const output=label.querySelector('output');if(output)output.classList.add('property-visually-hidden');
- new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
+ new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled','min','max','step']});
  controllers.push(update);update();
 }
 function enhanceNumber(label,input,title){
