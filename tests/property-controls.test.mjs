@@ -1,5 +1,5 @@
 import {test} from 'node:test';import {strict as assert} from 'node:assert';
-import {normalizeRange,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex,selectPopoverLayout,selectPopupNeedsRefresh} from '../app/design-system/property-controls.js';
+import {normalizeRange,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex,selectPopoverLayout,selectPopupNeedsRefresh,visibleSelectOptions} from '../app/design-system/property-controls.js';
 test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(11.22,9,14,.5),11);
  assert.equal(normalizeRange(1.174,1.1,2.2,.05),1.15);
@@ -123,4 +123,19 @@ test('combobox popup shrinks on narrow screens and limits height to available sp
  assert.equal(layout.placement,'below');
  assert.equal(layout.maxHeight,135);
  assert.equal(layout.top,47);
+});
+
+test('combobox excludes options inside hidden optgroups without mutating native options',()=>{
+ const shownGroup={tagName:'OPTGROUP',hidden:false};
+ const hiddenGroup={tagName:'OPTGROUP',hidden:true};
+ const options=[
+  {value:'visible',hidden:false,parentElement:shownGroup},
+  {value:'group-hidden',hidden:false,parentElement:hiddenGroup},
+  {value:'option-hidden',hidden:true,parentElement:shownGroup},
+  {value:'ungrouped',hidden:false,parentElement:{tagName:'SELECT',hidden:false}}
+ ];
+ assert.deepEqual(visibleSelectOptions({options}).map(option=>option.value),['visible','ungrouped']);
+ hiddenGroup.hidden=false;
+ assert.deepEqual(visibleSelectOptions({options}).map(option=>option.value),['visible','group-hidden','ungrouped']);
+ assert.equal(options[1].hidden,false,'The native select remains the source of truth');
 });
