@@ -103,6 +103,9 @@ try {
  assert.equal(await qaPlus.isDisabled(),true,'Stepper must honor an explicit upper bound');
  await qaNumber.evaluate(el=>{el.min='-3';el.removeAttribute('max');el.value='-3';el.dispatchEvent(new Event('input',{bubbles:true}));});
  assert.equal(await qaMinus.isDisabled(),true,'Stepper must honor an explicit negative minimum');
+ await qaNumber.evaluate(el=>{el.value='-4';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await qaNumber.dispatchEvent('change');
+ assert.match(await qaNumber.locator('..').locator('..').locator('..').locator('.ds-prop-error').textContent(),/maior ou igual a -3/,'One-sided numeric bounds must not display Infinity');
  await qaStepper.scrollIntoViewIfNeeded();
  await qaStepper.screenshot({path:'test-results/ux-audit/inspector-number-unbounded-step.png',animations:'disabled'});
  await qaNumber.evaluate(el=>el.closest('label').remove());
@@ -162,6 +165,47 @@ try {
 
  // Precision property input and keyboard-accessible tab switching.
  await page.locator('[data-inspector-tab="style"]').click();
+ // A detached QA range must track live min/max/step changes without modifying
+ // the saved document. Keep visual evidence of normal, invalid and disabled states.
+ await page.evaluate(async()=>{
+  const original=document.querySelector('#fontSize').closest('label');
+  const label=document.createElement('label');
+  label.className='property-row';
+  label.textContent='QA faixa dinâmica';
+  const input=document.createElement('input');
+  input.id='qaRangeLive';input.type='range';input.min='0';input.max='10';
+  input.step='2';input.value='4';
+  label.append(input);original.after(label);
+  const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+  enhancePropertyControls();
+ });
+ const qaRange=page.locator('#qaRangeLive');
+ const qaRangeRow=page.locator('.ds-property-range').filter({has:qaRange});
+ const qaRangePrecision=qaRangeRow.locator('.ds-prop-number');
+ assert.equal(await qaRangePrecision.getAttribute('min'),'0');
+ await qaRange.evaluate(el=>{el.min='2';el.max='14';el.step='3';});
+ await page.waitForFunction(()=>document.querySelector('#qaRangeLive')?.closest('.ds-property-range')?.querySelector('.ds-prop-number')?.step==='3');
+ assert.equal(await qaRangePrecision.getAttribute('min'),'2');
+ assert.equal(await qaRangePrecision.getAttribute('max'),'14');
+ await qaRangePrecision.fill('8');await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await qaRange.inputValue(),'8','Range precision must commit on the new native step grid');
+ await qaRangePrecision.fill('9');await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await qaRangePrecision.getAttribute('aria-invalid'),'true','Live step mismatch must be explained');
+ assert.equal(await qaRange.inputValue(),'8','Invalid draft must not mutate native slider');
+ await qaRangeRow.screenshot({path:'test-results/ux-audit/inspector-range-live-step-invalid.png',animations:'disabled'});
+ await qaRange.evaluate(el=>{el.step='any';});
+ await page.waitForFunction(()=>document.querySelector('#qaRangeLive')?.closest('.ds-property-range')?.querySelector('.ds-prop-number')?.step==='any');
+ await qaRangePrecision.fill('9.25');await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await qaRange.inputValue(),'9.25','Range step=any must preserve fractional precision');
+ await qaRange.evaluate(el=>{el.min='10';el.max='20';el.step='2';});
+ await page.waitForFunction(()=>document.querySelector('#qaRangeLive')?.closest('.ds-property-range')?.querySelector('.ds-prop-number')?.min==='10');
+ await qaRangePrecision.fill('18');await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await qaRange.inputValue(),'18','Changed range bounds must govern commits');
+ await qaRangeRow.screenshot({path:'test-results/ux-audit/inspector-range-live-bounds.png',animations:'disabled'});
+ await qaRange.evaluate(el=>{el.disabled=true;});
+ assert.equal(await qaRangePrecision.isDisabled(),true,'Disabled native range must disable its precision input');
+ await qaRangeRow.screenshot({path:'test-results/ux-audit/inspector-range-live-disabled.png',animations:'disabled'});
+ await qaRange.evaluate(el=>el.closest('label').remove());
  const precise=page.locator('.ds-property-range').filter({has:page.locator('#fontSize')}).locator('.ds-prop-number');
  assert.ok(await precise.count());
  await precise.fill('11');
