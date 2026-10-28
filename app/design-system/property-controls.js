@@ -368,7 +368,13 @@ function makeListbox(label,select,title){
     if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();move(e.key==='ArrowDown'?1:-1);}
     if(e.key==='Home'||e.key==='End'){e.preventDefault();(e.key==='Home'?buttons.find(x=>!x.disabled):[...buttons].reverse().find(x=>!x.disabled))?.focus();}
     if(e.key==='Escape'){e.preventDefault();closePopup();}
-    if(e.key==='Tab')closePopup({restoreFocus:false});
+    if(e.key==='Tab'){
+     // The listbox is portalled to document.body. Without restoring the
+     // sequential-navigation origin, Tab jumps to the page's first control.
+     // Move focus to the trigger before the browser handles Tab/Shift+Tab.
+     closePopup({restoreFocus:false});
+     trigger.focus({preventScroll:true});
+    }
     if(e.key.length===1&&/[\p{L}\p{N}]/u.test(e.key)&&!e.altKey&&!e.ctrlKey&&!e.metaKey){
      const index=findEnabledOptionIndex(
       buttons.map(b=>({disabled:b.disabled,label:b.querySelector('.ds-option-label')?.textContent||''})),
