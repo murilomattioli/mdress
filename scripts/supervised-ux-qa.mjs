@@ -180,7 +180,13 @@ async function exercise(page,theme,width){
  const colorPickerName=await page.locator('#accentColor').getAttribute('aria-label');
  assert.ok(colorPickerName?.includes('seletor de cor'),
   'The native color swatch needs an accessible name distinct from the hex text field');
- const originalColor=await page.locator('#accentColor').inputValue();
+ const nativeSwatch=page.locator('#accentColor');
+ await nativeSwatch.focus();
+ assert.equal(await nativeSwatch.evaluate(el=>el===document.activeElement),true,
+  'The native color picker must remain keyboard-focusable');
+ await capture(page,theme,width,'color-swatch-focus');
+ await hex.focus();
+ const originalColor=await nativeSwatch.inputValue();
  await hex.fill('#BAD');await hex.dispatchEvent('change');
  assert.equal(await hex.getAttribute('aria-invalid'),'true');
  assert.equal(await color.locator('..').locator('.ds-prop-error').isVisible(),true);
@@ -218,6 +224,12 @@ async function exercise(page,theme,width){
  await assertInspectorFocusHandoff(page,'Disabling a focused color hex draft must preserve inspector keyboard focus');
  await capture(page,theme,width,'color-disabled-focus-handoff');
  await page.locator('#accentColor').evaluate(el=>{el.disabled=false;});
+ await nativeSwatch.focus();
+ await nativeSwatch.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#accentColor')?.disabled===true);
+ await assertInspectorFocusHandoff(page,'Disabling a focused native color swatch must preserve inspector keyboard focus');
+ await capture(page,theme,width,'color-swatch-disabled-focus-handoff');
+ await nativeSwatch.evaluate(el=>{el.disabled=false;});
  const select=page.locator('.ds-property-select').filter({has:page.locator('#fontChoice')});
  const trigger=select.locator('.ds-select-trigger');
  await trigger.scrollIntoViewIfNeeded();await trigger.hover();await capture(page,theme,width,'select-hover');
