@@ -149,7 +149,12 @@ async function exercise(page,theme,width){
  await input.fill('9999');await input.dispatchEvent('change');
  assert.equal(await input.getAttribute('aria-invalid'),'true');
  assert.equal(await number.locator('..').locator('.ds-prop-error').isVisible(),true);
- assert.ok(await input.evaluate(el=>el.getBoundingClientRect().width)>=52,'Numeric drafts need a readable multi-digit field');
+ const numberGeometry=await input.evaluate(el=>({
+  inputWidth:el.getBoundingClientRect().width,
+  rowWidth:el.closest('.ds-property-number')?.getBoundingClientRect().width,
+  actionsWidth:el.closest('.ds-number-actions')?.getBoundingClientRect().width
+ }));
+ assert.ok(numberGeometry.inputWidth>=52,'Numeric drafts need a readable multi-digit field: '+JSON.stringify(numberGeometry));
  await capture(page,theme,width,'number-invalid');
  await input.press('Escape');
  assert.equal(await input.inputValue(),originalNumber);
