@@ -20,8 +20,9 @@ test('offline gallery renders all 300 comparisons and supports filtering',()=>{
  assert.equal((html.match(/class="review-status" disabled/g)||[]).length,50);
  assert.match(html,/async function verifyImages/);
  assert.match(html,/await candidate\.decode\(\)/);
- assert.match(html,/candidate\.naturalWidth!==expectedWidth/);
- assert.match(html,/candidate\.naturalHeight!==expectedHeight/);
+ assert.match(html,/candidate\.removeAttribute\("src"\)/);
+ assert.match(html,/actualWidth!==expectedWidth/);
+ assert.match(html,/actualHeight!==expectedHeight/);
  assert.match(html,/data-viewport-width="1440" data-viewport-height="900"/);
  assert.match(html,/states\.slice\(offset,offset\+3\)\.map\(section=>verifyImages\(section,\{fresh:true\}\)\)/);
  assert.match(html,/source\.searchParams\.set\("mdress-verify"/);
