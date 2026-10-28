@@ -70,7 +70,7 @@ async function verifyImages(section,{fresh=false}={}){
     if(actualWidth!==expectedWidth||actualHeight!==expectedHeight)
      throw Error(img.alt+": esperado "+expectedWidth+"×"+expectedHeight+
       ", recebido "+actualWidth+"×"+actualHeight);
-    return;
+    break;
    }
   }
   select.disabled=false;
