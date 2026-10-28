@@ -38,6 +38,8 @@ jobs:
         run: node scripts/component-ux-audit.mjs
       - name: Inspector and toolbar interaction matrix
         run: node scripts/supervised-ux-qa.mjs --auto --headless
+      - name: Human review gallery browser smoke
+        run: node scripts/ux-qa-gallery-smoke.mjs
       # Temporary, read-only evidence transport. Not the permanent PR image publisher.
       # No repository write permission; PNGs are already compressed.
       - name: Upload short-lived UX review bundle
