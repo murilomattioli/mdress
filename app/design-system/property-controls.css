@@ -172,6 +172,8 @@
 }
 .ds-select-option{display:flex;align-items:center;justify-content:space-between;gap:9px;border:0;border-radius:6px;min-height:34px;padding:7px 9px;background:transparent;color:var(--ds-text-secondary);font:550 11px/1.25 var(--ds-font);text-align:left}
 .ds-select-option:hover,.ds-select-option:focus-visible{background:var(--ds-panel-raised);color:var(--ds-text)}
+.ds-select-option:disabled{opacity:.48;cursor:not-allowed}
+.ds-select-option:disabled:hover{background:transparent;color:var(--ds-text-secondary)}
 .ds-select-option:focus-visible{outline:2px solid var(--ds-focus)!important;outline-offset:-2px!important}
 .ds-select-option[aria-selected=true]{background:var(--ds-brand-soft);color:var(--ds-text);font-weight:720}
 .ds-option-check{opacity:0;font-size:12px;color:var(--ds-brand)}
