@@ -21,6 +21,9 @@ test('offline gallery renders all 300 comparisons and supports filtering',()=>{
  assert.match(html,/async function verifyImages/);
  assert.match(html,/await candidate\.decode\(\)/);
  assert.match(html,/candidate\.removeAttribute\("src"\)/);
+ assert.match(html,/fetch\(source\.href,\{cache:"no-store"\}\)/);
+ assert.match(html,/createImageBitmap\(await response\.blob\(\)\)/);
+ assert.match(html,/bitmap\.close\(\)/);
  assert.match(html,/actualWidth!==expectedWidth/);
  assert.match(html,/actualHeight!==expectedHeight/);
  assert.match(html,/data-viewport-width="1440" data-viewport-height="900"/);
