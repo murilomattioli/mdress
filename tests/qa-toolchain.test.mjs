@@ -14,3 +14,12 @@ test('supervised QA is installable from declared development dependencies',()=>{
  assert.match(smoke,/npm install --include=dev/,'CI must install declared dependencies, not an ad-hoc Playwright version');
  assert.match(smoke,/npx playwright install --only-shell chromium/);
 });
+
+test('UX QA records traces for failed scenarios without archiving successful runs',()=>{
+ assert.match(runner,/context\.tracing\.start\(\{screenshots:true,snapshots:true,sources:true\}\)/);
+ assert.match(runner,/if\(!scenarioPassed\)\{/);
+ assert.match(runner,/context\.tracing\.stop\(\{path\}\)/);
+ assert.match(runner,/else await context\.tracing\.stop\(\)/);
+ assert.match(runner,/screenshots,traces,findings/,'Reports must link captured failure traces');
+ assert.match(smoke,/supervised\/\*-trace\.zip/,'CI should preserve failure traces');
+});
