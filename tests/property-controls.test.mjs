@@ -1,5 +1,5 @@
 import {test} from 'node:test';import {strict as assert} from 'node:assert';
-import {normalizeRange,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex} from '../app/design-system/property-controls.js';
+import {normalizeRange,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex} from '../app/design-system/property-controls.js';
 test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(11.22,9,14,.5),11);
  assert.equal(normalizeRange(1.174,1.1,2.2,.05),1.15);
@@ -51,4 +51,16 @@ test('combobox typeahead skips disabled items and cycles matching initials',()=>
  assert.equal(findEnabledOptionIndex(options,'',2),-1);
  assert.equal(findEnabledOptionIndex([], 's'),-1);
  assert.equal(findEnabledOptionIndex([{label:'Árvore',disabled:false}], 'á'),0,'Unicode labels remain searchable');
+});
+
+test('segment keyboard navigation skips disabled options and wraps safely',()=>{
+ const disabled=[false,true,false,true];
+ assert.equal(nextEnabledSegmentIndex(disabled,0,'ArrowRight'),2);
+ assert.equal(nextEnabledSegmentIndex(disabled,2,'ArrowRight'),0);
+ assert.equal(nextEnabledSegmentIndex(disabled,0,'ArrowLeft'),2);
+ assert.equal(nextEnabledSegmentIndex(disabled,2,'Home'),0);
+ assert.equal(nextEnabledSegmentIndex(disabled,0,'End'),2);
+ assert.equal(nextEnabledSegmentIndex([true,true],0,'ArrowRight'),-1);
+ assert.equal(nextEnabledSegmentIndex([],0,'Home'),-1);
+ assert.equal(nextEnabledSegmentIndex([false],0,'ArrowLeft'),0);
 });
