@@ -23,6 +23,16 @@ pnpm qa:supervised
 
 **Enter** avança ao próximo checkpoint, **m** libera o navegador para intervenção manual e **q** interrompe imediatamente o ciclo (inclusive no prompt de retomada), com código de saída não zero. A interrupção encerra a matriz sem solicitar checkpoints adicionais. O relatório inclui `summary.status` (`passed`, `failed` ou `stopped`) e reprova cobertura incompleta, repetida ou com subauditorias falhas. Capturas incluem estados hover de range e select. A auditoria salva as capturas em `test-results/ux-audit/supervised/` e o relatório em `test-results/supervised-ux-qa.json` (ignorados pelo Git). Se o servidor usar outra porta, configure `$env:MDRESS_AUDIT_URL='http://127.0.0.1:4174'` antes de executar o runner.
 
+## Rastreamento de falhas (Playwright Trace Viewer)
+
+O runner grava um `*-trace.zip` por cenário que **falhar ou for interrompido**. Cenários aprovados descartam o trace para evitar artefatos grandes. O JSON `test-results/supervised-ux-qa.json` lista os arquivos em `traces`, com tema e largura; os ZIPs ficam em `test-results/ux-audit/supervised/`. O Browser Smoke anexa esses traces quando houver falha. Para abrir localmente:
+
+```powershell
+pnpm exec playwright show-trace test-results/ux-audit/supervised/graphite-1440-trace.zip
+```
+
+Os traces podem conter o conteúdo dos documentos usados nos testes. Não publique esses ZIPs fora de um ambiente de QA controlado sem revisá-los.
+
 ## Execução automática (CI ou terminal)
 
 ```powershell
