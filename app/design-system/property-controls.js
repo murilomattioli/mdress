@@ -455,12 +455,18 @@ function makeListbox(label,select,title){
   const o=select.selectedOptions[0];
   const selectedLabel=o?.label||o?.textContent||'Selecionar';
   value.textContent=selectedLabel;trigger.title=selectedLabel;
-  // The hidden native select owns availability; the visible combobox must follow it.
+  // Disabling a focused trigger can synchronously move focus to body.
+  // Capture focus BEFORE setting disabled, including when the portal is closed.
+  const triggerWasFocused=document.activeElement===trigger;
   trigger.disabled=select.disabled;
   if(select.disabled&&openSelect?.trigger===trigger){
    const focusInPopup=openSelect.popup.contains(document.activeElement);
    closePopup({restoreFocus:false});
-   if(focusInPopup)focusInspectorNeighbor(trigger);
+   if(focusInPopup||triggerWasFocused)focusInspectorNeighbor(trigger,{visibleOnly:true});
+   return;
+  }
+  if(select.disabled&&triggerWasFocused){
+   focusInspectorNeighbor(trigger,{visibleOnly:true});
    return;
   }
   if(openSelect?.trigger===trigger){
