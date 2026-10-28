@@ -430,7 +430,8 @@ function enhanceSegment(label,select,title){
 }
 function closePopup({restoreFocus=true}={}){
  if(!openSelect)return;
- const {popup,trigger,onClose}=openSelect;
+ const {popup,trigger,onClose,visibilityObserver}=openSelect;
+ visibilityObserver?.disconnect();
  popup.remove();trigger.setAttribute('aria-expanded','false');
  openSelect=null;onClose?.();
  if(restoreFocus)trigger.focus();
@@ -493,7 +494,7 @@ function focusInspectorNeighbor(trigger,{visibleOnly=false}={}){
  const index=controls.indexOf(trigger);
  const eligible=el=>{
   if(el===trigger||el.disabled||el.tabIndex<0||
-   el.closest('[hidden],[inert]')||!el.getClientRects().length||
+   el.closest('[hidden],[inert],[aria-hidden="true"]')||!el.getClientRects().length||
    getComputedStyle(el).visibility==='hidden')return false;
   if(!visibleOnly)return true;
   const rect=el.getBoundingClientRect();
@@ -509,7 +510,15 @@ function focusInspectorNeighbor(trigger,{visibleOnly=false}={}){
  const next=controls.slice(index+1).find(eligible)||
   controls.slice(0,index).reverse().find(eligible);
  if(next)next.focus({preventScroll:true});
- else {root.tabIndex=-1;root.focus({preventScroll:true});}
+ else if(root.getClientRects().length&&
+  !root.closest('[hidden],[inert],[aria-hidden="true"]')&&
+  getComputedStyle(root).visibility!=='hidden'){
+  root.tabIndex=-1;root.focus({preventScroll:true});
+ }else{
+  // Closing the inspector itself must not focus a hidden panel.
+  const toggle=[$('designToggle'),$('railDesign')].find(el=>el&&!el.disabled&&el.getClientRects().length);
+  toggle?.focus({preventScroll:true});
+ }
 }
 function makeListbox(label,select,title){
  label.classList.add('ds-property-row','ds-property-row--select');
@@ -644,6 +653,27 @@ function makeListbox(label,select,title){
   reposition();
   trigger.setAttribute('aria-expanded','true');
   openSelect={popup,trigger,optionItems,reposition,onClose:()=>{}};
+  // The listbox is portalled to body, so hiding its source accordion,
+  // inspector tab or entire panel does not automatically remove it.
+  // Observe only the anchor's ancestor chain while open. This also catches
+  // programmatic tab changes (no pointerdown) and detached inspector nodes.
+  const visibilityObserver=new MutationObserver(()=>{
+   if(openSelect?.trigger!==trigger)return;
+   const hidden=!trigger.isConnected||
+    Boolean(trigger.closest('[hidden],[inert],[aria-hidden="true"]'))||
+    !trigger.getClientRects().length||
+    getComputedStyle(trigger).visibility==='hidden';
+   if(!hidden)return;
+   const focusInPopup=popup.contains(document.activeElement);
+   closePopup({restoreFocus:false});
+   if(focusInPopup)focusInspectorNeighbor(trigger,{visibleOnly:true});
+  });
+  for(let ancestor=trigger;ancestor;ancestor=ancestor.parentElement)
+   visibilityObserver.observe(ancestor,{
+    attributes:true,attributeFilter:['hidden','inert','aria-hidden','class','style'],
+    childList:true
+   });
+  openSelect.visibilityObserver=visibilityObserver;
   const target=buttons.find(b=>b.dataset.value===preferredValue&&!b.disabled)||
    buttons.find(b=>b.dataset.value===select.value&&!b.disabled)||
    buttons.find(b=>!b.disabled);
