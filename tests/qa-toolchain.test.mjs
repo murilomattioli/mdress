@@ -8,6 +8,7 @@ const runner=readFileSync(new URL('../scripts/supervised-ux-qa.mjs',import.meta.
 
 test('supervised QA is installable from declared development dependencies',()=>{
  assert.match(packageJson.devDependencies?.playwright||'',/^\d+\.\d+\.\d+$/,'Pin Playwright for reproducible QA');
+ assert.equal(packageJson.scripts.test,'node --test tests','The test command must run from PowerShell without relying on shell glob expansion');
  assert.equal(packageJson.scripts['qa:supervised'],'node scripts/supervised-ux-qa.mjs');
  assert.equal(packageJson.scripts['qa:automatic'],'node scripts/supervised-ux-qa.mjs --auto --headless');
  assert.match(runner,/from 'playwright'/);

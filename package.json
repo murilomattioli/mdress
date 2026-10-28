@@ -8,7 +8,7 @@
     "qa:supervised": "node scripts/supervised-ux-qa.mjs",
     "qa:automatic": "node scripts/supervised-ux-qa.mjs --auto --headless",
     "check": "node --check app/app.js && node --check app/resume-themes.js && node --check app/theme-agent.js && node --check app/sw.js && node --check app/markdown-commands.js && node --check app/markdown-render.js && node --check app/markdown-history.js && node --check app/background-presets.js && node --check app/mesh-background.js && node --check app/mesh-editor.js && node --check app/pdf-export.js && node --check scripts/pdf-quality.mjs && node --check app/semantic-flow.js && node --check app/page-plan.js && node --check app/property-inspector.js && node --check app/studio-shell.js && node --check app/design-system/components.js && node --check app/design-system/property-controls.js && node --check scripts/supervised-ux-qa.mjs && node --check app/document-templates.js && node --check app/theme-explorer.js && node --check app/section-pagination.js && node --check app/color-surprise.js && node --check app/section-design.js && node --check app/page-layout.js && node --check app/document-history.js && node --check app/scroll-sync.js && node --check app/element-styles.js && node --check app/section-surprise.js",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests"
   },
   "engines": {
     "node": ">=20"
