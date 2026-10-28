@@ -115,7 +115,7 @@ async function exercise(page,theme,width){
   .filter(item=>['system','arial','verdana','trebuchet','tahoma'].includes(item.dataset.value))
   .every(item=>item.disabled));
  assert.equal(await page.locator('.ds-select-popover [data-value="system"]').isDisabled(),true);
- assert.equal(await page.evaluate(()=>document.activeElement?.disabled===true),false,'Focus must leave disabled popup options');
+ assert.equal(await page.evaluate(()=>document.activeElement?.matches('.ds-select-popover [role="option"]:not(:disabled)')),true,'Focus must move to an enabled popup option');
  await capture(page,theme,width,'select-group-disabled');
  await firstGroup.evaluate(el=>{el.disabled=false;});
  await page.waitForFunction(()=>document.querySelector('.ds-select-popover [data-value="system"]')?.disabled===false);
