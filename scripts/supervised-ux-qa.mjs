@@ -468,6 +468,22 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'select-tab-switch-focus-handoff');
  await revealInspector(page,'style');
  await trigger.scrollIntoViewIfNeeded();
+ // Closing the entire inspector while a portalled option is focused must
+ // hand focus to the visible opener, not to the now-hidden inspector root.
+ await trigger.focus();await trigger.press('ArrowDown');
+ await page.locator('#designToggle').evaluate(el=>el.click());
+ await page.waitForFunction(()=>document.querySelector('#themesView')?.classList.contains('hidden')&&
+  !document.querySelector('.ds-select-popover'));
+ const panelCloseFocus=await page.evaluate(()=>{
+  const el=document.activeElement,rect=el?.getBoundingClientRect();
+  return {id:el?.id,visible:Boolean(rect?.width&&rect?.height&&
+   rect.top<innerHeight&&rect.bottom>0&&rect.left<innerWidth&&rect.right>0)};
+ });
+ assert.ok(['designToggle','railDesign'].includes(panelCloseFocus.id)&&panelCloseFocus.visible,
+  'Closing the inspector must focus its visible opener: '+JSON.stringify(panelCloseFocus));
+ await capture(page,theme,width,'select-inspector-close-focus-handoff');
+ await revealInspector(page,'style');
+ await trigger.scrollIntoViewIfNeeded();
  await trigger.focus();await trigger.press('ArrowDown');
  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
  await page.locator('#fontChoice').evaluate(el=>{el.disabled=true;});
