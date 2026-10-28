@@ -7,7 +7,7 @@
  */
 import {chromium} from 'playwright';
 import {strict as assert} from 'node:assert';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,stat,writeFile} from 'node:fs/promises';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
 import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice} from './ux-qa-coverage.mjs';
@@ -42,7 +42,10 @@ async function checkpoint(label){
 }
 async function capture(page,theme,width,name){
  const path=directory+'/'+theme+'-'+width+'-'+name+'.png';
- await page.screenshot({path,animations:'disabled'});
+ const png=await page.screenshot({path,animations:'disabled'});
+ // Evidence must be an actual nonempty PNG, not only a reached checkpoint.
+ assert.ok(png.length>=24&&png.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex'))&&
+  png.readUInt32BE(16)>0&&png.readUInt32BE(20)>0,'Invalid PNG evidence: '+path);
  screenshots.push({theme,width,state:name,path});
  await checkpoint(theme+'/'+width+'/'+name);
 }
@@ -463,6 +466,20 @@ async function toolbarAudit(page,theme,width){
  const outline=await focus.evaluate(el=>getComputedStyle(el).outlineStyle);
  if(outline==='none')findings.push({severity:'warning',phase:'toolbar-focus',theme,width,message:'First toolbar control has no own outline; inspect focus-within feedback'});
  await capture(page,theme,width,'toolbar-focus');
+ // The first toolbar action is always visible. Exercise keyboard reachability
+ // of the last action even when the toolbar is horizontally scrollable.
+ const last=toolbar.locator('button:visible:not([disabled]),select:visible:not([disabled])').last();
+ await toolbar.evaluate(el=>{el.scrollLeft=0;});
+ await last.focus();
+ await page.waitForFunction(()=>{
+  const bar=document.querySelector('.markdown-toolbar'),active=document.activeElement;
+  if(!bar?.contains(active))return false;
+  const item=active.getBoundingClientRect(),viewport=bar.getBoundingClientRect();
+  return item.left>=viewport.left-2&&item.right<=viewport.right+2;
+ },null,{timeout:4000});
+ assert.equal(await last.evaluate(el=>el===document.activeElement),true,
+  'Focusing the last toolbar action must preserve keyboard focus');
+ await capture(page,theme,width,'toolbar-last-focus');
 }
 await mkdir(directory,{recursive:true});
 let browser;
@@ -509,9 +526,22 @@ finally{
  await browser?.close();
  // Incomplete visual evidence must block the reviewer approval prompt.
  const screenshotCoverage=summarizeScreenshotCoverage(screenshots);
- if(!stopped&&(screenshotCoverage.missing.length||screenshotCoverage.duplicates.length)){
+ const missingFiles=[];
+ for(const entry of screenshots){
+  try{
+   const info=await stat(entry.path);
+   if(!info.isFile()||info.size<24)missingFiles.push(entry.path);
+  }catch{missingFiles.push(entry.path);}
+ }
+ if(missingFiles.length)findings.push({severity:'error',phase:'screenshot-files',theme:'all',width:0,
+  message:'Missing or empty PNG evidence: '+missingFiles.join(', ')});
+ if(!stopped&&(screenshotCoverage.missing.length||screenshotCoverage.duplicates.length||
+  screenshotCoverage.unexpected.length||screenshotCoverage.invalidPaths.length)){
   findings.push({severity:'error',phase:'screenshot-coverage',theme:'all',width:0,
-   message:'Missing: '+screenshotCoverage.missing.join(', ')+'; duplicates: '+screenshotCoverage.duplicates.join(', ')});
+   message:'Missing: '+screenshotCoverage.missing.join(', ')+
+    '; duplicates: '+screenshotCoverage.duplicates.join(', ')+
+    '; unexpected: '+screenshotCoverage.unexpected.join(', ')+
+    '; invalid paths: '+screenshotCoverage.invalidPaths.join(', ')});
  }
  // A successful functional matrix never implies that someone inspected the
  // screenshots. Record an explicit verdict only in an interactive session.
