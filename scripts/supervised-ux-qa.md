@@ -55,3 +55,5 @@ A revisão humana precisa verificar legibilidade, foco, hierarquia, ergonomia e 
 ## Galeria comparativa offline
 
 Ao terminar (inclusive após falha), abra `test-results/ux-audit/supervised/index.html` no navegador. A galeria organiza os **46 estados** com seis capturas lado a lado (tema × largura), filtro por nome e links para as imagens originais. Ela é incluída no artefato temporário do CI, sem publicação pública e sem enviar documentos a serviços externos. **Uma galeria gerada não é aprovação humana**: inspecione ergonomia, foco, legibilidade e clipping e registre seu veredito no terminal supervisionado.
+
+A seleção exibida no combobox mantém nome acessível estável e anuncia o valor selecionado via `aria-describedby`, além de expor `title` para textos truncados. O handoff de foco do controle binário desabilitado exige um destino visível no inspetor, não apenas qualquer elemento tecnicamente focável.

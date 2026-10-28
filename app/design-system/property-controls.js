@@ -282,7 +282,7 @@ function enhanceBinary(label,input,title){
   // In particular, bottomSectionEnabled is disabled when no section is selected.
   off.disabled=input.disabled;on.disabled=input.disabled;
   // Disabling a focused button must not silently dump keyboard focus on body.
-  if(focused&&input.disabled)focusInspectorNeighbor(focused);
+  if(focused&&input.disabled)focusInspectorNeighbor(focused,{visibleOnly:true});
  };
  const commit=val=>{
   if(input.disabled)return;
@@ -441,6 +441,10 @@ function makeListbox(label,select,title){
  trigger.setAttribute('role','combobox');trigger.setAttribute('aria-haspopup','listbox');trigger.setAttribute('aria-expanded','false');
  trigger.setAttribute('aria-label',title);
  const value=span('ds-select-value'),chevron=span('ds-select-chevron','⌄');
+ value.id='ds-select-value-'+(++nextUid);
+ // Keep a stable accessible name, but announce the selected value as a
+ // description. The native title exposes truncated values on hover too.
+ trigger.setAttribute('aria-describedby',value.id);
  trigger.append(value,chevron);
  select.classList.add('ds-select-native');
  select.setAttribute('aria-hidden','true');select.tabIndex=-1;
@@ -448,7 +452,9 @@ function makeListbox(label,select,title){
  const popupId='ds-select-list-'+(++nextUid);
  trigger.setAttribute('aria-controls',popupId);
  const update=()=>{
-  const o=select.selectedOptions[0];value.textContent=o?.label||o?.textContent||'Selecionar';
+  const o=select.selectedOptions[0];
+  const selectedLabel=o?.label||o?.textContent||'Selecionar';
+  value.textContent=selectedLabel;trigger.title=selectedLabel;
   // The hidden native select owns availability; the visible combobox must follow it.
   trigger.disabled=select.disabled;
   if(select.disabled&&openSelect?.trigger===trigger){

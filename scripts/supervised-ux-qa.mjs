@@ -187,6 +187,13 @@ async function exercise(page,theme,width){
   popupBounds.top>=7&&popupBounds.bottom<=popupBounds.height-7,
   'Open combobox must remain inside the viewport: '+JSON.stringify(popupBounds));
  await capture(page,theme,width,'select-open');
+ // Truncated selected values need a tooltip and a live accessible
+ // description without replacing the stable combobox label.
+ const selectedLabel=await page.locator('#fontChoice').evaluate(el=>
+  el.selectedOptions[0]?.label||el.selectedOptions[0]?.textContent);
+ assert.equal(await trigger.getAttribute('title'),selectedLabel);
+ const describedBy=await trigger.getAttribute('aria-describedby');
+ assert.equal(await page.locator('#'+describedBy).textContent(),selectedLabel);
  // An optgroup's disabled state must propagate to every enhanced option,
  // including when the native select changes while its popup is open.
  const firstGroup=page.locator('#fontChoice optgroup').first();
@@ -408,12 +415,17 @@ async function exercise(page,theme,width){
  await binary.locator('.ds-binary-option').first().focus();
  await native.evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>[...document.querySelector('#showPageGuides')?.closest('.ds-property-binary')?.querySelectorAll('button')||[]].every(b=>b.disabled));
- const binaryFocus=await page.evaluate(()=>({
-  inInspector:Boolean(document.activeElement?.closest('.design-inspector')),
-  isBody:document.activeElement===document.body,
-  disabled:Boolean(document.activeElement?.disabled)
- }));
- assert.ok(binaryFocus.inInspector&&!binaryFocus.isBody&&!binaryFocus.disabled,
+ const binaryFocus=await page.evaluate(()=>{
+  const el=document.activeElement,rect=el.getBoundingClientRect();
+  const scroller=el.closest('.inspector-scroll'),bounds=scroller?.getBoundingClientRect();
+  return {
+   inInspector:Boolean(el.closest('.design-inspector')),isBody:el===document.body,
+   disabled:Boolean(el.disabled),
+   visible:rect.bottom>0&&rect.top<innerHeight&&rect.right>0&&rect.left<innerWidth&&
+    (!bounds||rect.bottom>bounds.top&&rect.top<bounds.bottom)
+  };
+ });
+ assert.ok(binaryFocus.inInspector&&!binaryFocus.isBody&&!binaryFocus.disabled&&binaryFocus.visible,
   'Disabling a focused binary button must hand focus to an enabled inspector control: '+JSON.stringify(binaryFocus));
  await capture(page,theme,width,'binary-disabled-focus-handoff');
  const binaryOpacity=await binary.locator('.ds-binary-option').first().evaluate(el=>Number(getComputedStyle(el).opacity));
