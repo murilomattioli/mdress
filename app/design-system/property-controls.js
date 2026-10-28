@@ -138,7 +138,7 @@ function enhanceNumber(label,input,title){
  if(!input.hasAttribute('aria-label'))input.setAttribute('aria-label',title+' — valor'+(unitOf(input)?' em '+unitOf(input):''));
  input.classList.add('ds-number-native');
  input.replaceWith(field);field.append(name,controls);controls.append(minus,input,unit,plus);
- const min=input.min===''?-Infinity:Number(input.min),max=input.max===''?Infinity:Number(input.max);
+ const bounds=()=>({min:input.min===''?-Infinity:Number(input.min),max:input.max===''?Infinity:Number(input.max)});
  const setError=feedbackFor(label,input);
  const valid=()=>input.value.trim()!==''&&input.validity.valid&&Number.isFinite(input.valueAsNumber);
  // Let the browser enforce the native number step grid, including fractional
@@ -152,6 +152,7 @@ function enhanceNumber(label,input,title){
    if(input.step==='any'){
     // HTMLInputElement.stepUp throws for step=any. Use a unit increment
     // while still respecting explicit bounds, without changing the input.
+    const {min,max}=bounds();
     const next=clamp(input.valueAsNumber+direction,min,max);
     if(!Number.isFinite(next))return null;
     probe.value=String(next);
@@ -164,6 +165,7 @@ function enhanceNumber(label,input,title){
  const update=()=>{
   const ok=valid();
   if(!editing&&ok)committed=input.value;
+  const {min,max}=bounds();
   setError(editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
   minus.disabled=stepTarget(-1)===null;
   plus.disabled=stepTarget(1)===null;
@@ -187,7 +189,7 @@ function enhanceNumber(label,input,title){
   if(event.key!=='Escape'||!editing)return;
   event.preventDefault();input.value=committed;editing=false;update();
  });
- new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
+ new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled','min','max','step']});
  controllers.push(update);update();
 }
 function enhanceColor(label,input,title){
