@@ -44,8 +44,9 @@ test('visual evidence requires every control state in every viewport exactly onc
  const all=UX_QA_MATRIX.flatMap(({theme,width})=>
   UX_QA_REQUIRED_SCREENSHOTS.map(state=>({theme,width,state,path:theme+'-'+width+'-'+state+'.png'})));
  const complete=summarizeScreenshotCoverage(all);
- assert.equal(complete.expected,300);
- assert.equal(complete.captured,300);
+ const expected=UX_QA_MATRIX.length*UX_QA_REQUIRED_SCREENSHOTS.length;
+ assert.equal(complete.expected,expected);
+ assert.equal(complete.captured,expected);
  assert.deepEqual(complete.missing,[]);
  assert.deepEqual(complete.duplicates,[]);
  assert.deepEqual(complete.unexpected,[]);
@@ -64,6 +65,9 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-live-options'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-live-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-disabled-focus-handoff'));
+ for(const state of ['range-disabled-focus-handoff','color-disabled-focus-handoff',
+  'number-disabled-focus-handoff','number-stepper-disabled-focus-handoff'])
+  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes(state),state+' must be captured');
  const unexpected=summarizeScreenshotCoverage([...all,{theme:'graphite',width:1440,state:'not-in-contract',path:'graphite-1440-not-in-contract.png'}]);
  assert.deepEqual(unexpected.unexpected,['graphite:1440:not-in-contract']);
  const wrongPath=summarizeScreenshotCoverage(all.map((row,index)=>index===0?{...row,path:'stale-capture.png'}:row));
@@ -72,7 +76,7 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.deepEqual(missingPath.invalidPaths,['graphite:1440:workspace']);
 });
 
-test('human review requires a matching session and explicit approval of all 50 states',()=>{
+test('human review requires a matching session and explicit approval of every required state',()=>{
  const session='review-session-1';
  const states=Object.fromEntries(UX_QA_REQUIRED_SCREENSHOTS.map(state=>[state,{status:'approved',note:''}]));
  const complete={schema:1,sessionId:session,states};
