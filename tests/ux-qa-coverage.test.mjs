@@ -65,7 +65,7 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-live-options'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-live-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-disabled-focus-handoff'));
- for(const state of ['range-disabled-focus-handoff','color-disabled-focus-handoff',
+ for(const state of ['range-disabled-focus-handoff','color-disabled-focus-handoff','color-swatch-focus','color-swatch-disabled-focus-handoff',
   'number-disabled-focus-handoff','number-stepper-disabled-focus-handoff'])
   assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes(state),state+' must be captured');
  const unexpected=summarizeScreenshotCoverage([...all,{theme:'graphite',width:1440,state:'not-in-contract',path:'graphite-1440-not-in-contract.png'}]);
