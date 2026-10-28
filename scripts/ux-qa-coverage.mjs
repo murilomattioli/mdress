@@ -1,11 +1,41 @@
 /** Explicit coverage contract: incomplete, duplicate or interrupted matrices never pass. */
 // Full-viewport evidence is required; tiny or cropped PNGs cannot be approved.
 export const UX_QA_VIEWPORT_HEIGHT=900;
+// A PNG header alone is not evidence: reject truncated, malformed or
+// checksum-corrupted screenshots before they can be reported as captured.
+const PNG_SIGNATURE=Buffer.from('89504e470d0a1a0a','hex');
+const CRC_TABLE=Uint32Array.from({length:256},(_,index)=>{
+ let crc=index;
+ for(let bit=0;bit<8;bit++)crc=(crc&1)?0xedb88320^(crc>>>1):crc>>>1;
+ return crc>>>0;
+});
+function pngCrc32(bytes,start,end){
+ let crc=0xffffffff;
+ for(let index=start;index<end;index++)
+  crc=CRC_TABLE[(crc^bytes[index])&255]^(crc>>>8);
+ return (crc^0xffffffff)>>>0;
+}
 export function validateScreenshotViewport(png,width,height=UX_QA_VIEWPORT_HEIGHT){
- if(!Buffer.isBuffer(png)||png.length<33)return false;
- return png.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex'))&&
-  png.readUInt32BE(8)===13&&png.toString('ascii',12,16)==='IHDR'&&
-  png.readUInt32BE(16)===width&&png.readUInt32BE(20)===height;
+ if(!Buffer.isBuffer(png)||png.length<57||
+  !png.subarray(0,8).equals(PNG_SIGNATURE))return false;
+ let offset=8,hasHeader=false,hasImageData=false;
+ while(offset+12<=png.length){
+  const length=png.readUInt32BE(offset);
+  if(length>png.length-offset-12)return false;
+  const type=png.toString('ascii',offset+4,offset+8);
+  const end=offset+12+length;
+  if(png.readUInt32BE(end-4)!==pngCrc32(png,offset+4,end-4))return false;
+  if(!hasHeader){
+   if(type!=='IHDR'||length!==13||
+    png.readUInt32BE(offset+8)!==width||
+    png.readUInt32BE(offset+12)!==height)return false;
+   hasHeader=true;
+  }else if(type==='IHDR')return false;
+  if(type==='IDAT')hasImageData=true;
+  if(type==='IEND')return length===0&&hasImageData&&end===png.length;
+  offset=end;
+ }
+ return false;
 }
 export const UX_QA_MATRIX=[
  ...['graphite','studio'].flatMap(theme=>[1440,1024,768].map(width=>({theme,width})))
