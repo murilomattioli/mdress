@@ -7,7 +7,7 @@
  */
 import {chromium} from 'playwright';
 import {strict as assert} from 'node:assert';
-import {mkdir,stat,writeFile,readFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
@@ -655,12 +655,14 @@ finally{
  const missingFiles=[];
  for(const entry of screenshots){
   try{
-   const info=await stat(entry.path);
-   if(!info.isFile()||info.size<24)missingFiles.push(entry.path);
+   // Validate bytes again after capture: files may be truncated, replaced
+   // or corrupted before the final report and human review are generated.
+   const png=await readFile(entry.path);
+   if(!validateScreenshotViewport(png,entry.width))missingFiles.push(entry.path);
   }catch{missingFiles.push(entry.path);}
  }
  if(missingFiles.length)findings.push({severity:'error',phase:'screenshot-files',theme:'all',width:0,
-  message:'Missing or empty PNG evidence: '+missingFiles.join(', ')});
+  message:'Missing, corrupt or wrong-size PNG evidence: '+missingFiles.join(', ')});
  if(!stopped&&(screenshotCoverage.missing.length||screenshotCoverage.duplicates.length||
   screenshotCoverage.unexpected.length||screenshotCoverage.invalidPaths.length)){
   findings.push({severity:'error',phase:'screenshot-coverage',theme:'all',width:0,
