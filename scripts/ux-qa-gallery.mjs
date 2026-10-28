@@ -65,7 +65,7 @@ document.querySelector("#export-review").addEventListener("click",()=>{
   const key=section.dataset.name,entry=saved[key]||{};
   return [key,{status:entry.status||"pending",note:entry.note||""}];
  }))};
- const url=URL.createObjectURL(new Blob([JSON.stringify(review,null,2)+"\\n"],{type:"application/json"}));
+ const url=URL.createObjectURL(new Blob([JSON.stringify(review,null,2)+"\n"],{type:"application/json"}));
  const a=document.createElement("a");a.href=url;a.download="mdress-ux023-review.json";document.body.append(a);a.click();a.remove();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
