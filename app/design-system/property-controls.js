@@ -164,7 +164,7 @@ function enhanceRange(label,input,title){
   update();
  });
  numeric.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){e.preventDefault();editing=false;update();numeric.blur();}
+  if(e.key==='Escape'){e.preventDefault();editing=false;update(); /* Keep keyboard focus for the next edit. */ }
   if(e.key==='Enter'){numeric.dispatchEvent(new Event('change'));if(valid())numeric.blur();}
  });
  // Double-click resets only when an explicit initial value is available.
@@ -283,7 +283,7 @@ function enhanceColor(label,input,title){
   editing=false;setError('');nativeCommit(input,v);update();
  });
  hex.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){editing=false;update();hex.blur();}
+  if(e.key==='Escape'){e.preventDefault();editing=false;update(); /* Keep keyboard focus for the next edit. */ }
   if(e.key==='Enter'){hex.dispatchEvent(new Event('change'));if(isHex(hex.value.trim()))hex.blur();}
  });
  // A real native swatch edit takes precedence over the pending text draft.
