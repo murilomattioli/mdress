@@ -42,7 +42,8 @@ async function verifyImages(section,{fresh=false}={}){
  const check=(async()=>{
   const images=[...section.querySelectorAll("figure img")];
   if(images.length!==6)throw Error("Matriz incompleta");
-  await Promise.all(images.map(async img=>{
+  // Decode only one full-viewport image at a time to bound Chromium memory.
+  for(const img of images){
    // Each export uses fresh URLs, but repeated full-viewport decodes can
    // exhaust browser image memory. Release each temporary image after
    // checking it, and retry transient decode errors once (never dimensions).
@@ -71,7 +72,7 @@ async function verifyImages(section,{fresh=false}={}){
       ", recebido "+actualWidth+"×"+actualHeight);
     return;
    }
-  }));
+  }
   select.disabled=false;
   warningEl.hidden=true;
   return true;
@@ -130,9 +131,9 @@ document.querySelector("#export-review").addEventListener("click",async event=>{
  try{
   // Decode in bounded batches: 300 full-viewport PNGs at once can exhaust
   // memory on the laptops used for headed visual review.
-  for(let offset=0;offset<states.length;offset+=3){
-   warning.textContent="Verificando capturas: "+Math.min(offset+3,states.length)+"/"+states.length+" estados…";
-   await Promise.all(states.slice(offset,offset+3).map(section=>verifyImages(section,{fresh:true})));
+  for(let offset=0;offset<states.length;offset++){
+   warning.textContent="Verificando capturas: "+(offset+1)+"/"+states.length+" estados…";
+   await verifyImages(states[offset],{fresh:true});
   }
  }finally{exportButton.disabled=false;}
  const review={schema:1,sessionId,exportedAt:new Date().toISOString(),states:Object.fromEntries(states.map(section=>{
