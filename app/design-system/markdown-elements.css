@@ -80,7 +80,6 @@
 .design-inspector .inspector-header{padding:10px 12px 8px}
 .design-inspector .inspector-header p{display:none}
 .design-inspector .inspector-tabs{height:38px;min-height:38px}
-.design-inspector .inspector-scroll .ds-accordion-body{padding:8px 11px 10px}
 .design-inspector .inspector-panel .section-style-gallery{
  grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:6px 0;
 }
@@ -100,7 +99,6 @@
 .design-inspector .inspector-panel .element-instance-toolbar{margin:3px 0;gap:4px}
 .design-inspector .inspector-panel .element-instance-toolbar [role=status]{font-size:10px;line-height:1.2}
 .design-inspector .inspector-panel .element-instance-toolbar button{padding:3px 6px;font-size:10px;min-height:25px}
-.design-inspector .inspector-panel .property-row{gap:5px!important;margin-bottom:5px!important}
 @media screen {
  .page-stack .page-content [data-md-element-id][data-md-instance-selected=true]{
  outline:2px solid var(--resume-accent)!important;outline-offset:3px;

@@ -24,17 +24,19 @@
 
 ## Estrutura harmonizada
 
-- Estilo: tipografia → paleta → temas e variações → biblioteca → restauração.
+- Estilo: tipografia → paleta → estilos prontos (preset e galeria) → variações e travas → meus temas → restauração.
 - Blocos: selecionar seção/elemento e alvo → aparência do alvo; densidade global em grupo explicitamente identificado.
 - Página: margens → ritmo das seções → posição vertical → paginação.
 - Fundo: propriedades editáveis → galeria → pontos Mesh condicionais.
 - IA: direção visual → proposta e validação.
 
-IDs, eventos e fontes de verdade são preservados. A organização é aplicada antes do enhancement dos controles. As abas mantêm as chaves internas para preservar navegação contextual e integrações.
+IDs, eventos e fontes de verdade são preservados. A estrutura está declarada diretamente no HTML; não há módulo de movimentação de campos no carregamento. As abas mantêm as chaves internas para preservar navegação contextual e integrações.
 
 ## Regras visuais
 
-Usar os tokens de cor e fonte existentes; alinhamento à esquerda; intervalo de 8 px entre campos, 16 px dentro de grupos, divisão de grupos por uma única linha. Labels em linha própria evitam truncamento. Valores e unidades permanecem juntos; controles ocupam a largura disponível. Foco, disabled e erros continuam sob responsabilidade dos componentes existentes. Ícones são SVG do Design System.
+Usar os tokens de cor e fonte existentes; alinhamento à esquerda; 16 px de recuo horizontal (somente no grupo), 4 px acima do conteúdo, 12 px entre filhos e 16 px abaixo. Os filhos não acumulam margens. Uma única linha divide os grupos; campos não são cartões. Labels em linha própria evitam truncamento, com cores em linhas compactas. Valores e unidades permanecem juntos. Galerias usam a rolagem do painel, sem uma segunda rolagem interna. Foco, disabled e erros continuam sob responsabilidade dos componentes existentes. Ícones são SVG do Design System.
+
+Validação específica: `node scripts/panel-layout-qa.mjs`, com `MDRESS_AUDIT_URL` apontando para o servidor, percorre todos os accordions das cinco abas, verifica padding/gap, ausência de overflow horizontal e altura fechada, e captura cada grupo em `test-results/group-*.png`.
 
 ## Limites e dependências
 

@@ -60,7 +60,7 @@
 }
 .design-inspector .ds-accordion--collapsed .ds-accordion-chevron{transform:rotate(-90deg)}
 .design-inspector .ds-accordion-body{
- display:flex;flex-direction:column;gap:0;padding:2px 0 14px;
+ display:flex;flex-direction:column;gap:12px;padding:4px 0 16px;
 }
 .design-inspector .ds-accordion--collapsed .ds-accordion-body{display:none!important}
 .design-inspector .ds-accordion-body[hidden]{display:none!important}
@@ -303,7 +303,7 @@
 }
 
 /* Entity-first inspector: labels and values have their own space. */
-.design-inspector .ds-accordion-body{gap:8px;padding:8px 0 20px}
+.design-inspector .ds-accordion-body > *{margin-block:0!important}
 .design-inspector .ds-accordion-title{font-size:13px;font-weight:650}
 .design-inspector .ds-property-row{margin:0!important}
 .design-inspector .ds-property-range,
@@ -312,8 +312,8 @@
 .design-inspector .ds-property-select,
 .design-inspector .ds-property-segment,
 .design-inspector .ds-property-binary{
- grid-template-columns:minmax(0,1fr);gap:8px;padding:10px 12px;
- border-radius:6px;background:transparent;border:1px solid var(--ds-border-subtle);
+ grid-template-columns:minmax(0,1fr);gap:6px;padding:4px 0;
+ border-radius:0;background:transparent;border:1px solid transparent;
 }
 .design-inspector .ds-property-row .ds-prop-name{
  font-size:12px;line-height:1.4;white-space:normal;overflow:visible;
@@ -330,3 +330,20 @@
 .design-inspector .property-actions button{min-height:36px;white-space:normal}
 .design-inspector .composer-mode-switch{margin-bottom:12px}
 .design-inspector .section-style-actions{margin-top:12px}
+
+
+/* One scrolling surface and one spacing owner per group. */
+.design-inspector .theme-recipe-gallery{max-height:none;overflow:visible;padding:0;gap:8px}
+.design-inspector .theme-recipe-label{align-items:flex-start;flex-direction:column;gap:2px}
+.design-inspector .theme-recipe-label strong{font-size:11px;white-space:normal}
+.design-inspector .theme-explorer-controls{margin:0}
+.design-inspector .theme-lock-list{margin:0;gap:8px}
+.design-inspector .theme-palette-preview p{margin:0;font-size:11px}
+.design-inspector .property-hint{margin:0;font-size:11px;line-height:1.5}
+.design-inspector .property-field textarea{margin:0}
+.design-inspector .ds-property-color{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.design-inspector .ds-property-color .ds-color-right{justify-content:flex-start}
+.design-inspector .ds-property-select .ds-select-trigger{width:100%}
+.design-inspector .inspector-panel{padding:0}
+.design-inspector .property-section:not(.ds-accordion){padding:16px}
+.design-inspector .section-style-hint{display:none}
