@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {summarizeUxCoverage,summarizeScreenshotCoverage,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS,parseHumanReviewChoice} from '../scripts/ux-qa-coverage.mjs';
+import {summarizeUxCoverage,summarizeScreenshotCoverage,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS,parseHumanReviewChoice,validateHumanReviewEvidence} from '../scripts/ux-qa-coverage.mjs';
 
 const full=()=>UX_QA_MATRIX.map(({theme,width})=>({theme,width,scenario:true,inspector:true,toolbar:true,errors:0}));
 
@@ -66,4 +66,26 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.deepEqual(wrongPath.invalidPaths,['graphite:1440:workspace']);
  const missingPath=summarizeScreenshotCoverage(all.map((row,index)=>index===0?{...row,path:undefined}:row));
  assert.deepEqual(missingPath.invalidPaths,['graphite:1440:workspace']);
+});
+
+test('human review requires a matching session and explicit approval of all 47 states',()=>{
+ const session='review-session-1';
+ const states=Object.fromEntries(UX_QA_REQUIRED_SCREENSHOTS.map(state=>[state,{status:'approved',note:''}]));
+ const complete={schema:1,sessionId:session,states};
+ assert.equal(validateHumanReviewEvidence(complete,session).valid,true);
+ assert.equal(validateHumanReviewEvidence(complete,'another-session').valid,false);
+ assert.equal(validateHumanReviewEvidence({...complete,schema:0},session).valid,false);
+ const pending=structuredClone(complete);
+ pending.states.workspace.status='pending';
+ assert.equal(validateHumanReviewEvidence(pending,session).valid,false);
+ assert.ok(validateHumanReviewEvidence(pending,session).missing.includes('workspace'));
+ const rejected=structuredClone(complete);
+ rejected.states.toolbar.status='rejected';
+ assert.deepEqual(validateHumanReviewEvidence(rejected,session).rejected,['toolbar']);
+ assert.equal(validateHumanReviewEvidence(rejected,session).valid,false);
+ const extra=structuredClone(complete);
+ extra.states['unverified-extra']={status:'approved'};
+ assert.deepEqual(validateHumanReviewEvidence(extra,session).unexpected,['unverified-extra']);
+ assert.equal(validateHumanReviewEvidence(extra,session).valid,false);
+ assert.equal(validateHumanReviewEvidence(null,session).valid,false);
 });
