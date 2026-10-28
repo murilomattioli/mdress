@@ -247,14 +247,23 @@ async function exercise(page,theme,width){
  await inspectorScroll.evaluate(el=>el.dispatchEvent(new Event('scroll')));
  assert.equal(await trigger.getAttribute('aria-expanded'),'true',
   'Scrolling while the trigger remains visible must preserve the popup');
+ // On tall desktop viewports, the middle-of-panel font picker can stay
+ // visible even at maximum scroll. Constrain the scroll container temporarily
+ // to reproduce a genuinely clipped inspector (small-window regression).
  const scrolled=await inspectorScroll.evaluate(el=>{
+  const original={height:el.style.height,maxHeight:el.style.maxHeight,flex:el.style.flex};
+  el.style.height='180px';el.style.maxHeight='180px';el.style.flex='0 0 180px';
   el.scrollTop=el.scrollHeight;
+  const anchor=el.querySelector('#fontChoice')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger');
+  const rect=anchor.getBoundingClientRect(),viewport=el.getBoundingClientRect();
+  const offscreen=rect.bottom<=viewport.top||rect.top>=viewport.bottom;
   el.dispatchEvent(new Event('scroll'));
-  return el.scrollTop;
+  return {original,offset:el.scrollTop,offscreen};
  });
- assert.ok(scrolled>0,'Inspector must be scrollable for the focus-handoff regression');
+ assert.ok(scrolled.offset>0&&scrolled.offscreen,
+  'QA setup must actually scroll the select outside the inspector viewport: '+JSON.stringify(scrolled));
  await page.waitForFunction(()=>document.querySelector('#fontChoice')?.closest('.ds-property-select')
-  ?.querySelector('.ds-select-trigger')?.getAttribute('aria-expanded')==='false');
+  ?.querySelector('.ds-select-trigger')?.getAttribute('aria-expanded')==='false',null,{timeout:5000});
  const scrollFocus=await page.evaluate(()=>{
   const el=document.activeElement,rect=el.getBoundingClientRect();
   return {inInspector:Boolean(el.closest('.design-inspector')),isBody:el===document.body,
@@ -262,8 +271,11 @@ async function exercise(page,theme,width){
  });
  assert.ok(scrollFocus.inInspector&&!scrollFocus.isBody&&!scrollFocus.disabled&&scrollFocus.visible,
   'Scrolling a portalled option away must hand focus to a visible inspector control: '+JSON.stringify(scrollFocus));
- await trigger.scrollIntoViewIfNeeded();
+ await inspectorScroll.evaluate((el,original)=>{
+  el.style.height=original.height;el.style.maxHeight=original.maxHeight;el.style.flex=original.flex;
+ },scrolled.original);
  await capture(page,theme,width,'select-scroll-focus-handoff');
+ await trigger.scrollIntoViewIfNeeded();
  await trigger.focus();await trigger.press('ArrowDown');
  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
  await page.keyboard.press('Escape');
