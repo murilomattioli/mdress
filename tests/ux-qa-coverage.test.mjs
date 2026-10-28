@@ -1,5 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
+import {deflateSync} from 'node:zlib';
 import {summarizeUxCoverage,summarizeScreenshotCoverage,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT} from '../scripts/ux-qa-coverage.mjs';
 
 const full=()=>UX_QA_MATRIX.map(({theme,width})=>({theme,width,scenario:true,inspector:true,toolbar:true,errors:0}));
@@ -93,16 +94,42 @@ test('human review requires a matching session and explicit approval of all 50 s
  assert.equal(validateHumanReviewEvidence(null,session).valid,false);
 });
 
-test('PNG evidence requires exact viewport dimensions and IHDR',()=>{
- const png=Buffer.alloc(33);
- Buffer.from('89504e470d0a1a0a','hex').copy(png,0);
- png.writeUInt32BE(13,8);png.write('IHDR',12);
- png.writeUInt32BE(1440,16);png.writeUInt32BE(UX_QA_VIEWPORT_HEIGHT,20);
+test('PNG evidence requires a complete, CRC-valid, full-viewport image',()=>{
+ const chunk=(type,data)=>{
+  const result=Buffer.alloc(data.length+12);
+  result.writeUInt32BE(data.length,0);
+  result.write(type,4,'ascii');
+  data.copy(result,8);
+  let crc=0xffffffff;
+  for(let index=4;index<8+data.length;index++){
+   crc^=result[index];
+   for(let bit=0;bit<8;bit++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);
+  }
+  result.writeUInt32BE((crc^0xffffffff)>>>0,8+data.length);
+  return result;
+ };
+ const header=Buffer.alloc(13);
+ header.writeUInt32BE(1440,0);
+ header.writeUInt32BE(UX_QA_VIEWPORT_HEIGHT,4);
+ header[8]=8;header[9]=2;
+ const png=Buffer.concat([
+  Buffer.from('89504e470d0a1a0a','hex'),
+  chunk('IHDR',header),
+  chunk('IDAT',deflateSync(Buffer.alloc((1440*3+1)*UX_QA_VIEWPORT_HEIGHT))),
+  chunk('IEND',Buffer.alloc(0))
+ ]);
  assert.equal(validateScreenshotViewport(png,1440),true);
  assert.equal(validateScreenshotViewport(png,1024),false);
- png.writeUInt32BE(1,16);
- assert.equal(validateScreenshotViewport(png,1440),false,'1px placeholder must fail');
- png.writeUInt32BE(1440,16);png.write('IDAT',12);
- assert.equal(validateScreenshotViewport(png,1440),false,'IHDR is mandatory');
+ assert.equal(validateScreenshotViewport(png.subarray(0,33),1440),false,
+  'An IHDR-only stub is not a valid screenshot');
+ assert.equal(validateScreenshotViewport(png.subarray(0,png.length-12),1440),false,
+  'A missing IEND chunk must fail');
+ const corrupted=Buffer.from(png);
+ corrupted[60]^=1;
+ assert.equal(validateScreenshotViewport(corrupted,1440),false,
+  'A corrupt IDAT checksum must fail');
+ const badHeader=Buffer.from(png);
+ badHeader.writeUInt32BE(1,16);
+ assert.equal(validateScreenshotViewport(badHeader,1440),false);
  assert.equal(validateScreenshotViewport(Buffer.from('not a PNG'),1440),false);
 });
