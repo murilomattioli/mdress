@@ -510,6 +510,43 @@ async function exercise(page,theme,width){
  await page.keyboard.press('Home');
  assert.equal(await nativeSegment.inputValue(),'line','Home must select the first enabled segment');
  assert.equal(await line.evaluate(el=>el===document.activeElement),true);
+ // Native option mutations must update segmented buttons without
+ // rebuilding the inspector or losing focus on a detached button.
+ const blockOption=nativeSegment.locator('option[value="block"]');
+ const originalBlockText=await blockOption.textContent();
+ await blockOption.evaluate(el=>{el.textContent='Bloco personalizado';});
+ await page.waitForFunction(()=>document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelector('[data-value="block"]')?.textContent==='Bloco personalizado');
+ assert.equal(await block.getAttribute('title'),'Bloco personalizado');
+ await nativeSegment.evaluate(el=>{
+  const option=document.createElement('option');
+  option.value='qa-temporary';option.textContent='Temporário QA';
+  el.append(option);
+ });
+ const temporary=segment.locator('[data-value="qa-temporary"]');
+ await temporary.waitFor({state:'visible'});
+ assert.equal(await temporary.getAttribute('title'),'Temporário QA');
+ await capture(page,theme,width,'segment-live-options');
+ await nativeSegment.locator('option[value="none"]').evaluate(el=>{el.hidden=true;});
+ await page.waitForFunction(()=>!document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelector('[data-value="none"]'));
+ await temporary.focus();
+ assert.equal(await temporary.evaluate(el=>el===document.activeElement),true);
+ await nativeSegment.locator('option[value="qa-temporary"]').evaluate(el=>el.remove());
+ await page.waitForFunction(()=>!document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelector('[data-value="qa-temporary"]'));
+ const segmentFocus=await page.evaluate(()=>{
+  const active=document.activeElement;
+  return {inside:Boolean(active?.closest('.ds-segment-buttons')),enabled:!active?.disabled,
+   attached:document.contains(active),isBody:active===document.body};
+ });
+ assert.ok(segmentFocus.inside&&segmentFocus.enabled&&segmentFocus.attached&&!segmentFocus.isBody,
+  'Removing a focused segment must transfer focus to an existing enabled option: '+JSON.stringify(segmentFocus));
+ await capture(page,theme,width,'segment-live-focus-handoff');
+ await nativeSegment.locator('option[value="none"]').evaluate(el=>{el.hidden=false;});
+ await blockOption.evaluate((el,text)=>{el.textContent=text;},originalBlockText);
+ await page.waitForFunction(()=>document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelectorAll('.ds-segment-option').length===3);
  await nativeSegment.selectOption(originalSegment);
  const boxes=await page.locator('.design-inspector .ds-property-row').evaluateAll(rows=>rows.filter(el=>{
   const r=el.getBoundingClientRect(),s=getComputedStyle(el);
