@@ -80,5 +80,5 @@ refresh();
  return ['<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>mdress — revisão visual UX-023</title><style>'+css+'</style></head><body>',
   '<header><h1>mdress · QA visual supervisionado</h1><p>'+screenshots.length+' capturas registradas; '+coverage.expected+' obrigatórias. Falhas/ausências: '+coverage.missing.length+'. Testes verdes não aprovam a UX.</p><p id="review-progress" role="status" aria-live="polite"></p><p id="review-warning"></p>',
   '<nav><label for="filter">Filtrar estado</label><input id="filter" type="search" placeholder="Ex.: color, focus, range"><button id="only-pending" type="button" aria-pressed="false">Ocultar aprovados</button><button id="export-review" type="button">Exportar revisão JSON</button><button id="reset-review" type="button">Limpar revisão</button><button id="expand" type="button">Expandir</button><button id="collapse" type="button">Recolher</button></nav></header>',
-  '<main>'+sections+'</main><script id="review-session" type="application/json">'+escapeHtml(JSON.stringify(sessionId))+'</script><script>'+script+'</script></body></html>'].join('\n');
+  '<main>'+sections+'</main><script id="review-session" type="application/json">'+JSON.stringify(sessionId)+'</script><script>'+script+'</script></body></html>'].join('\n');
 }
