@@ -16,6 +16,11 @@ test('offline gallery renders all 282 comparisons and supports filtering',()=>{
  assert.match(html,/id="only-pending"/);
  assert.equal((html.match(/class="review-status"/g)||[]).length,47);
  assert.equal((html.match(/class="review-note"/g)||[]).length,47);
+ assert.equal((html.match(/class="image-warning"/g)||[]).length,47);
+ assert.equal((html.match(/class="review-status" disabled/g)||[]).length,47);
+ assert.match(html,/async function verifyImages/);
+ assert.match(html,/await img\.decode\(\)/);
+ assert.match(html,/await Promise\.all\(states\.map\(verifyImages\)\)/);
  assert.match(html,/color-draft-sync/);
  assert.match(html,/binary-disabled-focus-handoff/);
  assert.match(html,/graphite-1440-workspace.png/);
