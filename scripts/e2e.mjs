@@ -604,6 +604,10 @@ try {
   await syncPage.waitForFunction(()=>document.querySelector('.preview-scroll').scrollHeight>document.querySelector('.preview-scroll').clientHeight);
   await syncPage.locator('#source').evaluate(el=>{el.scrollTop=el.scrollHeight*.65;el.dispatchEvent(new Event('scroll'));});
   await syncPage.waitForFunction(()=>document.querySelector('.preview-scroll').scrollTop>30);
+  // The scroll synchronizer intentionally holds source ownership until the
+  // next animation frame to avoid feedback loops. Reverse direction only after
+  // that frame has released ownership; otherwise CI races against rAF.
+  await syncPage.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   await syncPage.locator('.preview-scroll').evaluate(el=>{el.scrollTop=el.scrollHeight*.9;el.dispatchEvent(new Event('scroll'));});
   await syncPage.waitForFunction(()=>document.querySelector('#source').scrollTop>document.querySelector('#source').scrollHeight*.45);
  }finally{await syncPage.close();}
