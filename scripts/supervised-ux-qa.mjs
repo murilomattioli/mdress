@@ -247,8 +247,19 @@ async function exercise(page,theme,width){
    key+' from portalled listbox must follow inspector tab order: '+JSON.stringify(focusState));
   await capture(page,theme,width,key==='Tab'?'select-tab-forward':'select-tab-backward');
  }
+ await trigger.focus();await trigger.press('ArrowDown');
+ assert.equal(await trigger.getAttribute('aria-expanded'),'true');
  await page.locator('#fontChoice').evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>document.querySelector('#fontChoice')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.disabled);
+ assert.equal(await trigger.getAttribute('aria-expanded'),'false');
+ const disabledFocus=await page.evaluate(()=>({
+  inInspector:Boolean(document.activeElement?.closest('.design-inspector')),
+  isBody:document.activeElement===document.body,
+  disabled:Boolean(document.activeElement?.disabled)
+ }));
+ assert.ok(disabledFocus.inInspector&&!disabledFocus.isBody&&!disabledFocus.disabled,
+  'Disabling an open select must hand focus to an enabled inspector control: '+JSON.stringify(disabledFocus));
+ await capture(page,theme,width,'select-disabled-focus-handoff');
  await capture(page,theme,width,'select-disabled');
  await page.locator('#fontChoice').evaluate(el=>{el.disabled=false;});
  await revealInspector(page,'page');
