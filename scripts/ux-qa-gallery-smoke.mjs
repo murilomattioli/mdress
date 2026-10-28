@@ -23,13 +23,13 @@ try{
  await page.goto('http://mdress-qa.test/gallery');
  const status=page.locator('.review-status').first();
  const note=page.locator('.review-note').first();
- assert.equal(await page.locator('.review-status').count(),47);
- assert.match(await page.locator('#review-progress').innerText(),/0\/47 estados aprovados/);
+ assert.equal(await page.locator('.review-status').count(),49);
+ assert.match(await page.locator('#review-progress').innerText(),/0\/49 estados aprovados/);
  await status.waitFor({state:'visible'});
  await page.waitForFunction(()=>!document.querySelector('.review-status').disabled);
  await status.selectOption('approved');
  await note.fill('Foco, contraste e clipping verificados manualmente neste cenário de teste.');
- assert.match(await page.locator('#review-progress').innerText(),/1\/47 estados aprovados/);
+ assert.match(await page.locator('#review-progress').innerText(),/1\/49 estados aprovados/);
  await page.reload();
  assert.equal(await status.inputValue(),'approved','Review must survive reload in this session');
  assert.match(await note.inputValue(),/Foco, contraste/);
@@ -44,12 +44,12 @@ try{
  assert.equal(exported.schema,1);
  assert.equal(exported.states.workspace.status,'approved');
  assert.match(exported.states.workspace.note,/Foco, contraste/);
- assert.equal(Object.keys(exported.states).length,47);
+ assert.equal(Object.keys(exported.states).length,49);
  assert.ok(exported.sessionId);
  page.once('dialog',dialog=>dialog.accept());
  await page.locator('#reset-review').click();
  assert.equal(await status.inputValue(),'pending');
- assert.match(await page.locator('#review-progress').innerText(),/0\/47 estados aprovados/);
+ assert.match(await page.locator('#review-progress').innerText(),/0\/49 estados aprovados/);
  // An absent image must block a previously approved state from being signed
  // off. The exported record is downgraded to pending, never approved.
  await page.goto('http://mdress-qa.test/broken/gallery');
