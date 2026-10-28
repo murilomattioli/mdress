@@ -82,6 +82,20 @@ function feedbackFor(label,control){
   else control.removeAttribute('aria-invalid');
  };
 }
+// Disabling a focused native input may blur it before a MutationObserver runs.
+// Remember its focus until the disabled-state update can move keyboard users
+// to another visible inspector control; never steal focus after a real click.
+function watchDisabledNativeFocus(input){
+ let hadFocus=false;
+ input.addEventListener('focus',()=>{hadFocus=true;});
+ input.addEventListener('blur',()=>{if(!input.disabled)hadFocus=false;});
+ return ()=>{
+  if(!input.disabled){hadFocus=document.activeElement===input;return;}
+  if(hadFocus&&(document.activeElement===input||document.activeElement===document.body))
+   focusInspectorNeighbor(input,{visibleOnly:true});
+  hadFocus=false;
+ };
+}
 function nativeCommit(input,next){
  if(input.disabled)return;
  input.value=String(next);
@@ -98,6 +112,7 @@ function enhanceRange(label,input,title){
  const fill=span('ds-prop-fill'),ticks=span('ds-prop-ticks'),thumb=span('ds-prop-thumb');
  const valueBox=document.createElement('div');valueBox.className='ds-prop-numberbox';
  const numeric=document.createElement('input');numeric.type='number';numeric.className='ds-prop-number';
+ const restoreNativeFocus=watchDisabledNativeFocus(input);
  const syncConstraints=()=>{
   const constraints=rangeConstraints(input);
   numeric.min=String(constraints.min);
@@ -126,7 +141,10 @@ function enhanceRange(label,input,title){
   const pct=boundsValid?(clamp(value,min,max)-min)/(max-min)*100:0;
   field.style.setProperty('--ds-range-progress',pct+'%');
   if(input.disabled)editing=false;
+  const focusedPrecision=document.activeElement===numeric;
   numeric.disabled=input.disabled;
+  if(input.disabled&&focusedPrecision)focusInspectorNeighbor(numeric,{visibleOnly:true});
+  restoreNativeFocus();
   if(!editing)numeric.value=input.value;
   setError(!input.disabled&&editing?
    (!boundsValid?'Verifique os limites e o incremento da faixa.':!valid()?validationMessage(numeric,min,max,unit):''):'');
@@ -172,6 +190,7 @@ function enhanceNumber(label,input,title){
  input.replaceWith(field);field.append(name,controls);controls.append(minus,input,unit,plus);
  const bounds=()=>({min:input.min===''?-Infinity:Number(input.min),max:input.max===''?Infinity:Number(input.max)});
  const setError=feedbackFor(label,input);
+ const restoreNativeFocus=watchDisabledNativeFocus(input);
  const valid=()=>input.value.trim()!==''&&input.validity.valid&&Number.isFinite(input.valueAsNumber);
  // Let the browser enforce the native number step grid, including fractional
  // bases and absent bounds. The previous synthetic 0..999 range blocked
@@ -199,8 +218,11 @@ function enhanceNumber(label,input,title){
   if(!editing&&ok)committed=input.value;
   const {min,max}=bounds();
   setError(editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
+  const focusedStepper=[minus,plus].find(button=>document.activeElement===button);
   minus.disabled=stepTarget(-1)===null;
   plus.disabled=stepTarget(1)===null;
+  if(focusedStepper?.disabled)focusInspectorNeighbor(focusedStepper,{visibleOnly:true});
+  restoreNativeFocus();
  };
  const increment=direction=>{
   const next=stepTarget(direction);
@@ -233,6 +255,7 @@ function enhanceColor(label,input,title){
  hex.spellcheck=false;hex.autocomplete='off';hex.setAttribute('aria-label',title+' — hexadecimal');
  hex.setAttribute('inputmode','text');
  const setError=feedbackFor(label,hex);
+ const restoreNativeFocus=watchDisabledNativeFocus(input);
  input.classList.add('ds-color-native');
  input.replaceWith(field);
  field.append(name,right);right.append(swatch,hex);swatch.append(input);
@@ -244,7 +267,11 @@ function enhanceColor(label,input,title){
   // App-level inspector synchronization must not discard an uncommitted
   // hex draft (especially an invalid one) or clear its error announcement.
   if(!editing){hex.value=v;setError('');}
-  hex.disabled=input.disabled;swatch.style.backgroundColor=v;
+  const focusedHex=document.activeElement===hex;
+  hex.disabled=input.disabled;
+  if(input.disabled&&focusedHex)focusInspectorNeighbor(hex,{visibleOnly:true});
+  restoreNativeFocus();
+  swatch.style.backgroundColor=v;
  };
  hex.addEventListener('input',()=>{
   editing=true;
