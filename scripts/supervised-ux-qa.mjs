@@ -155,6 +155,13 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'select-group-disabled');
  await firstGroup.evaluate(el=>{el.disabled=false;});
  await page.waitForFunction(()=>document.querySelector('.ds-select-popover [data-value="system"]')?.disabled===false);
+ // Multi-character typeahead should narrow to "Verdana", not jump to the
+ // first option starting with the last typed letter.
+ await page.locator('.ds-select-popover [data-value="serif"]').focus();
+ await page.keyboard.type('ver',{delay:45});
+ assert.equal(await page.locator('.ds-select-popover [data-value="verdana"]').evaluate(el=>el===document.activeElement),
+  true,'Typing a prefix must focus the matching enabled option');
+ await capture(page,theme,width,'select-typeahead-prefix');
  await page.keyboard.press('Escape');
  // A portalled listbox must preserve normal document tab order when closed.
  // Test both directions: the next/previous inspector control must receive
