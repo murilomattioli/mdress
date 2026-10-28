@@ -35,7 +35,7 @@ test('invalid evidence path is not inserted as HTML or a clickable link',()=>{
  const html=renderUxQaGallery(invalid,summarizeScreenshotCoverage(invalid));
  assert.doesNotMatch(html,/<script>alert/);
  assert.match(html,/Captura ausente ou inválida/);
- assert.equal((html.match(/<figure>/g)||[]).length,281);
+ assert.equal((html.match(/<figure>/g)||[]).length,299);
 });
 
 test('gallery review session is isolated and JSON-safe',()=>{
