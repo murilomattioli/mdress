@@ -193,6 +193,9 @@ async function exercise(page,theme,width){
  // Browser resizing closes the portalled listbox; keyboard focus must land
  // on its trigger rather than silently falling back to document.body.
  await page.setViewportSize({width:width-1,height:900});
+ // Chromium may deliver resize on the next rendering task after setViewportSize.
+ await page.waitForFunction(()=>document.querySelector('#fontChoice')?.closest('.ds-property-select')
+  ?.querySelector('.ds-select-trigger')?.getAttribute('aria-expanded')==='false');
  assert.equal(await trigger.getAttribute('aria-expanded'),'false');
  assert.equal(await trigger.evaluate(el=>el===document.activeElement),true,
   'Resize must restore focus from detached popup option to combobox trigger');
