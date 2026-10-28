@@ -62,11 +62,11 @@ test('combobox typeahead skips disabled items and cycles matching initials',()=>
 
 test('combobox detects live native option edits before its portalled popup becomes stale',()=>{
  const group={tagName:'OPTGROUP',label:'Fontes'};
- const first={label:'Sans',textContent:'Sans',parentElement:group};
- const second={label:'Serif',textContent:'Serif',parentElement:group};
+ const first={value:'sans',label:'Sans',textContent:'Sans',parentElement:group};
+ const second={value:'serif',label:'Serif',textContent:'Serif',parentElement:group};
  const rendered=[
-  {option:first,group:'Fontes',label:'Sans'},
-  {option:second,group:'Fontes',label:'Serif'}
+  {option:first,group:'Fontes',label:'Sans',value:'sans'},
+  {option:second,group:'Fontes',label:'Serif',value:'serif'}
  ];
  assert.equal(selectPopupNeedsRefresh(rendered,[first,second]),false);
  assert.equal(selectPopupNeedsRefresh(rendered,[first]),true,'Removal invalidates old buttons');
@@ -78,6 +78,10 @@ test('combobox detects live native option edits before its portalled popup becom
  group.label='Tipografia';
  assert.equal(selectPopupNeedsRefresh(rendered,[first,second]),true,'Optgroup heading updates');
  group.label='Fontes';
+ assert.equal(selectPopupNeedsRefresh(rendered,[first,second]),false);
+ first.value='sans-modern';
+ assert.equal(selectPopupNeedsRefresh(rendered,[first,second]),true,'Changing a native option value must rebuild stale data-value attributes');
+ first.value='sans';
  assert.equal(selectPopupNeedsRefresh(rendered,[first,second]),false);
 });
 test('segment keyboard navigation skips disabled options and wraps safely',()=>{
