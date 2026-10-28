@@ -230,7 +230,7 @@
 .ds-prop-numberbox .ds-prop-number{height:34px!important;font-size:12px!important;padding:0 3px!important}
 .ds-prop-unit{font-size:11px;white-space:nowrap}
 .ds-number-actions{gap:4px}
-.ds-number-actions .ds-number-native{width:58px;height:34px!important;font-size:12px!important;padding-inline:3px!important}
+.ds-number-actions .ds-number-native{width:58px;flex:0 0 58px;height:34px!important;font-size:12px!important;padding-inline:3px!important}
 .ds-number-step{width:32px;min-width:32px;height:34px;min-height:34px;border:1px solid var(--ds-border);border-radius:6px;font-size:17px;cursor:pointer}
 .ds-number-step:disabled{opacity:.42;cursor:not-allowed}
 .ds-property-color{grid-template-columns:minmax(50px,1fr) minmax(0,auto)}
@@ -256,7 +256,7 @@
  .ds-property-number{grid-template-columns:minmax(45px,1fr) auto;gap:4px;padding-inline:6px}
  .ds-number-actions{gap:2px}
  .ds-number-step{width:29px;min-width:29px}
- .ds-number-actions .ds-number-native{width:54px}
+ .ds-number-actions .ds-number-native{width:54px;flex-basis:54px}
  .ds-color-hex{width:82px}
  .ds-color-right{gap:4px}
 }
