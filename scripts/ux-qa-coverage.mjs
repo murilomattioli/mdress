@@ -6,7 +6,7 @@ export const UX_QA_MATRIX=[
 // Passing functional assertions without the corresponding visual evidence
 // must never produce a green automated report.
 export const UX_QA_REQUIRED_SCREENSHOTS=[
- 'workspace','toolbar','toolbar-focus',
+ 'workspace','toolbar','toolbar-focus','toolbar-last-focus',
  'range-normal','range-hover','range-focus','range-invalid','range-valid','range-disabled',
  'range-live-valid','range-live-invalid','range-live-any','range-live-disabled',
  'color-focus','color-invalid','color-valid','color-disabled',
@@ -22,14 +22,21 @@ export const UX_QA_REQUIRED_SCREENSHOTS=[
 export function summarizeScreenshotCoverage(screenshots){
  const expected=UX_QA_MATRIX.flatMap(({theme,width})=>
   UX_QA_REQUIRED_SCREENSHOTS.map(state=>theme+':'+width+':'+state));
- const counts=new Map();
- for(const {theme,width,state} of screenshots){
+ const expectedKeys=new Set(expected);
+ const counts=new Map(),invalidPaths=[];
+ for(const {theme,width,state,path} of screenshots){
   const key=theme+':'+width+':'+state;
   counts.set(key,(counts.get(key)||0)+1);
+  // Reject mismatched or missing file references, even if the state names
+  // happen to form a complete matrix. No absolute path is required.
+  const basename=typeof path==='string'?path.split(/[\\/]/).pop():'';
+  if(basename!==theme+'-'+width+'-'+state+'.png')invalidPaths.push(key);
  }
  return {expected:expected.length,captured:screenshots.length,
   missing:expected.filter(key=>!counts.has(key)),
-  duplicates:expected.filter(key=>(counts.get(key)||0)>1)};
+  duplicates:expected.filter(key=>(counts.get(key)||0)>1),
+  unexpected:[...counts.keys()].filter(key=>!expectedKeys.has(key)),
+  invalidPaths};
 }
 export function summarizeUxCoverage(coverage,findings,stopped=false){
  const expected=new Set(UX_QA_MATRIX.map(({theme,width})=>theme+':'+width));
