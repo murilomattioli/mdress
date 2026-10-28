@@ -380,7 +380,7 @@ function enhanceSegment(label,select,title){
   if(focused!==-1&&elements[focused].disabled){
    const next=nextEnabledSegmentIndex(elements.map(item=>item.disabled),focused,'ArrowRight');
    if(next!==-1)elements[next].focus({preventScroll:true});
-   else {group.tabIndex=-1;group.focus({preventScroll:true});}
+   else focusInspectorNeighbor(elements[focused],{visibleOnly:true});
   }
  };
  new MutationObserver(update).observe(select,{
