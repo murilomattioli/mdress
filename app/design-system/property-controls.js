@@ -320,14 +320,21 @@ function enhanceSegment(label,select,title){
  select.classList.add('ds-select-native');
  select.setAttribute('aria-hidden','true');select.tabIndex=-1;
  select.replaceWith(field);field.append(name,group,select);
- const elements=[];
  const compact={
   fontChoice:{system:'Sans',serif:'Serif',mono:'Mono'},
   sectionRule:{line:'Linha',none:'Nenhum',block:'Bloco'}
  }[select.id]||{};
- for(const option of select.options){
-  const btn=button('ds-segment-option',compact[option.value]||option.textContent);
-  btn.setAttribute('aria-pressed',String(select.value===option.value));
+ // Compact labels are only aliases for the original options. If the native
+ // label changes later, show the new text instead of a stale abbreviation.
+ const initialLabels=new WeakMap();
+ for(const option of select.options)initialLabels.set(option,option.label||option.textContent);
+ const labelFor=option=>{
+  const text=option.label||option.textContent;
+  return initialLabels.get(option)===text&&compact[option.value]||text;
+ };
+ let elements=[],rendered=[];
+ const makeButton=option=>{
+  const btn=button('ds-segment-option',labelFor(option));
   btn.dataset.value=option.value;
   btn.onclick=()=>{if(!select.disabled&&!isSelectOptionDisabled(option))nativeCommit(select,option.value);};
   btn.addEventListener('keydown',e=>{
@@ -336,22 +343,50 @@ function enhanceSegment(label,select,title){
    const next=nextEnabledSegmentIndex(elements.map(item=>item.disabled),elements.indexOf(btn),e.key);
    if(next!==-1){elements[next].focus();elements[next].click();}
   });
-  elements.push(btn);group.append(btn);
- }
+  return btn;
+ };
  const update=()=>{
+  const options=visibleSelectOptions(select);
+  const changed=rendered.length!==options.length||options.some((option,index)=>{
+   const item=rendered[index];
+   return item.option!==option||item.value!==option.value||item.label!==labelFor(option);
+  });
+  if(changed){
+   const focusedIndex=rendered.findIndex(item=>item.button===document.activeElement);
+   const focusedOption=rendered[focusedIndex]?.option;
+   const previous=new Map(rendered.map(item=>[item.option,item.button]));
+   rendered=options.map(option=>{
+    const btn=previous.get(option)||makeButton(option);
+    const text=labelFor(option);
+    btn.textContent=text;btn.dataset.value=option.value;
+    return {option,button:btn,label:text,value:option.value};
+   });
+   elements=rendered.map(item=>item.button);
+   group.replaceChildren(...elements);
+   // Reordering/removing an option must not strand focus on a detached
+   // button. Preserve the native option identity when possible.
+   if(focusedIndex!==-1){
+    const next=rendered.find(item=>item.option===focusedOption)?.button||
+     elements[Math.min(focusedIndex,elements.length-1)];
+    if(next)next.focus({preventScroll:true});
+    else {group.tabIndex=-1;group.focus({preventScroll:true});}
+   }
+  }
   const focused=elements.indexOf(document.activeElement);
   for(const [index,btn] of elements.entries()){
    btn.setAttribute('aria-pressed',String(btn.dataset.value===select.value));
-   btn.disabled=select.disabled||isSelectOptionDisabled(select.options[index]);
+   btn.disabled=select.disabled||isSelectOptionDisabled(rendered[index].option);
   }
-  // When the active option becomes disabled, keep keyboard focus in the group.
   if(focused!==-1&&elements[focused].disabled){
    const next=nextEnabledSegmentIndex(elements.map(item=>item.disabled),focused,'ArrowRight');
-   if(next!==-1)elements[next].focus();
-   else {group.tabIndex=-1;group.focus();}
+   if(next!==-1)elements[next].focus({preventScroll:true});
+   else {group.tabIndex=-1;group.focus({preventScroll:true});}
   }
  };
- new MutationObserver(update).observe(select,{subtree:true,attributes:true,attributeFilter:['disabled']});
+ new MutationObserver(update).observe(select,{
+  subtree:true,childList:true,characterData:true,attributes:true,
+  attributeFilter:['disabled','hidden','label','value']
+ });
  select.addEventListener('change',update);controllers.push(update);update();
 }
 function closePopup({restoreFocus=true}={}){
