@@ -56,3 +56,16 @@ export function parseHumanReviewChoice(choice){
  if(value==='r')return 'rejected';
  return 'not-reviewed';
 }
+
+/** Human sign-off is tied to one capture session and every required state. */
+export function validateHumanReviewEvidence(review,sessionId){
+ const states=review?.states;
+ const expected=new Set(UX_QA_REQUIRED_SCREENSHOTS);
+ const validShape=review?.schema===1&&review?.sessionId===sessionId&&
+  states&&typeof states==='object'&&!Array.isArray(states);
+ const missing=UX_QA_REQUIRED_SCREENSHOTS.filter(state=>states?.[state]?.status!=='approved');
+ const rejected=UX_QA_REQUIRED_SCREENSHOTS.filter(state=>states?.[state]?.status==='rejected');
+ const unexpected=Object.keys(states&&typeof states==='object'&&!Array.isArray(states)?states:{}).filter(key=>!expected.has(key));
+ return {valid:Boolean(validShape)&&missing.length===0&&unexpected.length===0,
+  sessionMatches:review?.sessionId===sessionId,missing,rejected,unexpected};
+}
