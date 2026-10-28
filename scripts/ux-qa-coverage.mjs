@@ -17,7 +17,7 @@ export const UX_QA_REQUIRED_SCREENSHOTS=[
  'select-disabled-focus-handoff','select-disabled-trigger-focus-handoff','select-disabled',
  'number-focus','number-invalid','number-valid','number-disabled',
  'binary-disabled','binary-disabled-focus-handoff','binary-toggled','binary-keyboard-on','binary-keyboard-off',
- 'segment-disabled-focus','segment-keyboard-focus','segment-live-options','segment-live-focus-handoff'
+ 'segment-disabled-focus','segment-keyboard-focus','segment-live-options','segment-live-focus-handoff','segment-disabled-focus-handoff'
 ];
 export function summarizeScreenshotCoverage(screenshots){
  const expected=UX_QA_MATRIX.flatMap(({theme,width})=>
