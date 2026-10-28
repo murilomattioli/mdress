@@ -41,3 +41,10 @@ export function summarizeAuditFindings(findings, coverage) {
     }),
   };
 }
+
+/** A scenario with no visible controls cannot be reported as a clean UX audit. */
+export function auditCoverageFinding(count,context){
+ if(Number.isInteger(count)&&count>0)return null;
+ return {rule:'coverage',severity:'error',component:'app',
+  detail:'Nenhum controle visível foi inventariado',context};
+}
