@@ -43,22 +43,34 @@ async function verifyImages(section,{fresh=false}={}){
   const images=[...section.querySelectorAll("figure img")];
   if(images.length!==6)throw Error("Matriz incompleta");
   await Promise.all(images.map(async img=>{
-   // Cached thumbnails cannot detect evidence deleted or replaced after approval.
-   // Re-fetch fresh bytes on export, without keeping 300 decoded copies alive.
-   const candidate=fresh?new Image():img;
-   if(fresh){
-    const source=new URL(img.src,location.href);
-    source.searchParams.set("mdress-verify",String(++verificationNonce));
-    candidate.src=source.href;
-   }else img.loading="eager";
-   try{await candidate.decode();}
-   catch{throw Error(img.alt+": arquivo indisponível ou ilegível");}
-   const figure=img.closest("figure");
-   const expectedWidth=Number(figure?.dataset.viewportWidth);
-   const expectedHeight=Number(figure?.dataset.viewportHeight);
-   if(candidate.naturalWidth!==expectedWidth||candidate.naturalHeight!==expectedHeight)
-    throw Error(img.alt+": esperado "+expectedWidth+"×"+expectedHeight+
-     ", recebido "+candidate.naturalWidth+"×"+candidate.naturalHeight);
+   // Each export uses fresh URLs, but repeated full-viewport decodes can
+   // exhaust browser image memory. Release each temporary image after
+   // checking it, and retry transient decode errors once (never dimensions).
+   for(let attempt=0;attempt<(fresh?2:1);attempt++){
+    const candidate=fresh?new Image():img;
+    if(fresh){
+     const source=new URL(img.src,location.href);
+     source.searchParams.set("mdress-verify",String(++verificationNonce));
+     candidate.src=source.href;
+    }else img.loading="eager";
+    let decoded=false;
+    try{await candidate.decode();decoded=true;}
+    catch{}
+    if(!decoded){
+     if(fresh)candidate.removeAttribute("src");
+     if(attempt+1<(fresh?2:1))continue;
+     throw Error(img.alt+": arquivo indisponível ou ilegível");
+    }
+    const figure=img.closest("figure");
+    const expectedWidth=Number(figure?.dataset.viewportWidth);
+    const expectedHeight=Number(figure?.dataset.viewportHeight);
+    const actualWidth=candidate.naturalWidth,actualHeight=candidate.naturalHeight;
+    if(fresh)candidate.removeAttribute("src");
+    if(actualWidth!==expectedWidth||actualHeight!==expectedHeight)
+     throw Error(img.alt+": esperado "+expectedWidth+"×"+expectedHeight+
+      ", recebido "+actualWidth+"×"+actualHeight);
+    return;
+   }
   }));
   select.disabled=false;
   warningEl.hidden=true;
