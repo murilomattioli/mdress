@@ -36,7 +36,7 @@ test('gallery review session is isolated and JSON-safe',()=>{
  assert.match(html,/session-2026-10-28/);
  assert.match(html,/localStorage/);
  assert.match(html,/mdress-ux023-review:/);
- assert.match(html,/application\\/json/);
+ assert.match(html,/application\/json/);
  assert.match(html,/URL.createObjectURL/);
  assert.match(html,/rejected/);
 });
