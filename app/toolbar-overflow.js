@@ -18,7 +18,10 @@ export function attachToolbarOverflow(toolbar){
   node.type='button';node.className='toolbar-scroll-button';
   node.setAttribute('aria-label',label);node.title=label;
   node.textContent=glyph;node.hidden=true;
-  node.addEventListener('click',()=>toolbar.scrollBy({left:direction*Math.max(140,Math.round(toolbar.clientWidth*.7)),behavior:'smooth'}));
+  node.addEventListener('click',()=>toolbar.scrollBy({
+   left:direction*Math.max(140,Math.round(toolbar.clientWidth*.7)),
+   behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'
+  }));
   return node;
  };
  const previous=button(-1,'Rolar ferramentas para a esquerda','‹');
@@ -26,8 +29,21 @@ export function attachToolbarOverflow(toolbar){
  shell.prepend(previous);shell.append(next);
  const update=()=>{
   const state=toolbarOverflowState(toolbar);
+  // Disabling a focused scroll button at the end of its track can dump
+  // keyboard users onto <body>. Capture focus before toggling disabled.
+  const focusedArrow=document.activeElement===previous?previous:
+   document.activeElement===next?next:null;
   previous.hidden=!state.overflow;next.hidden=!state.overflow;
   previous.disabled=!state.canScrollPrevious;next.disabled=!state.canScrollNext;
+  if(focusedArrow&&(focusedArrow.disabled||focusedArrow.hidden)){
+   const opposite=focusedArrow===next?previous:next;
+   if(!opposite.disabled&&!opposite.hidden)opposite.focus({preventScroll:true});
+   else{
+    const action=toolbar.querySelector('button:not(:disabled):not([hidden]),[href],[tabindex="0"]');
+    if(action)action.focus({preventScroll:true});
+    else {toolbar.tabIndex=-1;toolbar.focus({preventScroll:true});}
+   }
+  }
  };
  let frame=0;
  const schedule=()=>{
