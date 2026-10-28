@@ -132,4 +132,53 @@ test('PNG evidence requires a complete, CRC-valid, full-viewport image',()=>{
  badHeader.writeUInt32BE(1,16);
  assert.equal(validateScreenshotViewport(badHeader,1440),false);
  assert.equal(validateScreenshotViewport(Buffer.from('not a PNG'),1440),false);
+ // A valid CRC alone does not mean the PNG contains decodable pixels.
+ const badZlib=Buffer.concat([
+  Buffer.from('89504e470d0a1a0a','hex'),
+  chunk('IHDR',header),
+  chunk('IDAT',Buffer.from('not compressed image data')),
+  chunk('IEND',Buffer.alloc(0))
+ ]);
+ assert.equal(validateScreenshotViewport(badZlib,1440),false,
+  'CRC-correct but undecodable IDAT must fail');
+ const shortRaster=Buffer.concat([
+  Buffer.from('89504e470d0a1a0a','hex'),
+  chunk('IHDR',header),
+  chunk('IDAT',deflateSync(Buffer.from('short raster'))),
+  chunk('IEND',Buffer.alloc(0))
+ ]);
+ assert.equal(validateScreenshotViewport(shortRaster,1440),false,
+  'Inflated raster must contain every full-viewport scanline');
+ const badFilter=Buffer.alloc((1440*3+1)*UX_QA_VIEWPORT_HEIGHT);
+ badFilter[0]=5;
+ const invalidScanline=Buffer.concat([
+  Buffer.from('89504e470d0a1a0a','hex'),
+  chunk('IHDR',header),
+  chunk('IDAT',deflateSync(badFilter)),
+  chunk('IEND',Buffer.alloc(0))
+ ]);
+ assert.equal(validateScreenshotViewport(invalidScanline,1440),false,
+  'Invalid PNG row filters must fail even with correct CRC and zlib');
+ const interlacedHeader=Buffer.from(header);
+ interlacedHeader[12]=1;
+ const unsupportedInterlace=Buffer.concat([
+  Buffer.from('89504e470d0a1a0a','hex'),
+  chunk('IHDR',interlacedHeader),
+  chunk('IDAT',deflateSync(Buffer.alloc((1440*3+1)*UX_QA_VIEWPORT_HEIGHT))),
+  chunk('IEND',Buffer.alloc(0))
+ ]);
+ assert.equal(validateScreenshotViewport(unsupportedInterlace,1440),false,
+  'Unsupported interlaced formats must not be falsely accepted');
+ const compressed=deflateSync(Buffer.alloc((1440*3+1)*UX_QA_VIEWPORT_HEIGHT));
+ const split=Math.floor(compressed.length/2);
+ const interruptedIdat=Buffer.concat([
+  Buffer.from('89504e470d0a1a0a','hex'),
+  chunk('IHDR',header),
+  chunk('IDAT',compressed.subarray(0,split)),
+  chunk('tEXt',Buffer.from('comment')),
+  chunk('IDAT',compressed.subarray(split)),
+  chunk('IEND',Buffer.alloc(0))
+ ]);
+ assert.equal(validateScreenshotViewport(interruptedIdat,1440),false,
+  'IDAT chunks separated by ancillary data violate PNG ordering');
 });
