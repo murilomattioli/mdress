@@ -1,5 +1,5 @@
 import {test} from 'node:test';import {strict as assert} from 'node:assert';
-import {normalizeRange,formatControlValue,validationMessage} from '../app/design-system/property-controls.js';
+import {normalizeRange,formatControlValue,validationMessage,isSelectOptionDisabled} from '../app/design-system/property-controls.js';
 test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(11.22,9,14,.5),11);
  assert.equal(normalizeRange(1.174,1.1,2.2,.05),1.15);
@@ -25,4 +25,13 @@ test('property validation explains missing, out-of-range, step and nonnumeric va
  assert.equal(validationMessage(make('-1',{rangeUnderflow:true}),0,100),'Use um valor entre 0 e 100.');
  assert.equal(validationMessage(make('0.3',{stepMismatch:true}),0,1),'Use um valor compatível com o incremento permitido.');
  assert.equal(validationMessage(make('abc'),0,1),'Informe um número válido.');
+});
+
+test('combobox respects disabled options and inherited disabled optgroups',()=>{
+ const group={tagName:'OPTGROUP',disabled:true};
+ assert.equal(isSelectOptionDisabled({disabled:false,parentElement:group}),true);
+ assert.equal(isSelectOptionDisabled({disabled:true,parentElement:{tagName:'SELECT',disabled:false}}),true);
+ group.disabled=false;
+ assert.equal(isSelectOptionDisabled({disabled:false,parentElement:group}),false);
+ assert.equal(isSelectOptionDisabled({disabled:false,parentElement:null}),false);
 });
