@@ -348,7 +348,7 @@ function makeListbox(label,select,title){
   const popup=document.createElement('div');popup.id=popupId;popup.className='ds-select-popover';
   popup.setAttribute('role','listbox');popup.setAttribute('aria-label',title);
   const opts=[...select.options].filter(o=>!o.hidden),buttons=[],optionItems=[];
-  let lastGroup=null;
+  let lastGroup=null,typeahead='',lastTypedAt=0;
   for(const [index,opt] of opts.entries()){
    const group=opt.parentElement?.tagName==='OPTGROUP'?opt.parentElement.label:null;
    if(group&&group!==lastGroup){
@@ -376,10 +376,16 @@ function makeListbox(label,select,title){
      trigger.focus({preventScroll:true});
     }
     if(e.key.length===1&&/[\p{L}\p{N}]/u.test(e.key)&&!e.altKey&&!e.ctrlKey&&!e.metaKey){
-     const index=findEnabledOptionIndex(
-      buttons.map(b=>({disabled:b.disabled,label:b.querySelector('.ds-option-label')?.textContent||''})),
-      e.key,buttons.indexOf(item)
-     );
+     // Search full labels while typing quickly; repeated initials still cycle.
+     const now=Date.now(),query=now-lastTypedAt<700?typeahead+e.key:e.key;
+     const options=buttons.map(b=>({disabled:b.disabled,label:b.querySelector('.ds-option-label')?.textContent||''}));
+     let index=findEnabledOptionIndex(options,query,buttons.indexOf(item));
+     typeahead=query;
+     if(index===-1){
+      index=findEnabledOptionIndex(options,e.key,buttons.indexOf(item));
+      typeahead=e.key;
+     }
+     lastTypedAt=now;
      if(index!==-1){e.preventDefault();buttons[index].focus();}
     }
    });
