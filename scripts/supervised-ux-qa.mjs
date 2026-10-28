@@ -162,6 +162,34 @@ async function exercise(page,theme,width){
  assert.equal(await page.locator('.ds-select-popover [data-value="verdana"]').evaluate(el=>el===document.activeElement),
   true,'Typing a prefix must focus the matching enabled option');
  await capture(page,theme,width,'select-typeahead-prefix');
+ // The native select is the source of truth even while the portalled listbox
+ // is open: adding, hiding and removing options must not strand keyboard focus.
+ await page.locator('#fontChoice').evaluate(el=>{
+  const option=document.createElement('option');
+  option.value='qa-temporary';option.textContent='QA temporary';
+  el.querySelector('optgroup').append(option);
+ });
+ const injected=page.locator('.ds-select-popover [data-value="qa-temporary"]');
+ await injected.waitFor({state:'visible'});
+ await injected.focus();
+ assert.equal(await injected.evaluate(el=>el===document.activeElement),true);
+ const serifOption=page.locator('#fontChoice option[value="serif"]');
+ await serifOption.evaluate(el=>{el.hidden=true;});
+ await page.waitForFunction(()=>!document.querySelector('.ds-select-popover [data-value="serif"]'));
+ await serifOption.evaluate(el=>{el.hidden=false;});
+ await page.locator('.ds-select-popover [data-value="serif"]').waitFor({state:'visible'});
+ const originalGroupLabel=await firstGroup.getAttribute('label');
+ await firstGroup.evaluate(el=>{el.label='QA group';});
+ await page.waitForFunction(()=>[...document.querySelectorAll('.ds-select-popover .ds-select-group-label')]
+  .some(el=>el.textContent==='QA group'));
+ await capture(page,theme,width,'select-live-options');
+ await firstGroup.evaluate((el,value)=>{el.label=value;},originalGroupLabel);
+ await page.locator('#fontChoice option[value="qa-temporary"]').evaluate(el=>el.remove());
+ await page.waitForFunction(()=>!document.querySelector('.ds-select-popover [data-value="qa-temporary"]'));
+ assert.equal(await trigger.getAttribute('aria-expanded'),'true');
+ assert.equal(await page.evaluate(()=>document.activeElement?.matches('.ds-select-popover [role="option"]:not(:disabled)')),true,
+  'Removing a focused native option must restore focus inside the refreshed listbox');
+ await capture(page,theme,width,'select-live-options-removed');
  await page.keyboard.press('Escape');
  // A portalled listbox must preserve normal document tab order when closed.
  // Test both directions: the next/previous inspector control must receive

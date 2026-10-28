@@ -286,6 +286,16 @@ function closePopup({restoreFocus=true}={}){
 export function isSelectOptionDisabled(option){
  return Boolean(option.disabled||(option.parentElement?.tagName==='OPTGROUP'&&option.parentElement.disabled));
 }
+// A portalled listbox is a snapshot of native options. Detect edits to
+// option order, membership, labels and optgroup headings before it goes stale.
+export function selectPopupNeedsRefresh(rendered,visible){
+ if(rendered.length!==visible.length)return true;
+ return visible.some((option,index)=>{
+  const group=option.parentElement?.tagName==='OPTGROUP'?option.parentElement.label:null;
+  const label=option.label||option.textContent;
+  return rendered[index].option!==option||rendered[index].group!==group||rendered[index].label!==label;
+ });
+}
 // Native-select-style typeahead: skip disabled options and cycle repeated initials.
 export function findEnabledOptionIndex(options,prefix,afterIndex=-1){
  const query=String(prefix).trim().toLocaleLowerCase();
@@ -332,6 +342,14 @@ function makeListbox(label,select,title){
   if(select.disabled&&openSelect?.trigger===trigger){closePopup({restoreFocus:false});return;}
   if(openSelect?.trigger===trigger){
    const focusedOption=openSelect.optionItems.find(({item})=>item===document.activeElement);
+   const visible=[...select.options].filter(option=>!option.hidden);
+   if(selectPopupNeedsRefresh(openSelect.optionItems,visible)){
+    // Preserve the keyboard position when options are inserted, removed,
+    // hidden or renamed. Never leave focus in a detached popup button.
+    closePopup({restoreFocus:false});
+    open(focusedOption?.option.value);
+    return;
+   }
    for(const {option,item} of openSelect.optionItems){
     item.disabled=isSelectOptionDisabled(option);
     item.setAttribute('aria-selected',String(select.value===option.value));
@@ -341,7 +359,7 @@ function makeListbox(label,select,title){
    }
   }
  };
- const open=()=>{
+ const open=(preferredValue=null)=>{
   if(select.disabled)return;
   if(openSelect?.trigger===trigger){closePopup();return;}
   closePopup({restoreFocus:false});
@@ -389,7 +407,7 @@ function makeListbox(label,select,title){
      if(index!==-1){e.preventDefault();buttons[index].focus();}
     }
    });
-   popup.append(item);buttons.push(item);optionItems.push({option:opt,item});
+   popup.append(item);buttons.push(item);optionItems.push({option:opt,item,group,label:text.textContent});
   }
   document.body.append(popup);
   const reposition=()=>{
@@ -404,12 +422,14 @@ function makeListbox(label,select,title){
   reposition();
   trigger.setAttribute('aria-expanded','true');
   openSelect={popup,trigger,optionItems,reposition,onClose:()=>{}};
-  (buttons.find(b=>b.dataset.value===select.value&&!b.disabled)||buttons.find(b=>!b.disabled))?.focus();
+  (buttons.find(b=>b.dataset.value===preferredValue&&!b.disabled)||
+   buttons.find(b=>b.dataset.value===select.value&&!b.disabled)||
+   buttons.find(b=>!b.disabled))?.focus();
  };
  trigger.addEventListener('click',event=>{event.preventDefault();open();});
  trigger.addEventListener('keydown',e=>{if(['Enter',' ','ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();open();}});
  select.addEventListener('change',update);
- const observer=new MutationObserver(update);observer.observe(select,{childList:true,subtree:true,attributes:true,attributeFilter:['selected','label','disabled']});
+ const observer=new MutationObserver(update);observer.observe(select,{childList:true,subtree:true,attributes:true,attributeFilter:['selected','label','disabled','hidden'],characterData:true});
  controllers.push(update);update();
 }
 function accordionChevron(){

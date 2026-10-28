@@ -1,5 +1,5 @@
 import {test} from 'node:test';import {strict as assert} from 'node:assert';
-import {normalizeRange,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex,selectPopoverLayout} from '../app/design-system/property-controls.js';
+import {normalizeRange,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex,selectPopoverLayout,selectPopupNeedsRefresh} from '../app/design-system/property-controls.js';
 test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(11.22,9,14,.5),11);
  assert.equal(normalizeRange(1.174,1.1,2.2,.05),1.15);
@@ -56,6 +56,27 @@ test('combobox typeahead skips disabled items and cycles matching initials',()=>
  assert.equal(findEnabledOptionIndex([{label:'Árvore',disabled:false}], 'á'),0,'Unicode labels remain searchable');
 });
 
+
+test('combobox detects live native option edits before its portalled popup becomes stale',()=>{
+ const group={tagName:'OPTGROUP',label:'Fontes'};
+ const first={label:'Sans',textContent:'Sans',parentElement:group};
+ const second={label:'Serif',textContent:'Serif',parentElement:group};
+ const rendered=[
+  {option:first,group:'Fontes',label:'Sans'},
+  {option:second,group:'Fontes',label:'Serif'}
+ ];
+ assert.equal(selectPopupNeedsRefresh(rendered,[first,second]),false);
+ assert.equal(selectPopupNeedsRefresh(rendered,[first]),true,'Removal invalidates old buttons');
+ assert.equal(selectPopupNeedsRefresh(rendered,[first,second,{label:'Mono'}]),true,'Addition invalidates old buttons');
+ assert.equal(selectPopupNeedsRefresh(rendered,[second,first]),true,'Reordering invalidates keyboard order');
+ first.label='Sans modern';
+ assert.equal(selectPopupNeedsRefresh(rendered,[first,second]),true,'Option rename updates visible text');
+ first.label='Sans';
+ group.label='Tipografia';
+ assert.equal(selectPopupNeedsRefresh(rendered,[first,second]),true,'Optgroup heading updates');
+ group.label='Fontes';
+ assert.equal(selectPopupNeedsRefresh(rendered,[first,second]),false);
+});
 test('segment keyboard navigation skips disabled options and wraps safely',()=>{
  const disabled=[false,true,false,true];
  assert.equal(nextEnabledSegmentIndex(disabled,0,'ArrowRight'),2);
