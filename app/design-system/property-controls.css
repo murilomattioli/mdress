@@ -219,6 +219,9 @@
 .ds-select-popover .ds-select-group-label:not(:first-child){border-top:1px solid var(--ds-border-subtle);margin-top:4px}
 
 /* UX-023: minimum usable control geometry, descriptive errors and visible keyboard focus. */
+/* Labels in the 768px inspector were only 10.6px: increase legibility without
+   enlarging control chrome or forcing an extra line in compact property rows. */
+.design-inspector .ds-property-row .ds-prop-name{font-size:12px;line-height:1.25;font-weight:620}
 .design-inspector .ds-property-row{container-type:inline-size}
 .ds-property-range,.ds-property-number,.ds-property-color,.ds-property-select,.ds-property-segment,.ds-property-binary{
  min-height:44px;gap:8px;padding:5px 9px 5px 11px;border:1px solid var(--prop-border);
