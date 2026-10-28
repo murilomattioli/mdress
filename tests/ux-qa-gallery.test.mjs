@@ -20,7 +20,8 @@ test('offline gallery renders all 300 comparisons and supports filtering',()=>{
  assert.equal((html.match(/class="review-status" disabled/g)||[]).length,50);
  assert.match(html,/async function verifyImages/);
  assert.match(html,/await img\.decode\(\)/);
- assert.match(html,/await Promise\.all\(states\.map\(verifyImages\)\)/);
+ assert.match(html,/states\.slice\(offset,offset\+3\)\.map\(verifyImages\)/);
+ assert.match(html,/Verificando capturas:/);
  assert.match(html,/color-draft-sync/);
  assert.match(html,/binary-disabled-focus-handoff/);
  assert.match(html,/segment-live-focus-handoff/);
