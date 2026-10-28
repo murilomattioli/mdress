@@ -518,7 +518,13 @@ export function initializePropertyControls(){
   if(openSelect&&!openSelect.popup.contains(event.target)&&!openSelect.trigger.contains(event.target))closePopup({restoreFocus:false});
  });
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openSelect){event.preventDefault();closePopup();}});
- window.addEventListener('resize',()=>closePopup({restoreFocus:false}));
+ window.addEventListener('resize',()=>{
+  if(!openSelect)return;
+  // A resize (including browser zoom/orientation changes) must not strand
+  // keyboard focus in a detached option when the popup is dismissed.
+  const {popup,trigger}=openSelect;
+  closePopup({restoreFocus:popup.contains(document.activeElement)&&!trigger.disabled});
+ });
  document.querySelector('.inspector-scroll')?.addEventListener('scroll',()=>{
   // Keep popovers anchored while auto-scrolling an inspector control into view.
   if(!openSelect)return;

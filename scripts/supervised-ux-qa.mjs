@@ -190,6 +190,16 @@ async function exercise(page,theme,width){
  assert.equal(await page.evaluate(()=>document.activeElement?.matches('.ds-select-popover [role="option"]:not(:disabled)')),true,
   'Removing a focused native option must restore focus inside the refreshed listbox');
  await capture(page,theme,width,'select-live-options-removed');
+ // Browser resizing closes the portalled listbox; keyboard focus must land
+ // on its trigger rather than silently falling back to document.body.
+ await page.setViewportSize({width:width-1,height:900});
+ assert.equal(await trigger.getAttribute('aria-expanded'),'false');
+ assert.equal(await trigger.evaluate(el=>el===document.activeElement),true,
+  'Resize must restore focus from detached popup option to combobox trigger');
+ await page.setViewportSize({width,height:900});
+ await capture(page,theme,width,'select-resize-focus');
+ await trigger.press('ArrowDown');
+ assert.equal(await trigger.getAttribute('aria-expanded'),'true');
  await page.keyboard.press('Escape');
  // A portalled listbox must preserve normal document tab order when closed.
  // Test both directions: the next/previous inspector control must receive
