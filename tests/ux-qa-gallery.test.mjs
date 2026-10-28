@@ -11,6 +11,11 @@ test('offline gallery renders all 282 comparisons and supports filtering',()=>{
  const html=renderUxQaGallery(all,summarizeScreenshotCoverage(all));
  assert.match(html,/<html lang="pt-BR">/);
  assert.match(html,/id="filter"/);
+ assert.match(html,/id="review-progress"/);
+ assert.match(html,/id="export-review"/);
+ assert.match(html,/id="only-pending"/);
+ assert.equal((html.match(/class="review-status"/g)||[]).length,47);
+ assert.equal((html.match(/class="review-note"/g)||[]).length,47);
  assert.match(html,/color-draft-sync/);
  assert.match(html,/binary-disabled-focus-handoff/);
  assert.match(html,/graphite-1440-workspace.png/);
@@ -24,4 +29,14 @@ test('invalid evidence path is not inserted as HTML or a clickable link',()=>{
  assert.doesNotMatch(html,/<script>alert/);
  assert.match(html,/Captura ausente ou inválida/);
  assert.equal((html.match(/<figure>/g)||[]).length,281);
+});
+
+test('gallery review session is isolated and JSON-safe',()=>{
+ const html=renderUxQaGallery(all,summarizeScreenshotCoverage(all),'session-2026-10-28');
+ assert.match(html,/session-2026-10-28/);
+ assert.match(html,/localStorage/);
+ assert.match(html,/mdress-ux023-review:/);
+ assert.match(html,/application\\/json/);
+ assert.match(html,/URL.createObjectURL/);
+ assert.match(html,/rejected/);
 });
