@@ -438,6 +438,36 @@ async function exercise(page,theme,width){
    key+' from portalled listbox must follow inspector tab order: '+JSON.stringify(focusState));
   await capture(page,theme,width,key==='Tab'?'select-tab-forward':'select-tab-backward');
  }
+ // Closing the source accordion via script must dismiss its portalled
+ // listbox. Otherwise the orphaned options remain interactive outside a
+ // hidden section and keyboard focus disappears into detached UI.
+ await trigger.focus();await trigger.press('ArrowDown');
+ await page.locator('#fontChoice').evaluate(el=>{
+  const toggle=el.closest('.ds-accordion')?.querySelector(':scope > .ds-accordion-toggle');
+  if(!toggle||toggle.getAttribute('aria-expanded')!=='true')throw Error('Font accordion unavailable');
+  toggle.click();
+ });
+ await page.waitForFunction(()=>document.querySelector('#fontChoice')?.closest('.ds-property-select')
+  ?.querySelector('.ds-select-trigger')?.getAttribute('aria-expanded')==='false');
+ assert.equal(await page.locator('.ds-select-popover').count(),0,
+  'Collapsing an accordion must remove its portalled listbox');
+ await assertInspectorFocusHandoff(page,'Accordion collapse must restore visible inspector keyboard focus');
+ await capture(page,theme,width,'select-accordion-collapse-focus-handoff');
+ await page.locator('#fontChoice').evaluate(el=>
+  el.closest('.ds-accordion').querySelector(':scope > .ds-accordion-toggle').click());
+ await trigger.scrollIntoViewIfNeeded();
+ // Programmatic tab changes also lack pointerdown. A popup must never
+ // survive when its source panel is hidden by a tab transition.
+ await trigger.focus();await trigger.press('ArrowDown');
+ await page.locator('[data-inspector-tab="page"]').evaluate(el=>el.click());
+ await page.waitForFunction(()=>document.querySelector('#fontChoice')?.closest('.ds-property-select')
+  ?.querySelector('.ds-select-trigger')?.getAttribute('aria-expanded')==='false');
+ assert.equal(await page.locator('.ds-select-popover').count(),0,
+  'Changing inspector tabs must dismiss a stale listbox');
+ await assertInspectorFocusHandoff(page,'Inspector tab switch must preserve visible keyboard focus');
+ await capture(page,theme,width,'select-tab-switch-focus-handoff');
+ await revealInspector(page,'style');
+ await trigger.scrollIntoViewIfNeeded();
  await trigger.focus();await trigger.press('ArrowDown');
  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
  await page.locator('#fontChoice').evaluate(el=>{el.disabled=true;});
