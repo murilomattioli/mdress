@@ -284,11 +284,12 @@ function makeListbox(label,select,title){
   trigger.disabled=select.disabled;
   if(select.disabled&&openSelect?.trigger===trigger){closePopup({restoreFocus:false});return;}
   if(openSelect?.trigger===trigger){
+   const focusedOption=openSelect.optionItems.find(({item})=>item===document.activeElement);
    for(const {option,item} of openSelect.optionItems){
     item.disabled=isSelectOptionDisabled(option);
     item.setAttribute('aria-selected',String(select.value===option.value));
    }
-   if(openSelect.optionItems.some(({item})=>item===document.activeElement&&item.disabled)){
+   if(focusedOption?.item.disabled){
     (openSelect.optionItems.find(({item})=>!item.disabled)?.item||trigger).focus();
    }
   }
