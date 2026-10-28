@@ -1,5 +1,5 @@
 import {test} from 'node:test';import {strict as assert} from 'node:assert';
-import {normalizeRange,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex,selectPopoverLayout,selectPopupNeedsRefresh,visibleSelectOptions} from '../app/design-system/property-controls.js';
+import {normalizeRange,rangeConstraints,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex,selectPopoverLayout,selectPopupNeedsRefresh,visibleSelectOptions} from '../app/design-system/property-controls.js';
 test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(11.22,9,14,.5),11);
  assert.equal(normalizeRange(1.174,1.1,2.2,.05),1.15);
@@ -19,6 +19,15 @@ test('precision control rejects unsupported numeric states',()=>{
  assert.throws(()=>normalizeRange(0,1,1,.1));
  assert.throws(()=>normalizeRange(0,0,1,0));
 });
+test('range precision constraints follow native defaults and live attribute values',()=>{
+ assert.deepEqual(rangeConstraints({min:'',max:'',step:''}),{min:0,max:100,step:1,valid:true});
+ assert.deepEqual(rangeConstraints({min:'-4',max:'20',step:'any'}),{min:-4,max:20,step:'any',valid:true});
+ assert.deepEqual(rangeConstraints({min:'0.05',max:'1.05',step:'0.1'}),{min:.05,max:1.05,step:.1,valid:true});
+ assert.equal(rangeConstraints({min:'8',max:'8',step:'1'}).valid,false);
+ assert.equal(rangeConstraints({min:'1',max:'9',step:'0'}).valid,false);
+ assert.equal(normalizeRange(4.375,0,5,'any'),4.375,'step=any must preserve valid fractional precision');
+ assert.equal(normalizeRange(8,-4,5,'any'),5,'step=any still enforces native bounds');
+});
 test('value formatting preserves exact custom units',()=>{
  assert.equal(formatControlValue(11,'pt'),'11 pt');
  assert.equal(formatControlValue(0.18,''),'0.18');
@@ -33,6 +42,9 @@ test('property validation explains missing, out-of-range, step and nonnumeric va
  assert.equal(validationMessage(make('-1',{rangeUnderflow:true}),0,100),'Use um valor entre 0 e 100.');
  assert.equal(validationMessage(make('0.3',{stepMismatch:true}),0,1),'Use um valor compatível com o incremento permitido.');
  assert.equal(validationMessage(make('abc'),0,1),'Informe um número válido.');
+ assert.equal(validationMessage(make('-5',{rangeUnderflow:true}),-3,Infinity,'pt'),'Use um valor maior ou igual a -3 pt.');
+ assert.equal(validationMessage(make('15',{rangeOverflow:true}),-Infinity,12),'Use um valor menor ou igual a 12.');
+
 });
 
 test('combobox respects disabled options and inherited disabled optgroups',()=>{
