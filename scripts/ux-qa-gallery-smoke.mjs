@@ -45,11 +45,11 @@ try{
     workspaceRequests.push({query:address.search,breakFreshReview,wrongViewport});
    if(address.pathname.includes('graphite-1440-workspace.png')&&
       (address.pathname.startsWith('/broken/')||(breakFreshReview&&address.searchParams.has('mdress-verify'))))
-    return route.fulfill({status:404,body:'Missing screenshot'});
+    return route.fulfill({status:404,headers:{'cache-control':'no-store'},body:'Missing screenshot'});
    const width=Number(address.pathname.match(/-(1440|1024|768)-/)?.[1]);
    const wrongSize=wrongViewport&&address.pathname.includes('graphite-1440-workspace.png')&&
     address.searchParams.has('mdress-verify');
-   return route.fulfill({status:200,contentType:'image/png',body:wrongSize?pixel:fixtures.get(width)});
+   return route.fulfill({status:200,headers:{'cache-control':'no-store'},contentType:'image/png',body:wrongSize?pixel:fixtures.get(width)});
   }
   return route.fulfill({status:200,contentType:'text/html',body:html});
  });
