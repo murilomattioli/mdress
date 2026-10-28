@@ -177,6 +177,9 @@ async function exercise(page,theme,width){
  const hex=color.locator('.ds-color-hex');
  await color.scrollIntoViewIfNeeded();
  await hex.focus();await capture(page,theme,width,'color-focus');
+ const colorPickerName=await page.locator('#accentColor').getAttribute('aria-label');
+ assert.ok(colorPickerName?.includes('seletor de cor'),
+  'The native color swatch needs an accessible name distinct from the hex text field');
  const originalColor=await page.locator('#accentColor').inputValue();
  await hex.fill('#BAD');await hex.dispatchEvent('change');
  assert.equal(await hex.getAttribute('aria-invalid'),'true');
