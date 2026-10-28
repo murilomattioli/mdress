@@ -101,7 +101,8 @@ try{
  await page.locator('#export-review').click();
  const restored=JSON.parse(await readFile(await (await restoredDownload).path(),'utf8'));
  assert.equal(restored.states.workspace.status,'pending','Restoring evidence must not auto-approve UX');
- assert.equal(await status.isDisabled(),false,'Reviewer can inspect restored evidence again');
+ assert.equal(await status.isDisabled(),false,
+  'Reviewer can inspect restored evidence again: '+await page.locator('.state').first().locator('.image-warning').innerText());
  await status.selectOption('approved');
  wrongViewport=true;
  const resizedDownload=page.waitForEvent('download');

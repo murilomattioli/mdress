@@ -51,18 +51,21 @@ async function verifyImages(section,{fresh=false}={}){
     source.searchParams.set("mdress-verify",String(++verificationNonce));
     candidate.src=source.href;
    }else img.loading="eager";
-   await candidate.decode();
+   try{await candidate.decode();}
+   catch{throw Error(img.alt+": arquivo indisponível ou ilegível");}
    const figure=img.closest("figure");
    const expectedWidth=Number(figure?.dataset.viewportWidth);
    const expectedHeight=Number(figure?.dataset.viewportHeight);
    if(candidate.naturalWidth!==expectedWidth||candidate.naturalHeight!==expectedHeight)
-    throw Error("PNG ausente ou com dimensões diferentes do viewport");
+    throw Error(img.alt+": esperado "+expectedWidth+"×"+expectedHeight+
+     ", recebido "+candidate.naturalWidth+"×"+candidate.naturalHeight);
   }));
   select.disabled=false;
   warningEl.hidden=true;
   return true;
- })().catch(()=>{
+ })().catch(error=>{
   select.disabled=true;
+  warningEl.textContent="Não foi possível validar as seis capturas: "+(error?.message||"erro desconhecido");
   warningEl.hidden=false;
   const key=section.dataset.name;
   if(saved[key]?.status==="approved"){
