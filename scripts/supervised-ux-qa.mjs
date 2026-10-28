@@ -548,6 +548,23 @@ async function exercise(page,theme,width){
  await page.waitForFunction(()=>document.querySelector('#sectionRule')?.closest('.ds-property-segment')
   ?.querySelectorAll('.ds-segment-option').length===3);
  await nativeSegment.selectOption(originalSegment);
+ await line.focus();
+ await nativeSegment.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>[...document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelectorAll('.ds-segment-option')||[]].every(button=>button.disabled));
+ const segmentDisabledFocus=await page.evaluate(()=>{
+  const active=document.activeElement,rect=active.getBoundingClientRect();
+  const scroller=active.closest('.inspector-scroll'),bounds=scroller?.getBoundingClientRect();
+  return {inInspector:Boolean(active.closest('.design-inspector')),
+   inDisabledGroup:Boolean(active.closest('.ds-segment-buttons')),disabled:Boolean(active.disabled),
+   isBody:active===document.body,visible:rect.bottom>0&&rect.top<innerHeight&&
+    (!bounds||rect.bottom>bounds.top&&rect.top<bounds.bottom)};
+ });
+ assert.ok(segmentDisabledFocus.inInspector&&!segmentDisabledFocus.inDisabledGroup&&
+  !segmentDisabledFocus.disabled&&!segmentDisabledFocus.isBody&&segmentDisabledFocus.visible,
+  'Disabling a focused segmented select must hand focus to a visible enabled inspector control: '+JSON.stringify(segmentDisabledFocus));
+ await capture(page,theme,width,'segment-disabled-focus-handoff');
+ await nativeSegment.evaluate(el=>{el.disabled=false;});
  const boxes=await page.locator('.design-inspector .ds-property-row').evaluateAll(rows=>rows.filter(el=>{
   const r=el.getBoundingClientRect(),s=getComputedStyle(el);
   return r.width>0&&s.display!=='none'&&el.scrollWidth>el.clientWidth+3;
