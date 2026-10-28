@@ -262,6 +262,9 @@ function closePopup({restoreFocus=true}={}){
  openSelect=null;onClose?.();
  if(restoreFocus)trigger.focus();
 }
+export function isSelectOptionDisabled(option){
+ return Boolean(option.disabled||(option.parentElement?.tagName==='OPTGROUP'&&option.parentElement.disabled));
+}
 function makeListbox(label,select,title){
  label.classList.add('ds-property-row','ds-property-row--select');
  const field=document.createElement('div');field.className='ds-property-select';
@@ -279,7 +282,16 @@ function makeListbox(label,select,title){
   const o=select.selectedOptions[0];value.textContent=o?.label||o?.textContent||'Selecionar';
   // The hidden native select owns availability; the visible combobox must follow it.
   trigger.disabled=select.disabled;
-  if(select.disabled&&openSelect?.trigger===trigger)closePopup({restoreFocus:false});
+  if(select.disabled&&openSelect?.trigger===trigger){closePopup({restoreFocus:false});return;}
+  if(openSelect?.trigger===trigger){
+   for(const {option,item} of openSelect.optionItems){
+    item.disabled=isSelectOptionDisabled(option);
+    item.setAttribute('aria-selected',String(select.value===option.value));
+   }
+   if(openSelect.optionItems.some(({item})=>item===document.activeElement&&item.disabled)){
+    (openSelect.optionItems.find(({item})=>!item.disabled)?.item||trigger).focus();
+   }
+  }
  };
  const open=()=>{
   if(select.disabled)return;
@@ -287,7 +299,7 @@ function makeListbox(label,select,title){
   closePopup({restoreFocus:false});
   const popup=document.createElement('div');popup.id=popupId;popup.className='ds-select-popover';
   popup.setAttribute('role','listbox');popup.setAttribute('aria-label',title);
-  const opts=[...select.options].filter(o=>!o.hidden),buttons=[];
+  const opts=[...select.options].filter(o=>!o.hidden),buttons=[],optionItems=[];
   let lastGroup=null;
   for(const [index,opt] of opts.entries()){
    const group=opt.parentElement?.tagName==='OPTGROUP'?opt.parentElement.label:null;
@@ -298,11 +310,11 @@ function makeListbox(label,select,title){
    lastGroup=group;
    const item=button('ds-select-option','');
    item.setAttribute('role','option');item.setAttribute('aria-selected',String(select.value===opt.value));
-   item.disabled=opt.disabled;
+   item.disabled=isSelectOptionDisabled(opt);
    const text=span('ds-option-label',opt.label||opt.textContent);
    const check=span('ds-option-check','✓');item.append(text,check);
    item.dataset.value=opt.value;
-   item.addEventListener('click',()=>{nativeCommit(select,opt.value);closePopup();});
+   item.addEventListener('click',()=>{if(isSelectOptionDisabled(opt))return;nativeCommit(select,opt.value);closePopup();});
    item.addEventListener('keydown',e=>{
     const move=(dir)=>{const available=buttons.filter(b=>!b.disabled);const cur=available.indexOf(item);available[(cur+dir+available.length)%available.length]?.focus();};
     if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();move(e.key==='ArrowDown'?1:-1);}
@@ -314,7 +326,7 @@ function makeListbox(label,select,title){
      if(target)target.focus();
     }
    });
-   popup.append(item);buttons.push(item);
+   popup.append(item);buttons.push(item);optionItems.push({option:opt,item});
   }
   document.body.append(popup);
   const box=trigger.getBoundingClientRect(),availableBelow=window.innerHeight-box.bottom-12;
@@ -326,7 +338,7 @@ function makeListbox(label,select,title){
   popup.style.top=above?'auto':Math.min(window.innerHeight-45,box.bottom+5)+'px';
   if(above)popup.style.bottom=Math.max(8,window.innerHeight-box.top+5)+'px';
   trigger.setAttribute('aria-expanded','true');
-  openSelect={popup,trigger,onClose:()=>{}};
+  openSelect={popup,trigger,optionItems,onClose:()=>{}};
   (buttons.find(b=>b.dataset.value===select.value&&!b.disabled)||buttons.find(b=>!b.disabled))?.focus();
  };
  trigger.addEventListener('click',event=>{event.preventDefault();open();});
