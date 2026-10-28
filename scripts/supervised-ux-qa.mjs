@@ -172,6 +172,7 @@ async function exercise(page,theme,width){
   }));
   assert.ok(focusState.inInspector&&!focusState.isTrigger&&!focusState.isBody,
    key+' from portalled listbox must follow inspector tab order: '+JSON.stringify(focusState));
+  await capture(page,theme,width,key==='Tab'?'select-tab-forward':'select-tab-backward');
  }
  await page.locator('#fontChoice').evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>document.querySelector('#fontChoice')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.disabled);
