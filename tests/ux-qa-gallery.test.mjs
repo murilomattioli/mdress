@@ -20,7 +20,11 @@ test('offline gallery renders all 300 comparisons and supports filtering',()=>{
  assert.equal((html.match(/class="review-status" disabled/g)||[]).length,50);
  assert.match(html,/async function verifyImages/);
  assert.match(html,/await img\.decode\(\)/);
- assert.match(html,/states\.slice\(offset,offset\+3\)\.map\(verifyImages\)/);
+ assert.match(html,/states\.slice\(offset,offset\+3\)\.map\(section=>verifyImages\(section,\{fresh:true\}\)\)/);
+ assert.match(html,/source\.searchParams\.set\("mdress-verify"/);
+ assert.match(html,/id="image-viewer"/);
+ assert.match(html,/viewer\.showModal\(\)/);
+ assert.match(html,/viewerOrigin\?\.focus\(\)/);
  assert.match(html,/Verificando capturas:/);
  assert.match(html,/color-draft-sync/);
  assert.match(html,/binary-disabled-focus-handoff/);

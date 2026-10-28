@@ -11,10 +11,12 @@ try{
  // A synthetic local origin enables storage/download tests without an external service.
  // Serve real decodable PNG bytes: an HTML fallback must never count as reviewed evidence.
  const pixel=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC','base64');
+ let breakFreshReview=false;
  await page.route('http://mdress-qa.test/**',route=>{
   const address=new URL(route.request().url());
   if(address.pathname.endsWith('.png')){
-   if(address.pathname.includes('graphite-1440-workspace.png')&&address.pathname.startsWith('/broken/'))
+   if(address.pathname.includes('graphite-1440-workspace.png')&&
+      (address.pathname.startsWith('/broken/')||(breakFreshReview&&address.searchParams.has('mdress-verify'))))
     return route.fulfill({status:404,body:'Missing screenshot'});
    return route.fulfill({status:200,contentType:'image/png',body:pixel});
   }
@@ -33,6 +35,17 @@ try{
  await page.reload();
  assert.equal(await status.inputValue(),'approved','Review must survive reload in this session');
  assert.match(await note.inputValue(),/Foco, contraste/);
+ // The modal supports keyboard comparison and restores focus to its trigger.
+ const firstImage=page.locator('.state').first().locator('figure a').first();
+ await firstImage.click();
+ const viewer=page.locator('#image-viewer');
+ assert.equal(await viewer.isVisible(),true);
+ assert.match(await page.locator('#viewer-label').innerText(),/1\/6/);
+ await page.keyboard.press('ArrowRight');
+ assert.match(await page.locator('#viewer-label').innerText(),/2\/6/);
+ await page.keyboard.press('Escape');
+ assert.equal(await viewer.isVisible(),false);
+ assert.equal(await firstImage.evaluate(el=>document.activeElement===el),true);
  await page.locator('#only-pending').click();
  assert.equal(await page.locator('.state').first().isVisible(),false,'Approved states can be hidden');
  await page.locator('#only-pending').click();
@@ -46,6 +59,21 @@ try{
  assert.match(exported.states.workspace.note,/Foco, contraste/);
  assert.equal(Object.keys(exported.states).length,50);
  assert.ok(exported.sessionId);
+ // Regression: the reviewer approved this state, then one PNG disappeared.
+ // A cached img.decode() must NOT allow an approval to survive export.
+ breakFreshReview=true;
+ const staleDownload=page.waitForEvent('download');
+ await page.locator('#export-review').click();
+ const stale=JSON.parse(await readFile(await (await staleDownload).path(),'utf8'));
+ assert.equal(stale.states.workspace.status,'pending','Fresh validation must revoke stale approval');
+ assert.equal(await status.isDisabled(),true);
+ assert.equal(await page.locator('.state').first().locator('.image-warning').isVisible(),true);
+ breakFreshReview=false;
+ const restoredDownload=page.waitForEvent('download');
+ await page.locator('#export-review').click();
+ const restored=JSON.parse(await readFile(await (await restoredDownload).path(),'utf8'));
+ assert.equal(restored.states.workspace.status,'pending','Restoring evidence must not auto-approve UX');
+ assert.equal(await status.isDisabled(),false,'Reviewer can inspect restored evidence again');
  page.once('dialog',dialog=>dialog.accept());
  await page.locator('#reset-review').click();
  assert.equal(await status.inputValue(),'pending');
@@ -61,6 +89,6 @@ try{
  const broken=JSON.parse(await readFile(await (await brokenDownload).path(),'utf8'));
  assert.equal(broken.states.workspace.status,'pending');
  assert.match(await missing.locator('.image-warning').innerText(),/seis capturas/);
- console.log('Gallery smoke passed: review, persistence, export, missing-PNG guard.');
+ console.log('Gallery smoke passed: review, modal keyboard, persistence, fresh export revalidation, missing-PNG guard.');
  await context.close();
 }finally{await browser.close();}
