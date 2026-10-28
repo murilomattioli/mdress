@@ -265,6 +265,17 @@ function closePopup({restoreFocus=true}={}){
 export function isSelectOptionDisabled(option){
  return Boolean(option.disabled||(option.parentElement?.tagName==='OPTGROUP'&&option.parentElement.disabled));
 }
+// Native-select-style typeahead: skip disabled options and cycle repeated initials.
+export function findEnabledOptionIndex(options,prefix,afterIndex=-1){
+ const query=String(prefix).trim().toLocaleLowerCase();
+ if(!query||!options.length)return -1;
+ for(let offset=1;offset<=options.length;offset++){
+  const index=(afterIndex+offset+options.length)%options.length;
+  const option=options[index];
+  if(!option.disabled&&String(option.label).trim().toLocaleLowerCase().startsWith(query))return index;
+ }
+ return -1;
+}
 function makeListbox(label,select,title){
  label.classList.add('ds-property-row','ds-property-row--select');
  const field=document.createElement('div');field.className='ds-property-select';
@@ -322,9 +333,12 @@ function makeListbox(label,select,title){
     if(e.key==='Home'||e.key==='End'){e.preventDefault();(e.key==='Home'?buttons.find(x=>!x.disabled):[...buttons].reverse().find(x=>!x.disabled))?.focus();}
     if(e.key==='Escape'){e.preventDefault();closePopup();}
     if(e.key==='Tab')closePopup({restoreFocus:false});
-    if(e.key.length===1&&/[\p{L}\p{N}]/u.test(e.key)){
-     const target=buttons.find(b=>b.textContent.trim().toLocaleLowerCase().startsWith(e.key.toLocaleLowerCase()));
-     if(target)target.focus();
+    if(e.key.length===1&&/[\p{L}\p{N}]/u.test(e.key)&&!e.altKey&&!e.ctrlKey&&!e.metaKey){
+     const index=findEnabledOptionIndex(
+      buttons.map(b=>({disabled:b.disabled,label:b.querySelector('.ds-option-label')?.textContent||''})),
+      e.key,buttons.indexOf(item)
+     );
+     if(index!==-1){e.preventDefault();buttons[index].focus();}
     }
    });
    popup.append(item);buttons.push(item);optionItems.push({option:opt,item});
