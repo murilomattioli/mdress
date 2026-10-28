@@ -173,6 +173,18 @@ async function exercise(page,theme,width){
  await injected.waitFor({state:'visible'});
  await injected.focus();
  assert.equal(await injected.evaluate(el=>el===document.activeElement),true);
+ // A live native value change must update data-value and preserve focus on
+ // the same option. Otherwise the portal can commit stale option values.
+ await page.locator('#fontChoice option[value="qa-temporary"]').evaluate(el=>{el.value='qa-renamed';});
+ const renamed=page.locator('.ds-select-popover [data-value="qa-renamed"]');
+ await renamed.waitFor({state:'visible'});
+ assert.equal(await renamed.evaluate(el=>el===document.activeElement),true,
+  'Renaming the focused option value must preserve keyboard focus');
+ assert.equal(await page.locator('.ds-select-popover [data-value="qa-temporary"]').count(),0,
+  'The stale popup value must be removed');
+ await capture(page,theme,width,'select-live-value');
+ await page.locator('#fontChoice option[value="qa-renamed"]').evaluate(el=>{el.value='qa-temporary';});
+ await injected.waitFor({state:'visible'});
  const serifOption=page.locator('#fontChoice option[value="serif"]');
  await serifOption.evaluate(el=>{el.hidden=true;});
  await page.waitForFunction(()=>!document.querySelector('.ds-select-popover [data-value="serif"]'));
