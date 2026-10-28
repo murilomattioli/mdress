@@ -171,6 +171,28 @@ async function exercise(page,theme,width){
  await binary.scrollIntoViewIfNeeded();
  await capture(page,theme,width,'binary-disabled');
  await native.evaluate(el=>{el.disabled=false;});
+ // Segmented selects must skip disabled options and preserve focus when
+ // an active option becomes unavailable while the inspector remains open.
+ const segment=page.locator('.ds-property-segment').filter({has:page.locator('#sectionRule')});
+ await segment.scrollIntoViewIfNeeded();
+ const nativeSegment=page.locator('#sectionRule');
+ const originalSegment=await nativeSegment.inputValue();
+ await nativeSegment.selectOption('line');
+ const line=segment.locator('[data-value="line"]');
+ const none=segment.locator('[data-value="none"]');
+ const block=segment.locator('[data-value="block"]');
+ await nativeSegment.locator('option[value="none"]').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#sectionRule')?.closest('.ds-property-segment')?.querySelector('[data-value="none"]')?.disabled===true);
+ await line.focus();await page.keyboard.press('ArrowRight');
+ assert.equal(await nativeSegment.inputValue(),'block','ArrowRight must skip a disabled segment');
+ assert.equal(await block.evaluate(el=>el===document.activeElement),true);
+ await nativeSegment.locator('option[value="block"]').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.activeElement?.matches('.ds-property-segment [data-value="line"]'));
+ assert.equal(await none.isDisabled(),true);
+ assert.equal(await block.isDisabled(),true);
+ await capture(page,theme,width,'segment-disabled-focus');
+ await nativeSegment.locator('option').evaluateAll(options=>options.forEach(option=>{option.disabled=false;}));
+ await nativeSegment.selectOption(originalSegment);
  const boxes=await page.locator('.design-inspector .ds-property-row').evaluateAll(rows=>rows.filter(el=>{
   const r=el.getBoundingClientRect(),s=getComputedStyle(el);
   return r.width>0&&s.display!=='none'&&el.scrollWidth>el.clientWidth+3;
