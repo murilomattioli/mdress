@@ -43,14 +43,23 @@ test('visual evidence requires every control state in every viewport exactly onc
  const all=UX_QA_MATRIX.flatMap(({theme,width})=>
   UX_QA_REQUIRED_SCREENSHOTS.map(state=>({theme,width,state,path:theme+'-'+width+'-'+state+'.png'})));
  const complete=summarizeScreenshotCoverage(all);
- assert.equal(complete.expected,252);
- assert.equal(complete.captured,252);
+ assert.equal(complete.expected,258);
+ assert.equal(complete.captured,258);
  assert.deepEqual(complete.missing,[]);
  assert.deepEqual(complete.duplicates,[]);
+ assert.deepEqual(complete.unexpected,[]);
+ assert.deepEqual(complete.invalidPaths,[]);
  const missing=summarizeScreenshotCoverage(all.slice(1));
  assert.deepEqual(missing.missing,['graphite:1440:workspace']);
  const repeated=summarizeScreenshotCoverage([...all,all[0]]);
  assert.deepEqual(repeated.duplicates,['graphite:1440:workspace']);
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-any'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-tab-backward'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-last-focus'));
+ const unexpected=summarizeScreenshotCoverage([...all,{theme:'graphite',width:1440,state:'not-in-contract',path:'graphite-1440-not-in-contract.png'}]);
+ assert.deepEqual(unexpected.unexpected,['graphite:1440:not-in-contract']);
+ const wrongPath=summarizeScreenshotCoverage(all.map((row,index)=>index===0?{...row,path:'stale-capture.png'}:row));
+ assert.deepEqual(wrongPath.invalidPaths,['graphite:1440:workspace']);
+ const missingPath=summarizeScreenshotCoverage(all.map((row,index)=>index===0?{...row,path:undefined}:row));
+ assert.deepEqual(missingPath.invalidPaths,['graphite:1440:workspace']);
 });
