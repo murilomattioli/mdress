@@ -1,5 +1,5 @@
 import {test} from 'node:test';import {strict as assert} from 'node:assert';
-import {normalizeRange,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex} from '../app/design-system/property-controls.js';
+import {normalizeRange,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex,selectPopoverLayout} from '../app/design-system/property-controls.js';
 test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(11.22,9,14,.5),11);
  assert.equal(normalizeRange(1.174,1.1,2.2,.05),1.15);
@@ -63,4 +63,40 @@ test('segment keyboard navigation skips disabled options and wraps safely',()=>{
  assert.equal(nextEnabledSegmentIndex([true,true],0,'ArrowRight'),-1);
  assert.equal(nextEnabledSegmentIndex([],0,'Home'),-1);
  assert.equal(nextEnabledSegmentIndex([false],0,'ArrowLeft'),0);
+});
+
+// Portalled dropdowns must stay inside the viewport, including mobile widths.
+test('combobox popup clamps horizontal bounds without assuming a 204px width',()=>{
+ const layout=selectPopoverLayout(
+  {left:735,right:775,top:120,bottom:154,width:280},
+  {width:768,height:900},260
+ );
+ assert.equal(layout.width,280);
+ assert.equal(layout.left,480);
+ assert.equal(layout.top,159);
+ assert.equal(layout.maxHeight,300);
+ assert.equal(layout.placement,'below');
+});
+test('combobox popup opens above near viewport bottom and stays inside mobile view',()=>{
+ const layout=selectPopoverLayout(
+  {left:325,right:365,top:690,bottom:725,width:160},
+  {width:390,height:780},240
+ );
+ assert.equal(layout.width,194);
+ assert.equal(layout.left,188);
+ assert.equal(layout.placement,'above');
+ assert.equal(layout.top,445);
+ assert.ok(layout.top>=8);
+ assert.ok(layout.left+layout.width<=382);
+});
+test('combobox popup shrinks on narrow screens and limits height to available space',()=>{
+ const layout=selectPopoverLayout(
+  {left:80,right:130,top:12,bottom:42,width:110},
+  {width:180,height:190},400
+ );
+ assert.equal(layout.width,164);
+ assert.equal(layout.left,8);
+ assert.equal(layout.placement,'below');
+ assert.equal(layout.maxHeight,135);
+ assert.equal(layout.top,47);
 });

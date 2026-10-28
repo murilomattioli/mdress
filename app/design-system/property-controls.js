@@ -297,6 +297,21 @@ export function findEnabledOptionIndex(options,prefix,afterIndex=-1){
  }
  return -1;
 }
+// Keep a portalled listbox fully visible, even near the right/bottom edges
+// of the viewport. Shared by opening and inspector-scroll repositioning.
+export function selectPopoverLayout(anchor,viewport,contentHeight){
+ const margin=8,gap=5;
+ const width=Math.min(Math.max(0,viewport.width-2*margin),Math.max(194,anchor.width));
+ const left=clamp(anchor.left,margin,Math.max(margin,viewport.width-margin-width));
+ const below=Math.max(0,viewport.height-margin-anchor.bottom-gap);
+ const above=Math.max(0,anchor.top-margin-gap);
+ const desired=Math.min(300,Math.max(0,contentHeight));
+ const placeAbove=below<Math.min(155,desired)&&above>below;
+ const space=placeAbove?above:below;
+ const maxHeight=Math.min(300,space);
+ const top=placeAbove?anchor.top-gap-Math.min(desired,maxHeight):anchor.bottom+gap;
+ return {left,top,width,maxHeight,placement:placeAbove?'above':'below'};
+}
 function makeListbox(label,select,title){
  label.classList.add('ds-property-row','ds-property-row--select');
  const field=document.createElement('div');field.className='ds-property-select';
@@ -365,16 +380,18 @@ function makeListbox(label,select,title){
    popup.append(item);buttons.push(item);optionItems.push({option:opt,item});
   }
   document.body.append(popup);
-  const box=trigger.getBoundingClientRect(),availableBelow=window.innerHeight-box.bottom-12;
-  const maxHeight=Math.min(300,Math.max(140,window.innerHeight-36));
-  popup.style.width=Math.max(194,box.width)+'px';
-  popup.style.maxHeight=maxHeight+'px';
-  const above=availableBelow<155&&box.top>availableBelow+80;
-  popup.style.left=Math.min(window.innerWidth-204,Math.max(8,box.left))+'px';
-  popup.style.top=above?'auto':Math.min(window.innerHeight-45,box.bottom+5)+'px';
-  if(above)popup.style.bottom=Math.max(8,window.innerHeight-box.top+5)+'px';
+  const reposition=()=>{
+   const box=selectPopoverLayout(trigger.getBoundingClientRect(),
+    {width:window.innerWidth,height:window.innerHeight},popup.scrollHeight);
+   popup.style.left=box.left+'px';
+   popup.style.top=box.top+'px';
+   popup.style.bottom='auto';
+   popup.style.width=box.width+'px';
+   popup.style.maxHeight=box.maxHeight+'px';
+  };
+  reposition();
   trigger.setAttribute('aria-expanded','true');
-  openSelect={popup,trigger,optionItems,onClose:()=>{}};
+  openSelect={popup,trigger,optionItems,reposition,onClose:()=>{}};
   (buttons.find(b=>b.dataset.value===select.value&&!b.disabled)||buttons.find(b=>!b.disabled))?.focus();
  };
  trigger.addEventListener('click',event=>{event.preventDefault();open();});
@@ -473,12 +490,14 @@ export function initializePropertyControls(){
  document.querySelector('.inspector-scroll')?.addEventListener('scroll',()=>{
   // Keep popovers anchored while auto-scrolling an inspector control into view.
   if(!openSelect)return;
-  const {trigger,popup}=openSelect,rect=trigger.getBoundingClientRect();
-  popup.style.left=Math.max(8,Math.min(window.innerWidth-204,rect.left))+'px';
-  if(rect.bottom+popup.offsetHeight+8<=window.innerHeight){
-   popup.style.bottom='auto';popup.style.top=(rect.bottom+5)+'px';
-  }else{
-   popup.style.top='auto';popup.style.bottom=Math.max(8,window.innerHeight-rect.top+5)+'px';
+  const {trigger,reposition}=openSelect,rect=trigger.getBoundingClientRect();
+  const scroller=trigger.closest('.inspector-scroll');
+  const viewport=scroller?.getBoundingClientRect();
+  if(rect.bottom<=0||rect.top>=window.innerHeight||
+   (viewport&&(rect.bottom<=viewport.top||rect.top>=viewport.bottom))){
+   closePopup({restoreFocus:false});
+   return;
   }
+  reposition();
  },{passive:true});
 }

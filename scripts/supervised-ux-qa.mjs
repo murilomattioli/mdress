@@ -106,6 +106,13 @@ async function exercise(page,theme,width){
  await trigger.scrollIntoViewIfNeeded();await trigger.hover();await capture(page,theme,width,'select-hover');
  await trigger.focus();await trigger.press('ArrowDown');
  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
+ const popupBounds=await page.locator('.ds-select-popover').evaluate(el=>{
+  const box=el.getBoundingClientRect();
+  return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight};
+ });
+ assert.ok(popupBounds.left>=7&&popupBounds.right<=popupBounds.width-7&&
+  popupBounds.top>=7&&popupBounds.bottom<=popupBounds.height-7,
+  'Open combobox must remain inside the viewport: '+JSON.stringify(popupBounds));
  await capture(page,theme,width,'select-open');
  // An optgroup's disabled state must propagate to every enhanced option,
  // including when the native select changes while its popup is open.
