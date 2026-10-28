@@ -19,7 +19,7 @@ const labelOf=(label)=>{
  for(const node of texts)node.remove();
  return title.replace(/\s+/g,' ');
 };
-function span(cls,text=''){const x=document.createElement('span');x.className=cls;x.textContent=text;return x;}
+function span(cls,text=''){const x=document.createElement('span');x.className=cls;x.textContent=text;if(cls==='ds-prop-name')x.title=text;return x;}
 function button(cls,title){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=title;return b;}
 export function normalizeRange(value,min,max,step){
  if(![value,min,max].every(Number.isFinite)||min>=max)throw Error('Faixa inválida');
