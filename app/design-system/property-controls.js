@@ -288,6 +288,12 @@ export function isSelectOptionDisabled(option){
 }
 // A portalled listbox is a snapshot of native options. Detect edits to
 // option order, membership, labels and optgroup headings before it goes stale.
+// Hidden optgroups must hide their descendants in the enhanced popup, just
+// as a hidden native option does. Preserve the underlying select unchanged.
+export function visibleSelectOptions(select){
+ return [...select.options].filter(option=>!option.hidden&&
+  !(option.parentElement?.tagName==='OPTGROUP'&&option.parentElement.hidden));
+}
 export function selectPopupNeedsRefresh(rendered,visible){
  if(rendered.length!==visible.length)return true;
  return visible.some((option,index)=>{
@@ -342,7 +348,7 @@ function makeListbox(label,select,title){
   if(select.disabled&&openSelect?.trigger===trigger){closePopup({restoreFocus:false});return;}
   if(openSelect?.trigger===trigger){
    const focusedOption=openSelect.optionItems.find(({item})=>item===document.activeElement);
-   const visible=[...select.options].filter(option=>!option.hidden);
+   const visible=visibleSelectOptions(select);
    if(selectPopupNeedsRefresh(openSelect.optionItems,visible)){
     // Preserve the keyboard position when options are inserted, removed,
     // hidden or renamed. Never leave focus in a detached popup button.
@@ -354,8 +360,13 @@ function makeListbox(label,select,title){
     item.disabled=isSelectOptionDisabled(option);
     item.setAttribute('aria-selected',String(select.value===option.value));
    }
+   if(!openSelect.optionItems.some(({item})=>!item.disabled)){
+    // No focusable option remains. Dismiss instead of leaving focus in a
+    // disabled/detached portal (or exposing an unusable expanded combobox).
+    closePopup({restoreFocus:false});trigger.focus({preventScroll:true});return;
+   }
    if(focusedOption?.item.disabled){
-    (openSelect.optionItems.find(({item})=>!item.disabled)?.item||trigger).focus();
+    openSelect.optionItems.find(({item})=>!item.disabled).item.focus();
    }
   }
  };
@@ -365,7 +376,7 @@ function makeListbox(label,select,title){
   closePopup({restoreFocus:false});
   const popup=document.createElement('div');popup.id=popupId;popup.className='ds-select-popover';
   popup.setAttribute('role','listbox');popup.setAttribute('aria-label',title);
-  const opts=[...select.options].filter(o=>!o.hidden),buttons=[],optionItems=[];
+  const opts=visibleSelectOptions(select),buttons=[],optionItems=[];
   let lastGroup=null,typeahead='',lastTypedAt=0;
   for(const [index,opt] of opts.entries()){
    const group=opt.parentElement?.tagName==='OPTGROUP'?opt.parentElement.label:null;
@@ -422,9 +433,11 @@ function makeListbox(label,select,title){
   reposition();
   trigger.setAttribute('aria-expanded','true');
   openSelect={popup,trigger,optionItems,reposition,onClose:()=>{}};
-  (buttons.find(b=>b.dataset.value===preferredValue&&!b.disabled)||
+  const target=buttons.find(b=>b.dataset.value===preferredValue&&!b.disabled)||
    buttons.find(b=>b.dataset.value===select.value&&!b.disabled)||
-   buttons.find(b=>!b.disabled))?.focus();
+   buttons.find(b=>!b.disabled);
+  if(target)target.focus();
+  else {closePopup({restoreFocus:false});trigger.focus({preventScroll:true});}
  };
  trigger.addEventListener('click',event=>{event.preventDefault();open();});
  trigger.addEventListener('keydown',e=>{if(['Enter',' ','ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();open();}});
