@@ -37,9 +37,12 @@ try{
  };
  const fixtures=new Map([1440,1024,768].map(width=>[width,viewportPng(width)]));
  let breakFreshReview=false,wrongViewport=false;
+ const workspaceRequests=[];
  await page.route('http://mdress-qa.test/**',route=>{
   const address=new URL(route.request().url());
   if(address.pathname.endsWith('.png')){
+   if(address.pathname.includes('graphite-1440-workspace.png')&&address.searchParams.has('mdress-verify'))
+    workspaceRequests.push({query:address.search,breakFreshReview,wrongViewport});
    if(address.pathname.includes('graphite-1440-workspace.png')&&
       (address.pathname.startsWith('/broken/')||(breakFreshReview&&address.searchParams.has('mdress-verify'))))
     return route.fulfill({status:404,body:'Missing screenshot'});
@@ -101,7 +104,9 @@ try{
  await page.locator('#export-review').click();
  const restored=JSON.parse(await readFile(await (await restoredDownload).path(),'utf8'));
  assert.equal(restored.states.workspace.status,'pending','Restoring evidence must not auto-approve UX');
- assert.equal(await status.isDisabled(),false,
+ const restoredDisabled=await status.isDisabled();
+ if(restoredDisabled)console.error('Restored evidence requests:',JSON.stringify(workspaceRequests.slice(-20)));
+ assert.equal(restoredDisabled,false,
   'Reviewer can inspect restored evidence again: '+await page.locator('.state').first().locator('.image-warning').innerText());
  await status.selectOption('approved');
  wrongViewport=true;
