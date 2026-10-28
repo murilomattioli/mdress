@@ -190,6 +190,31 @@ async function exercise(page,theme,width){
  assert.equal(await page.evaluate(()=>document.activeElement?.matches('.ds-select-popover [role="option"]:not(:disabled)')),true,
   'Removing a focused native option must restore focus inside the refreshed listbox');
  await capture(page,theme,width,'select-live-options-removed');
+ // A hidden native optgroup must not leak its options into the portalled UI.
+ await firstGroup.evaluate(el=>{el.hidden=true;});
+ await page.waitForFunction(()=>!document.querySelector('.ds-select-popover [data-value="system"]'));
+ assert.equal(await page.locator('.ds-select-popover [data-value="serif"]').count(),1,
+  'Visible groups must remain navigable when another group is hidden');
+ await capture(page,theme,width,'select-hidden-optgroup');
+ await firstGroup.evaluate(el=>{el.hidden=false;});
+ await page.locator('.ds-select-popover [data-value="system"]').waitFor({state:'visible'});
+ // Disabling every option while the popup is open must close it and restore
+ // keyboard focus to the trigger, never to a detached or disabled button.
+ await page.locator('#fontChoice').evaluate(el=>{
+  for(const option of el.options)option.disabled=true;
+ });
+ await page.waitForFunction(()=>document.querySelector('.ds-select-trigger[aria-label="Fonte"]')?.getAttribute('aria-expanded')==='false'
+  || document.querySelector('#fontChoice')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.getAttribute('aria-expanded')==='false');
+ assert.equal(await trigger.getAttribute('aria-expanded'),'false');
+ assert.equal(await trigger.evaluate(el=>el===document.activeElement),true,
+  'Disabling all options must restore focus to the combobox');
+ await capture(page,theme,width,'select-all-disabled');
+ await page.locator('#fontChoice').evaluate(el=>{
+  for(const option of el.options)option.disabled=false;
+ });
+ await page.waitForFunction(()=>[...document.querySelector('#fontChoice').options].every(o=>!o.disabled));
+ await trigger.press('ArrowDown');
+ assert.equal(await trigger.getAttribute('aria-expanded'),'true');
  // Browser resizing closes the portalled listbox; keyboard focus must land
  // on its trigger rather than silently falling back to document.body.
  await page.setViewportSize({width:width-1,height:900});
