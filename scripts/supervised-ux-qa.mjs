@@ -156,6 +156,23 @@ async function exercise(page,theme,width){
  await firstGroup.evaluate(el=>{el.disabled=false;});
  await page.waitForFunction(()=>document.querySelector('.ds-select-popover [data-value="system"]')?.disabled===false);
  await page.keyboard.press('Escape');
+ // A portalled listbox must preserve normal document tab order when closed.
+ // Test both directions: the next/previous inspector control must receive
+ // focus, rather than body or the detached listbox option.
+ for(const key of ['Tab','Shift+Tab']){
+  await trigger.focus();
+  await trigger.press('ArrowDown');
+  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
+  await page.keyboard.press(key);
+  assert.equal(await trigger.getAttribute('aria-expanded'),'false','Tab must close the listbox');
+  const focusState=await page.evaluate(()=>({
+   inInspector:Boolean(document.activeElement?.closest('.design-inspector')),
+   isTrigger:document.activeElement?.classList.contains('ds-select-trigger'),
+   isBody:document.activeElement===document.body
+  }));
+  assert.ok(focusState.inInspector&&!focusState.isTrigger&&!focusState.isBody,
+   key+' from portalled listbox must follow inspector tab order: '+JSON.stringify(focusState));
+ }
  await page.locator('#fontChoice').evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>document.querySelector('#fontChoice')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.disabled);
  await capture(page,theme,width,'select-disabled');
