@@ -21,7 +21,7 @@ if(!automated&&!stdin.isTTY){
 const headless=args.has('--headless');
 const url=process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173';
 const directory='test-results/ux-audit/supervised';
-const findings=[],screenshots=[],coverage=[];
+const findings=[],screenshots=[],traces=[],coverage=[];
 let stopped=false;
 class ReviewStopped extends Error {constructor(){super('Interrompido pelo revisor');this.name='ReviewStopped';}}
 const io=!automated?createInterface({input:stdin,output:stdout}):null;
@@ -197,7 +197,9 @@ try{
  for(const theme of ['graphite','studio']){
   for(const width of [1440,1024,768]){
    if(stopped)break;
-   const page=await browser.newPage({viewport:{width,height:900}});
+   const context=await browser.newContext({viewport:{width,height:900}});
+   const page=await context.newPage();
+   await context.tracing.start({screenshots:true,snapshots:true,sources:true});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
    let toolbarPassed=false,inspectorPassed=false,scenarioPassed=false;
    try{
@@ -211,8 +213,15 @@ try{
     scenarioPassed=toolbarPassed&&inspectorPassed&&errors.length===0;
    }catch(e){if(e instanceof ReviewStopped)stopped=true;else error('scenario',theme,width,e);}
    finally{
+    // Keep traces only for failures/interrupted reviews to avoid bloating CI artifacts.
+    try{
+     if(!scenarioPassed){
+      const path=directory+'/'+theme+'-'+width+'-trace.zip';
+      await context.tracing.stop({path});traces.push({theme,width,path});
+     }else await context.tracing.stop();
+    }catch(e){error('trace',theme,width,e);}
     coverage.push({theme,width,scenario:scenarioPassed,inspector:inspectorPassed,toolbar:toolbarPassed,errors:errors.length});
-    await page.close();
+    await context.close();
    }
    if(stopped)break;
   }
@@ -223,7 +232,7 @@ finally{
  await browser?.close();
  io?.close();
  const summary=summarizeUxCoverage(coverage,findings,stopped);
- const report={schema:2,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,coverage,screenshots,findings};
+ const report={schema:2,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,coverage,screenshots,traces,findings};
  await writeFile('test-results/supervised-ux-qa.json',JSON.stringify(report,null,2)+'\n');
  console.log('[UX QA] report: test-results/supervised-ux-qa.json | status: '+summary.status+' | scenarios: '+summary.passing+'/'+summary.expected+' | screenshots: '+screenshots.length+' | findings: '+findings.length);
  if(summary.status!=='passed')process.exitCode=1;
