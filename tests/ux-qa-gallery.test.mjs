@@ -33,7 +33,7 @@ test('offline gallery renders all 300 comparisons and supports filtering',()=>{
  assert.match(html,/binary-disabled-focus-handoff/);
  assert.match(html,/segment-live-focus-handoff/);
  assert.match(html,/graphite-1440-workspace.png/);
- assert.equal((html.match(/<figure\b/g)||[]).length,300);
+ assert.equal((html.match(/<figure data-viewport-width=/g)||[]).length,300);
  assert.equal((html.match(/<details class="state"/g)||[]).length,50);
 });
 
@@ -42,7 +42,7 @@ test('invalid evidence path is not inserted as HTML or a clickable link',()=>{
  const html=renderUxQaGallery(invalid,summarizeScreenshotCoverage(invalid));
  assert.doesNotMatch(html,/<script>alert/);
  assert.match(html,/Captura ausente ou inválida/);
- assert.equal((html.match(/<figure\b/g)||[]).length,299);
+ assert.equal((html.match(/<figure data-viewport-width=/g)||[]).length,299);
 });
 
 test('gallery review session is isolated and JSON-safe',()=>{
