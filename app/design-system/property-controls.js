@@ -475,7 +475,12 @@ function makeListbox(label,select,title){
  const name=span('ds-prop-name',title),trigger=button('ds-select-trigger','');
  trigger.setAttribute('role','combobox');trigger.setAttribute('aria-haspopup','listbox');trigger.setAttribute('aria-expanded','false');
  trigger.setAttribute('aria-label',title);
- const value=span('ds-select-value'),chevron=span('ds-select-chevron','⌄');
+ const value=span('ds-select-value'),chevron=span('ds-select-chevron');
+ const chevronIcon=document.createElement('ds-icon');
+ chevronIcon.setAttribute('name','chevron-down');
+ chevronIcon.setAttribute('size','16');
+ chevron.setAttribute('aria-hidden','true');
+ chevron.append(chevronIcon);
  value.id='ds-select-value-'+(++nextUid);
  // Keep a stable accessible name, but announce the selected value as a
  // description. The native title exposes truncated values on hover too.
@@ -547,7 +552,12 @@ function makeListbox(label,select,title){
    item.setAttribute('role','option');item.setAttribute('aria-selected',String(select.value===opt.value));
    item.disabled=isSelectOptionDisabled(opt);
    const text=span('ds-option-label',opt.label||opt.textContent);
-   const check=span('ds-option-check','✓');item.append(text,check);
+   const check=span('ds-option-check');
+   const checkIcon=document.createElement('ds-icon');
+   checkIcon.setAttribute('name','check');
+   checkIcon.setAttribute('size','16');
+   check.setAttribute('aria-hidden','true');
+   check.append(checkIcon);item.append(text,check);
    item.dataset.value=opt.value;
    item.addEventListener('click',()=>{if(isSelectOptionDisabled(opt))return;nativeCommit(select,opt.value);closePopup();});
    item.addEventListener('keydown',e=>{

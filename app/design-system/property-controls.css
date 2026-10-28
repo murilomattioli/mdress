@@ -159,7 +159,7 @@
 .ds-select-trigger:hover{background:var(--ds-panel-hover);border-color:var(--ds-text-tertiary)}
 .ds-select-trigger[aria-expanded=true]{border-color:var(--ds-focus);background:var(--ds-panel)}
 .ds-select-trigger .ds-select-value{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ds-select-chevron{font-size:16px;color:var(--ds-text-tertiary);flex:0 0 auto}
+.ds-select-chevron{display:flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--ds-text-tertiary);flex:0 0 16px}
 .ds-property-select .ds-select-native,.ds-property-segment .ds-select-native{
  position:absolute!important;left:0!important;top:0!important;width:1px!important;height:1px!important;
  margin:0!important;padding:0!important;opacity:0!important;pointer-events:none!important;border:0!important;z-index:-1;
@@ -177,7 +177,7 @@
 .ds-select-option:disabled:hover{background:transparent;color:var(--ds-text-secondary)}
 .ds-select-option:focus-visible{outline:2px solid var(--ds-focus)!important;outline-offset:-2px!important}
 .ds-select-option[aria-selected=true]{background:var(--ds-brand-soft);color:var(--ds-text);font-weight:720}
-.ds-option-check{opacity:0;font-size:12px;color:var(--ds-brand)}
+.ds-option-check{display:flex;align-items:center;justify-content:center;width:16px;height:16px;flex:0 0 16px;opacity:0;color:var(--ds-brand)}
 .ds-select-option[aria-selected=true] .ds-option-check{opacity:1}
 .ds-property-segment{grid-template-columns:minmax(52px,74px) minmax(0,1fr)}
 .ds-segment-buttons{display:flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--ds-border);border-radius:7px;background:var(--ds-panel)}
