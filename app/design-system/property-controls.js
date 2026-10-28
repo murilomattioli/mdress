@@ -24,8 +24,15 @@ function button(cls,title){const b=document.createElement('button');b.type='butt
 export function normalizeRange(value,min,max,step){
  if(![value,min,max,step].every(Number.isFinite)||min>=max||step<=0)throw Error('Faixa inválida');
  const snapped=Math.round((clamp(value,min,max)-min)/step)*step+min;
- const precision=(String(step).split('.')[1]??'').length;
- return Number(clamp(Number(snapped.toFixed(Math.min(precision,6))),min,max).toFixed(Math.min(precision,6)));
+ // Both the step and the minimum define the legal decimal grid. For
+ // min=0.05, step=0.1, rounding to the step's single decimal would corrupt
+ // valid values (0.15 becomes 0.1). Handle scientific notation as well.
+ const decimals=number=>{
+  const [mantissa,exponent='0']=String(number).toLowerCase().split('e');
+  return Math.max(0,(mantissa.split('.')[1]||'').length-Number(exponent));
+ };
+ const precision=Math.min(12,Math.max(decimals(step),decimals(min)));
+ return Number(clamp(Number(snapped.toFixed(precision)),min,max).toFixed(precision));
 }
 export function formatControlValue(v,unit=''){
  const value=Number(v);
