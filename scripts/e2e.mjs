@@ -74,6 +74,38 @@ try {
  await page.locator('[data-inspector-tab="page"]').click();
  assert.equal(await page.locator('#inspector-page').isVisible(),true);
  assert.ok((await page.locator('#inspectorPageCount').textContent()).includes('página'));
+ // Enhanced steppers must honor native optional bounds and step=any.
+ // Exercise an isolated inspector fixture so no document settings are changed.
+ await page.evaluate(async()=>{
+  const original=document.querySelector('#marginMm').closest('label');
+  const label=document.createElement('label');
+  label.className='property-row';
+  label.textContent='QA passo sem limites';
+  const input=document.createElement('input');
+  input.id='qaNumberUnbounded';input.type='number';input.step='2';input.value='-2';
+  label.append(input);original.after(label);
+  const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+  enhancePropertyControls();
+ });
+ const qaNumber=page.locator('#qaNumberUnbounded');
+ const qaStepper=page.locator('.ds-property-number').filter({has:qaNumber});
+ const qaMinus=qaStepper.getByRole('button',{name:/Diminuir/});
+ const qaPlus=qaStepper.getByRole('button',{name:/Aumentar/});
+ await qaMinus.click();
+ assert.equal(await qaNumber.inputValue(),'-4','Unbounded number must step below zero');
+ await qaNumber.fill('1002');await qaNumber.dispatchEvent('change');
+ await qaPlus.click();
+ assert.equal(await qaNumber.inputValue(),'1004','Unbounded number must not cap at synthetic 999');
+ await qaNumber.evaluate(el=>{el.step='any';el.value='-2';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await qaMinus.click();
+ assert.equal(await qaNumber.inputValue(),'-3','step=any must not throw or disable the stepper');
+ await qaNumber.evaluate(el=>{el.max='5';el.value='5';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ assert.equal(await qaPlus.isDisabled(),true,'Stepper must honor an explicit upper bound');
+ await qaNumber.evaluate(el=>{el.min='-3';el.removeAttribute('max');el.value='-3';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ assert.equal(await qaMinus.isDisabled(),true,'Stepper must honor an explicit negative minimum');
+ await qaStepper.scrollIntoViewIfNeeded();
+ await qaStepper.screenshot({path:'test-results/ux-audit/inspector-number-unbounded-step.png',animations:'disabled'});
+ await qaNumber.evaluate(el=>el.closest('label').remove());
  // A disabled native checkbox must also disable its visible binary buttons.
  // With no target section, aligning to the page footer is not a valid action.
  const bottomTarget=page.locator('#bottomSectionTarget');
