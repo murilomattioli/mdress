@@ -57,6 +57,8 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.deepEqual(repeated.duplicates,['graphite:1440:workspace']);
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-any'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-tab-backward'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-accordion-collapse-focus-handoff'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-tab-switch-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-last-focus'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('color-draft-sync'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-native-override'));
