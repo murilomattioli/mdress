@@ -99,8 +99,14 @@ document.querySelector("#export-review").addEventListener("click",async event=>{
  const exportButton=event.currentTarget;
  exportButton.disabled=true;
  warning.textContent="Verificando as seis capturas de cada estado antes da exportação…";
- try{await Promise.all(states.map(verifyImages));}
- finally{exportButton.disabled=false;}
+ try{
+  // Decode in bounded batches: 300 full-viewport PNGs at once can exhaust
+  // memory on the laptops used for headed visual review.
+  for(let offset=0;offset<states.length;offset+=3){
+   warning.textContent="Verificando capturas: "+Math.min(offset+3,states.length)+"/"+states.length+" estados…";
+   await Promise.all(states.slice(offset,offset+3).map(verifyImages));
+  }
+ }finally{exportButton.disabled=false;}
  const review={schema:1,sessionId,exportedAt:new Date().toISOString(),states:Object.fromEntries(states.map(section=>{
   const key=section.dataset.name,entry=saved[key]||{};
   return [key,{status:entry.status||"pending",note:entry.note||""}];
