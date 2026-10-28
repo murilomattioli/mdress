@@ -52,6 +52,21 @@ async function capture(page,theme,width,name){
  screenshots.push({theme,width,state:name,path});
  // Interactive review pauses once per viewport, not once per PNG.
 }
+async function assertInspectorFocusHandoff(page,description){
+ const focus=await page.evaluate(()=>{
+  const active=document.activeElement,rect=active?.getBoundingClientRect();
+  const scroll=active?.closest('.inspector-scroll')?.getBoundingClientRect();
+  return {
+   tag:active?.tagName,inside:Boolean(active?.closest('.design-inspector')),
+   interactive:Boolean(active?.matches('button,input,select,textarea,[role="combobox"]')),
+   body:active===document.body,disabled:Boolean(active?.disabled),
+   visible:Boolean(rect?.width&&rect?.height&&rect.bottom>0&&rect.top<innerHeight&&
+    rect.right>0&&rect.left<innerWidth&&(!scroll||rect.bottom>scroll.top&&rect.top<scroll.bottom))
+  };
+ });
+ assert.ok(focus.inside&&focus.interactive&&!focus.body&&!focus.disabled&&focus.visible,
+  description+': '+JSON.stringify(focus));
+}
 function error(phase,theme,width,e){
  findings.push({severity:'error',phase,theme,width,message:e?.stack||String(e)});
  console.error('[UX QA] '+phase+': '+(e?.message||e));
@@ -113,6 +128,12 @@ async function exercise(page,theme,width){
  await page.locator('#fontSize').evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>document.querySelector('.ds-property-range .ds-prop-number')?.disabled===true);
  await capture(page,theme,width,'range-disabled');
+ await page.locator('#fontSize').evaluate(el=>{el.disabled=false;});
+ await precise.focus();
+ await page.locator('#fontSize').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#fontSize')?.closest('.ds-property-range')?.querySelector('.ds-prop-number')?.disabled);
+ await assertInspectorFocusHandoff(page,'Disabling a focused range precision draft must preserve inspector keyboard focus');
+ await capture(page,theme,width,'range-disabled-focus-handoff');
  await page.locator('#fontSize').evaluate(el=>{el.disabled=false;});
  // Inspect live native range constraints in every theme and viewport, using
  // an isolated fixture that never touches persisted document settings.
@@ -179,6 +200,12 @@ async function exercise(page,theme,width){
  await page.locator('#accentColor').evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>document.querySelector('.ds-property-color .ds-color-hex')?.disabled===true);
  await capture(page,theme,width,'color-disabled');
+ await page.locator('#accentColor').evaluate(el=>{el.disabled=false;});
+ await hex.focus();
+ await page.locator('#accentColor').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#accentColor')?.closest('.ds-property-color')?.querySelector('.ds-color-hex')?.disabled);
+ await assertInspectorFocusHandoff(page,'Disabling a focused color hex draft must preserve inspector keyboard focus');
+ await capture(page,theme,width,'color-disabled-focus-handoff');
  await page.locator('#accentColor').evaluate(el=>{el.disabled=false;});
  const select=page.locator('.ds-property-select').filter({has:page.locator('#fontChoice')});
  const trigger=select.locator('.ds-select-trigger');
@@ -433,6 +460,20 @@ async function exercise(page,theme,width){
  await input.evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>[...document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelectorAll('.ds-number-step')||[]].every(b=>b.disabled));
  await capture(page,theme,width,'number-disabled');
+ await input.evaluate(el=>{el.disabled=false;});
+ await input.focus();
+ await input.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>[...document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelectorAll('.ds-number-step')||[]].every(b=>b.disabled));
+ await assertInspectorFocusHandoff(page,'Disabling a focused native number must preserve inspector keyboard focus');
+ await capture(page,theme,width,'number-disabled-focus-handoff');
+ await input.evaluate(el=>{el.disabled=false;});
+ const increment=number.locator('.ds-number-step').last();
+ await increment.focus();
+ assert.equal(await increment.evaluate(el=>el===document.activeElement),true,'Number stepper must be keyboard focusable');
+ await input.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>[...document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelectorAll('.ds-number-step')||[]].every(b=>b.disabled));
+ await assertInspectorFocusHandoff(page,'Disabling a focused number stepper must preserve inspector keyboard focus');
+ await capture(page,theme,width,'number-stepper-disabled-focus-handoff');
  await input.evaluate(el=>{el.disabled=false;});
  const binary=page.locator('.ds-property-binary').filter({has:page.locator('#showPageGuides')});
  const native=page.locator('#showPageGuides');
