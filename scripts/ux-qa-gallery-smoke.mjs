@@ -115,6 +115,7 @@ try{
  await page.locator('#export-review').click();
  const repaired=JSON.parse(await readFile(await (await repairedDownload).path(),'utf8'));
  assert.equal(repaired.states.workspace.status,'pending','Repair cannot silently approve a state');
+  await page.waitForFunction(()=>!document.querySelector('.review-status').disabled);
  assert.equal(await status.isDisabled(),false);
  page.once('dialog',dialog=>dialog.accept());
  await page.locator('#reset-review').click();
