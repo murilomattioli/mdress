@@ -335,6 +335,22 @@ export function selectPopoverLayout(anchor,viewport,contentHeight){
  const top=placeAbove?anchor.top-gap-Math.min(desired,maxHeight):anchor.bottom+gap;
  return {left,top,width,maxHeight,placement:placeAbove?'above':'below'};
 }
+// When a native select becomes disabled while its portalled option owns
+// keyboard focus, move to a real enabled inspector control. A disabled
+// combobox trigger cannot receive focus, and body is not a useful fallback.
+function focusInspectorNeighbor(trigger){
+ const root=trigger.closest('.design-inspector');
+ if(!root)return;
+ const controls=[...root.querySelectorAll('button,input,select,textarea,[tabindex]')];
+ const index=controls.indexOf(trigger);
+ const eligible=el=>el!==trigger&&!el.disabled&&el.tabIndex>=0&&
+  !el.closest('[hidden],[inert]')&&el.getClientRects().length>0&&
+  getComputedStyle(el).visibility!=='hidden';
+ const next=controls.slice(index+1).find(eligible)||
+  controls.slice(0,index).reverse().find(eligible);
+ if(next)next.focus({preventScroll:true});
+ else {root.tabIndex=-1;root.focus({preventScroll:true});}
+}
 function makeListbox(label,select,title){
  label.classList.add('ds-property-row','ds-property-row--select');
  const field=document.createElement('div');field.className='ds-property-select';
@@ -352,7 +368,12 @@ function makeListbox(label,select,title){
   const o=select.selectedOptions[0];value.textContent=o?.label||o?.textContent||'Selecionar';
   // The hidden native select owns availability; the visible combobox must follow it.
   trigger.disabled=select.disabled;
-  if(select.disabled&&openSelect?.trigger===trigger){closePopup({restoreFocus:false});return;}
+  if(select.disabled&&openSelect?.trigger===trigger){
+   const focusInPopup=openSelect.popup.contains(document.activeElement);
+   closePopup({restoreFocus:false});
+   if(focusInPopup)focusInspectorNeighbor(trigger);
+   return;
+  }
   if(openSelect?.trigger===trigger){
    const focusedOption=openSelect.optionItems.find(({item})=>item===document.activeElement);
    const visible=visibleSelectOptions(select);
