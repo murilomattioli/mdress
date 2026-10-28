@@ -345,6 +345,22 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'binary-toggled');
  await binary.locator('.ds-binary-option').nth(originalBinary?1:0).click();
  assert.equal(await native.isChecked(),originalBinary);
+ // Keyboard users must be able to switch the two-state control without
+ // relying on a pointer, and the focused button must match the new value.
+ const offButton=binary.locator('.ds-binary-option').first();
+ const onButton=binary.locator('.ds-binary-option').last();
+ await offButton.focus();await page.keyboard.press('ArrowRight');
+ assert.equal(await native.isChecked(),true,'Binary ArrowRight must enable the native checkbox');
+ assert.equal(await onButton.evaluate(el=>el===document.activeElement),true);
+ assert.equal(await onButton.getAttribute('aria-pressed'),'true');
+ await capture(page,theme,width,'binary-keyboard-on');
+ await page.keyboard.press('ArrowLeft');
+ assert.equal(await native.isChecked(),false,'Binary ArrowLeft must disable the native checkbox');
+ assert.equal(await offButton.evaluate(el=>el===document.activeElement),true);
+ assert.equal(await offButton.getAttribute('aria-pressed'),'true');
+ await capture(page,theme,width,'binary-keyboard-off');
+ if(originalBinary)await onButton.click();
+ assert.equal(await native.isChecked(),originalBinary);
  // Segmented selects must skip disabled options and preserve focus when
  // an active option becomes unavailable while the inspector remains open.
  const segment=page.locator('.ds-property-segment').filter({has:page.locator('#sectionRule')});
@@ -368,6 +384,14 @@ async function exercise(page,theme,width){
  assert.ok(segmentOpacity>=0.7,'Disabled segment label must remain readable: '+segmentOpacity);
  await capture(page,theme,width,'segment-disabled-focus');
  await nativeSegment.locator('option').evaluateAll(options=>options.forEach(option=>{option.disabled=false;}));
+ await line.focus();
+ await capture(page,theme,width,'segment-keyboard-focus');
+ await page.keyboard.press('End');
+ assert.equal(await nativeSegment.inputValue(),'block','End must select the last enabled segment');
+ assert.equal(await block.evaluate(el=>el===document.activeElement),true);
+ await page.keyboard.press('Home');
+ assert.equal(await nativeSegment.inputValue(),'line','Home must select the first enabled segment');
+ assert.equal(await line.evaluate(el=>el===document.activeElement),true);
  await nativeSegment.selectOption(originalSegment);
  const boxes=await page.locator('.design-inspector .ds-property-row').evaluateAll(rows=>rows.filter(el=>{
   const r=el.getBoundingClientRect(),s=getComputedStyle(el);
