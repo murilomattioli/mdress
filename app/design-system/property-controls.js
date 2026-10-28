@@ -138,20 +138,40 @@ function enhanceNumber(label,input,title){
  if(!input.hasAttribute('aria-label'))input.setAttribute('aria-label',title+' — valor'+(unitOf(input)?' em '+unitOf(input):''));
  input.classList.add('ds-number-native');
  input.replaceWith(field);field.append(name,controls);controls.append(minus,input,unit,plus);
- const min=Number(input.min||0),max=Number(input.max||999),step=Number(input.step||1);
+ const min=input.min===''?-Infinity:Number(input.min),max=input.max===''?Infinity:Number(input.max);
  const setError=feedbackFor(label,input);
  const valid=()=>input.value.trim()!==''&&input.validity.valid&&Number.isFinite(input.valueAsNumber);
+ // Let the browser enforce the native number step grid, including fractional
+ // bases and absent bounds. The previous synthetic 0..999 range blocked
+ // negative and large values even when the HTML input allowed them.
+ const stepTarget=direction=>{
+  if(input.disabled||!valid())return null;
+  const probe=input.cloneNode(false);
+  probe.value=input.value;
+  try{
+   if(input.step==='any'){
+    // HTMLInputElement.stepUp throws for step=any. Use a unit increment
+    // while still respecting explicit bounds, without changing the input.
+    const next=clamp(input.valueAsNumber+direction,min,max);
+    if(!Number.isFinite(next))return null;
+    probe.value=String(next);
+   }else if(direction>0)probe.stepUp();
+   else probe.stepDown();
+  }catch{return null;}
+  return Number(probe.value)!==input.valueAsNumber?probe.value:null;
+ };
  let committed=input.value,editing=false;
  const update=()=>{
   const ok=valid();
   if(!editing&&ok)committed=input.value;
   setError(editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
-  minus.disabled=input.disabled||!ok||Number(input.value)<=min;
-  plus.disabled=input.disabled||!ok||Number(input.value)>=max;
+  minus.disabled=stepTarget(-1)===null;
+  plus.disabled=stepTarget(1)===null;
  };
  const increment=direction=>{
-  if(!valid())return;
-  nativeCommit(input,normalizeRange(Number(input.value)+direction*step,min,max,step));
+  const next=stepTarget(direction);
+  if(next===null)return;
+  nativeCommit(input,next);
   update();
  };
  minus.onclick=()=>increment(-1);plus.onclick=()=>increment(1);
