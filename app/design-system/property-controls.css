@@ -282,3 +282,19 @@
 .ds-property-range:has(.ds-range-native:disabled) .ds-prop-track,
 .ds-property-color:has(.ds-color-native:disabled) .ds-color-swatch{opacity:.5}
 .ds-property-number .ds-number-step:disabled{opacity:.38;cursor:not-allowed}
+
+/* Disabled segmented/binary options must remain readable in both themes.
+ * Global button:disabled opacity .44 made their labels nearly disappear. */
+.ds-property-binary:has(.ds-binary-native:disabled){
+ background:var(--ds-panel);border-color:var(--ds-border-subtle);
+}
+.design-inspector .ds-binary-option:disabled,
+.design-inspector .ds-segment-option:disabled{
+ opacity:.78;
+ color:var(--ds-text-secondary);
+ cursor:not-allowed;
+}
+.design-inspector .ds-binary-option:disabled:hover,
+.design-inspector .ds-segment-option:disabled:hover{
+ background:transparent;color:var(--ds-text-secondary);
+}

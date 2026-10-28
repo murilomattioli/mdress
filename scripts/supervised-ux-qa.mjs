@@ -194,6 +194,8 @@ async function exercise(page,theme,width){
  const native=page.locator('#showPageGuides');
  await native.evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>[...document.querySelector('#showPageGuides')?.closest('.ds-property-binary')?.querySelectorAll('button')||[]].every(b=>b.disabled));
+ const binaryOpacity=await binary.locator('.ds-binary-option').first().evaluate(el=>Number(getComputedStyle(el).opacity));
+ assert.ok(binaryOpacity>=0.7,'Disabled binary label must remain readable: '+binaryOpacity);
  await binary.scrollIntoViewIfNeeded();
  await capture(page,theme,width,'binary-disabled');
  await native.evaluate(el=>{el.disabled=false;});
@@ -222,6 +224,8 @@ async function exercise(page,theme,width){
  await page.waitForFunction(()=>document.activeElement?.matches('.ds-property-segment [data-value="line"]'));
  assert.equal(await none.isDisabled(),true);
  assert.equal(await block.isDisabled(),true);
+ const segmentOpacity=await none.evaluate(el=>Number(getComputedStyle(el).opacity));
+ assert.ok(segmentOpacity>=0.7,'Disabled segment label must remain readable: '+segmentOpacity);
  await capture(page,theme,width,'segment-disabled-focus');
  await nativeSegment.locator('option').evaluateAll(options=>options.forEach(option=>{option.disabled=false;}));
  await nativeSegment.selectOption(originalSegment);
