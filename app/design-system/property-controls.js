@@ -358,7 +358,7 @@ function enhanceSegment(label,select,title){
    rendered=options.map(option=>{
     const btn=previous.get(option)||makeButton(option);
     const text=labelFor(option);
-    btn.textContent=text;btn.dataset.value=option.value;
+    btn.textContent=text;btn.title=text;btn.dataset.value=option.value;
     return {option,button:btn,label:text,value:option.value};
    });
    elements=rendered.map(item=>item.button);
