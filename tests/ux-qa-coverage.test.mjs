@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {summarizeUxCoverage,UX_QA_MATRIX} from '../scripts/ux-qa-coverage.mjs';
+import {summarizeUxCoverage,UX_QA_MATRIX,parseHumanReviewChoice} from '../scripts/ux-qa-coverage.mjs';
 
 const full=()=>UX_QA_MATRIX.map(({theme,width})=>({theme,width,scenario:true,inspector:true,toolbar:true,errors:0}));
 
@@ -27,4 +27,14 @@ test('toolbar, inspector, runtime and finding failures fail the report',()=>{
 test('reviewer stop is never reported as successful completion',()=>{
  assert.equal(summarizeUxCoverage(full(),[],true).status,'stopped');
  assert.equal(summarizeUxCoverage(full().slice(0,1),[],true).status,'stopped');
+});
+
+test('human visual sign-off is explicit and separate from passing automated checks',()=>{
+ assert.equal(parseHumanReviewChoice(''), 'not-reviewed');
+ assert.equal(parseHumanReviewChoice('m'), 'not-reviewed');
+ assert.equal(parseHumanReviewChoice(' A '), 'approved');
+ assert.equal(parseHumanReviewChoice('r'), 'rejected');
+ assert.equal(parseHumanReviewChoice(null), 'not-reviewed');
+ assert.equal(summarizeUxCoverage(full(),[],false).status,'passed',
+  'Automated status remains a separate functional result');
 });
