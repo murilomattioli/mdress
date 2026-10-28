@@ -225,6 +225,8 @@ try {
  await rangeControl.screenshot({path:'test-results/ux-audit/inspector-range-invalid.png',animations:'disabled'});
  await precise.press('Escape');
  assert.equal(await precise.inputValue(),'11','Escape must restore the committed slider value');
+ assert.equal(await precise.evaluate(el=>document.activeElement===el),true,'Cancelling precision draft must retain keyboard focus');
+ await rangeControl.screenshot({path:'test-results/ux-audit/inspector-range-escape-focused.png',animations:'disabled'});
  assert.equal(await precise.getAttribute('aria-invalid'),null);
  await precise.fill('11.3');await precise.dispatchEvent('change');
  assert.equal(await precise.getAttribute('aria-invalid'),'true','Fractional step mismatch must be rejected');
@@ -293,6 +295,8 @@ try {
  await colorHex.press('Escape');
  assert.equal(await colorHex.getAttribute('aria-invalid'),null,'Escape must clear the error state');
  assert.equal((await colorHex.inputValue()).toLowerCase(),'#a1744b','Escape must restore the committed color');
+ assert.equal(await colorHex.evaluate(el=>document.activeElement===el),true,'Cancelling hex draft must retain keyboard focus');
+ await colorControl.screenshot({path:'test-results/ux-audit/inspector-color-escape-focused.png',animations:'disabled'});
  const fontPicker=page.locator('.ds-property-select').filter({has:page.locator('#fontChoice')});
  await fontPicker.locator('.ds-select-trigger').click();
  await page.locator('.ds-select-popover .ds-select-option').filter({hasText:'Consolas'}).click();
