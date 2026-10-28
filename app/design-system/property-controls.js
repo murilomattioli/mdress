@@ -338,14 +338,26 @@ export function selectPopoverLayout(anchor,viewport,contentHeight){
 // When a native select becomes disabled while its portalled option owns
 // keyboard focus, move to a real enabled inspector control. A disabled
 // combobox trigger cannot receive focus, and body is not a useful fallback.
-function focusInspectorNeighbor(trigger){
+function focusInspectorNeighbor(trigger,{visibleOnly=false}={}){
  const root=trigger.closest('.design-inspector');
  if(!root)return;
  const controls=[...root.querySelectorAll('button,input,select,textarea,[tabindex]')];
  const index=controls.indexOf(trigger);
- const eligible=el=>el!==trigger&&!el.disabled&&el.tabIndex>=0&&
-  !el.closest('[hidden],[inert]')&&el.getClientRects().length>0&&
-  getComputedStyle(el).visibility!=='hidden';
+ const eligible=el=>{
+  if(el===trigger||el.disabled||el.tabIndex<0||
+   el.closest('[hidden],[inert]')||!el.getClientRects().length||
+   getComputedStyle(el).visibility==='hidden')return false;
+  if(!visibleOnly)return true;
+  const rect=el.getBoundingClientRect();
+  if(rect.bottom<=0||rect.top>=window.innerHeight||
+   rect.right<=0||rect.left>=window.innerWidth)return false;
+  const scroller=el.closest('.inspector-scroll');
+  if(scroller){
+   const viewport=scroller.getBoundingClientRect();
+   if(rect.bottom<=viewport.top||rect.top>=viewport.bottom)return false;
+  }
+  return true;
+ };
  const next=controls.slice(index+1).find(eligible)||
   controls.slice(0,index).reverse().find(eligible);
  if(next)next.focus({preventScroll:true});
@@ -574,7 +586,11 @@ export function initializePropertyControls(){
   const viewport=scroller?.getBoundingClientRect();
   if(rect.bottom<=0||rect.top>=window.innerHeight||
    (viewport&&(rect.bottom<=viewport.top||rect.top>=viewport.bottom))){
+   // A portalled option owns focus while the trigger scrolls out of view.
+   // Removing it without a focus handoff silently drops keyboard users on body.
+   const focusInPopup=openSelect.popup.contains(document.activeElement);
    closePopup({restoreFocus:false});
+   if(focusInPopup)focusInspectorNeighbor(trigger,{visibleOnly:true});
    return;
   }
   reposition();
