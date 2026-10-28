@@ -70,7 +70,7 @@ export const UX_QA_REQUIRED_SCREENSHOTS=[
  'workspace','toolbar','toolbar-focus','toolbar-last-focus',
  'range-normal','range-hover','range-focus','range-invalid','range-escape-focused','range-native-override','range-valid','range-disabled',
  'range-live-valid','range-live-invalid','range-live-any','range-live-disabled','range-disabled-focus-handoff',
- 'color-focus','color-invalid','color-draft-sync','color-escape-focused','color-valid','color-disabled','color-disabled-focus-handoff',
+ 'color-focus','color-swatch-focus','color-invalid','color-draft-sync','color-escape-focused','color-valid','color-disabled','color-disabled-focus-handoff','color-swatch-disabled-focus-handoff',
  'select-hover','select-open','select-group-disabled','select-typeahead-prefix',
  'select-live-value','select-live-options','select-live-options-removed',
  'select-hidden-optgroup','select-all-disabled','select-resize-focus',
