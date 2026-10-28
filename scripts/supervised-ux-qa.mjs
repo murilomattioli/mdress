@@ -11,6 +11,7 @@ import {mkdir,stat,writeFile} from 'node:fs/promises';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
 import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice} from './ux-qa-coverage.mjs';
+import {renderUxQaGallery} from './ux-qa-gallery.mjs';
 
 const args=new Set(process.argv.slice(2));
 const automated=args.has('--auto');
@@ -84,6 +85,18 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'range-invalid');
  await precise.press('Escape');
  assert.equal(await precise.getAttribute('aria-invalid'),null);
+ // Dragging the real slider must override an abandoned invalid numeric draft.
+ await precise.fill('9999');
+ await page.locator('#fontSize').evaluate(el=>{
+  el.value=el.value===el.max?el.min:el.max;
+  el.dispatchEvent(new Event('input',{bubbles:true}));
+ });
+ assert.equal(await precise.inputValue(),await page.locator('#fontSize').inputValue());
+ assert.equal(await precise.getAttribute('aria-invalid'),null,'Native slider must clear stale numeric errors');
+ await capture(page,theme,width,'range-native-override');
+ await page.locator('#fontSize').evaluate((el,value)=>{
+  el.value=value;el.dispatchEvent(new Event('input',{bubbles:true}));
+ },originalRange);
  // Valid drafts must commit through the native range (source of truth).
  const nextRange=originalRange==='12.5'?'11.5':'12.5';
  await precise.fill(nextRange);await precise.dispatchEvent('change');
@@ -391,11 +404,20 @@ async function exercise(page,theme,width){
  await input.evaluate(el=>{el.disabled=false;});
  const binary=page.locator('.ds-property-binary').filter({has:page.locator('#showPageGuides')});
  const native=page.locator('#showPageGuides');
+ await binary.scrollIntoViewIfNeeded();
+ await binary.locator('.ds-binary-option').first().focus();
  await native.evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>[...document.querySelector('#showPageGuides')?.closest('.ds-property-binary')?.querySelectorAll('button')||[]].every(b=>b.disabled));
+ const binaryFocus=await page.evaluate(()=>({
+  inInspector:Boolean(document.activeElement?.closest('.design-inspector')),
+  isBody:document.activeElement===document.body,
+  disabled:Boolean(document.activeElement?.disabled)
+ }));
+ assert.ok(binaryFocus.inInspector&&!binaryFocus.isBody&&!binaryFocus.disabled,
+  'Disabling a focused binary button must hand focus to an enabled inspector control: '+JSON.stringify(binaryFocus));
+ await capture(page,theme,width,'binary-disabled-focus-handoff');
  const binaryOpacity=await binary.locator('.ds-binary-option').first().evaluate(el=>Number(getComputedStyle(el).opacity));
  assert.ok(binaryOpacity>=0.7,'Disabled binary label must remain readable: '+binaryOpacity);
- await binary.scrollIntoViewIfNeeded();
  await capture(page,theme,width,'binary-disabled');
  await native.evaluate(el=>{el.disabled=false;});
  const originalBinary=await native.isChecked();
@@ -553,6 +575,16 @@ finally{
     '; unexpected: '+screenshotCoverage.unexpected.join(', ')+
     '; invalid paths: '+screenshotCoverage.invalidPaths.join(', ')});
  }
+ // Build a local, offline comparison gallery before asking for a human
+ // verdict. Six side-by-side screenshots per state are easier to inspect
+ // than hundreds of unrelated filenames in an artifact ZIP.
+ let galleryPath=null;
+ try{
+  const path=directory+'/index.html';
+  await writeFile(path,renderUxQaGallery(screenshots,screenshotCoverage));
+  galleryPath=path;
+  console.log('[UX QA] Galeria visual offline: '+path);
+ }catch(e){error('gallery','global',0,e);}
  // A successful functional matrix never implies that someone inspected the
  // screenshots. Record an explicit verdict only in an interactive session.
  if(io&&!stopped&&summarizeUxCoverage(coverage,findings,stopped).status==='passed'){
@@ -566,7 +598,7 @@ finally{
  const summary=summarizeUxCoverage(coverage,findings,stopped);
  const report={schema:4,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,screenshotCoverage,
   humanReview:{status:automated?'not-applicable':humanReview,requiresExplicitApproval:true},
-  coverage,screenshots,traces,findings};
+  gallery:galleryPath,coverage,screenshots,traces,findings};
  await writeFile('test-results/supervised-ux-qa.json',JSON.stringify(report,null,2)+'\n');
  console.log('[UX QA] report: test-results/supervised-ux-qa.json | status: '+summary.status+' | human review: '+report.humanReview.status+' | scenarios: '+summary.passing+'/'+summary.expected+' | screenshots: '+screenshots.length+' | findings: '+findings.length);
  if(summary.status!=='passed'||humanReview==='rejected')process.exitCode=1;

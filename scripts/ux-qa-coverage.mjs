@@ -7,7 +7,7 @@ export const UX_QA_MATRIX=[
 // must never produce a green automated report.
 export const UX_QA_REQUIRED_SCREENSHOTS=[
  'workspace','toolbar','toolbar-focus','toolbar-last-focus',
- 'range-normal','range-hover','range-focus','range-invalid','range-valid','range-disabled',
+ 'range-normal','range-hover','range-focus','range-invalid','range-native-override','range-valid','range-disabled',
  'range-live-valid','range-live-invalid','range-live-any','range-live-disabled',
  'color-focus','color-invalid','color-draft-sync','color-valid','color-disabled',
  'select-hover','select-open','select-group-disabled','select-typeahead-prefix',
@@ -16,7 +16,7 @@ export const UX_QA_REQUIRED_SCREENSHOTS=[
  'select-scroll-focus-handoff','select-tab-forward','select-tab-backward',
  'select-disabled-focus-handoff','select-disabled',
  'number-focus','number-invalid','number-valid','number-disabled',
- 'binary-disabled','binary-toggled','binary-keyboard-on','binary-keyboard-off',
+ 'binary-disabled','binary-disabled-focus-handoff','binary-toggled','binary-keyboard-on','binary-keyboard-off',
  'segment-disabled-focus','segment-keyboard-focus'
 ];
 export function summarizeScreenshotCoverage(screenshots){

@@ -132,8 +132,10 @@ function enhanceRange(label,input,title){
    (!boundsValid?'Verifique os limites e o incremento da faixa.':!valid()?validationMessage(numeric,min,max,unit):''):'');
   if(!Number.isNaN(value))field.setAttribute('data-value',formatControlValue(value,unit));
  };
- input.addEventListener('input',update);
- input.addEventListener('change',update);
+ // A real slider gesture supersedes a stale numeric draft and its error.
+ const nativeUpdate=()=>{editing=false;update();};
+ input.addEventListener('input',nativeUpdate);
+ input.addEventListener('change',nativeUpdate);
  numeric.addEventListener('input',()=>{editing=true;update();});
  numeric.addEventListener('change',()=>{
   const {min,max,step,valid:boundsValid}=syncConstraints();
@@ -273,11 +275,14 @@ function enhanceBinary(label,input,title){
  input.classList.add('ds-binary-native');input.setAttribute('aria-hidden','true');input.tabIndex=-1;
  input.replaceWith(field);field.append(name,group,input);group.append(off,on);
  const update=()=>{
+  const focused=group.contains(document.activeElement)?document.activeElement:null;
   off.setAttribute('aria-pressed',String(!input.checked));
   on.setAttribute('aria-pressed',String(input.checked));
   // The native checkbox remains the source of truth for disabled state.
   // In particular, bottomSectionEnabled is disabled when no section is selected.
   off.disabled=input.disabled;on.disabled=input.disabled;
+  // Disabling a focused button must not silently dump keyboard focus on body.
+  if(focused&&input.disabled)focusInspectorNeighbor(focused);
  };
  const commit=val=>{
   if(input.disabled)return;
