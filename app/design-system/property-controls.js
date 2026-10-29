@@ -820,6 +820,14 @@ export function initializePropertyControls(){
  document.addEventListener('pointerdown',event=>{
   if(openSelect&&!openSelect.popup.contains(event.target)&&!openSelect.trigger.contains(event.target))closePopup({restoreFocus:false});
  });
+ // Focus may leave a portalled listbox without a pointer event (scripted
+ // focus, browser navigation or assistive technology). Do not leave an
+ // expanded combobox behind when keyboard focus moves elsewhere. Preserve
+ // the new focus target instead of stealing focus back to the trigger.
+ document.addEventListener('focusin',event=>{
+  if(openSelect&&!openSelect.popup.contains(event.target)&&!openSelect.trigger.contains(event.target))
+   closePopup({restoreFocus:false});
+ });
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openSelect){event.preventDefault();closePopup();}});
  window.addEventListener('resize',()=>{
   if(!openSelect)return;
