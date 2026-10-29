@@ -176,6 +176,22 @@ try{
  if(repairedDisabled)console.error('Repaired evidence requests:',JSON.stringify(workspaceRequests.slice(-20)));
  assert.equal(repairedDisabled,false,
   'Restored dimensions must re-enable review: '+await page.locator('.state').first().locator('.image-warning').innerText());
+ // An open review dialog must immediately revoke its approval controls
+ // when a newer screenshot verification detects missing evidence.
+ await status.selectOption('approved');
+ await firstImage.click();
+ assert.equal(await viewer.isVisible(),true);
+ breakFreshReview=true;
+ const modalInvalid=await page.evaluate(()=>verifyImages(document.querySelector('.state'),{fresh:true}));
+ assert.equal(modalInvalid,false);
+ assert.equal(await viewerStatus.isDisabled(),true,'Invalid evidence disables modal approval');
+ assert.equal(await viewerStatus.inputValue(),'pending','Invalid evidence clears the modal verdict');
+ breakFreshReview=false;
+ const modalRestored=await page.evaluate(()=>verifyImages(document.querySelector('.state'),{fresh:true}));
+ assert.equal(modalRestored,true);
+ assert.equal(await viewerStatus.isDisabled(),false,'Restored evidence re-enables modal review');
+ assert.equal(await viewerStatus.inputValue(),'pending','Restored evidence never auto-approves');
+ await viewer.locator('#viewer-close').click();
  // Race regression: a slow old success cannot override a newer failed
  // evidence validation or silently re-enable the approval control.
  await status.selectOption('approved');
