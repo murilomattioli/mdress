@@ -756,7 +756,26 @@ async function toolbarAudit(page,theme,width){
  assert.equal(await action.evaluate(el=>el===document.activeElement),false,
   'Disabled Markdown command must relinquish focus');
  await capture(page,theme,width,'toolbar-disabled-focus-handoff');
+ // Hidden and detached actions can also drop focus onto body without
+ // ever receiving disabled=true. Cover both across the full QA matrix.
+ await action.evaluate(el=>{el.disabled=false;});
+ await action.focus();
+ await action.evaluate(el=>{el.hidden=true;});
+ await page.waitForFunction(()=>{
+  const active=document.activeElement,fixture=document.querySelector('[data-qa-focus-fixture]');
+  return Boolean(active?.closest('.markdown-toolbar')&&active!==fixture&&
+   !active.matches(':disabled,[aria-disabled="true"]')&&active.getClientRects().length);
+ });
+ await capture(page,theme,width,'toolbar-hidden-focus-handoff');
+ await action.evaluate(el=>{el.hidden=false;});
+ await action.focus();
  await action.evaluate(el=>el.remove());
+ await page.waitForFunction(()=>{
+  const active=document.activeElement;
+  return Boolean(active?.closest('.markdown-toolbar')&&active!==document.body&&
+   !active.matches(':disabled,[aria-disabled="true"]')&&active.getClientRects().length);
+ });
+ await capture(page,theme,width,'toolbar-detached-focus-handoff');
 }
 await mkdir(directory,{recursive:true});
 let browser;
