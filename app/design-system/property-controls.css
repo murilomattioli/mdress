@@ -717,3 +717,11 @@
 
 .design-inspector :is(#inspector-document,#inspector-content,#inspector-page,#inspector-themes) .ds-prop-name{font-size:12px}
 @media(max-width:540px){.design-inspector .ds-property-color .ds-color-right{padding-block:0;min-height:46px}.design-inspector .ds-property-color .ds-color-swatch{flex-basis:44px;width:44px;height:44px}.design-inspector .ds-property-color .ds-color-hex{height:44px!important}}
+
+/* UX-023: quick navigation is a real touch control, not a 28px decorative icon.
+   Include both preset headers and font-choice actions at narrow viewports. */
+@media(max-width:540px){
+ .design-inspector .ds-quick-action{width:44px;height:44px;min-height:44px;flex:0 0 44px}
+ .design-inspector .ds-accordion-header{min-height:44px}
+ .design-inspector .ds-accordion-header .ds-accordion-toggle{min-height:44px!important;height:44px!important}
+}
