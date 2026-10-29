@@ -40,11 +40,14 @@ try{
       categories[role in categories?role:tag]=(categories[role in categories?role:tag]||0)+1;
       const labelledBy=control.getAttribute('aria-labelledby');
       const describedBy=control.getAttribute('aria-describedby');
+      const controlledBy=control.getAttribute('aria-controls');
+      const brokenControls=missingAriaReferenceIds(controlledBy);
       const brokenLabels=missingAriaReferenceIds(labelledBy);
       const brokenDescriptions=missingAriaReferenceIds(describedBy);
       for(const id of brokenLabels)violations.push({rule:'aria-labelledby-target',severity:'error',component:tag,detail:'Referência de nome acessível inexistente: '+id,html:control.outerHTML.slice(0,190)});
       for(const id of brokenDescriptions)violations.push({rule:'aria-describedby-target',severity:'error',component:tag,detail:'Referência de descrição acessível inexistente: '+id,html:control.outerHTML.slice(0,190)});
-      for(const id of new Set([...ids(labelledBy),...ids(describedBy)])){
+      for(const id of brokenControls)violations.push({rule:'aria-controls-target',severity:'error',component:tag,detail:'Controle ARIA aponta para elemento desmontado ou inexistente: '+id,html:control.outerHTML.slice(0,190)});
+      for(const id of new Set([...ids(labelledBy),...ids(describedBy),...ids(controlledBy)])){
        if((idCounts.get(id)||0)>1)violations.push({rule:'aria-idref-duplicate',severity:'error',component:tag,detail:'Referência ARIA ambígua (ID duplicado): '+id,html:control.outerHTML.slice(0,190)});
       }
       // aria-labelledby takes precedence over aria-label. An empty existing
