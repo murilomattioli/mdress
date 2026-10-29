@@ -187,7 +187,7 @@ try{
  await note.fill('Rascunho que será substituído pela importação.');
  page.once('dialog',dialog=>dialog.accept());
  await uploadReview(exported);
- await page.locator('#review-import-status').getByText(/Revisão recuperada/).waitFor();
+ await page.waitForFunction(()=>document.querySelector('#review-import-status')?.textContent.includes('Revisão recuperada'));
  assert.equal(await status.inputValue(),'approved','Valid same-session import restores verdict');
  assert.match(await note.inputValue(),/Foco, contraste/,'Valid import restores notes');
  await uploadReview({...exported,sessionId:'foreign-session'});
@@ -199,7 +199,7 @@ try{
  breakFreshReview=true;
  page.once('dialog',dialog=>dialog.accept());
  await uploadReview(exported);
- await page.waitForFunction(()=>document.querySelector('#review-import-status')?.textContent.includes('Importação recusada'));
+ await page.waitForFunction(()=>document.querySelector('#review-import-status')?.textContent.includes('Capturas inválidas'));
  assert.equal(await status.inputValue(),'pending','Invalid PNG must revoke even a previously approved imported state');
  breakFreshReview=false;
  assert.equal(await page.evaluate(()=>verifyImages(document.querySelector('.state'),{fresh:true})),true);
