@@ -7,7 +7,7 @@ try{
  for(const width of [1440,768,390]){
   const page=await browser.newPage({viewport:{width,height:900},reducedMotion:'reduce',hasTouch:width===390});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4174');
+  await page.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173');
   await page.locator(await page.locator('#designToggle').isVisible()?'#designToggle':'#railDesign').click();
   const input=page.locator('#accentColor');
   const group=page.locator('.ds-accordion').filter({has:input});
@@ -83,7 +83,7 @@ try{
   await input.evaluate(el=>{el.disabled=false;});
   assert.deepEqual(errors,[]);await page.close();
  }
- const page=await browser.newPage();await page.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4174');
+ const page=await browser.newPage();await page.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173');
  await page.locator('#source').waitFor();
  await page.evaluate(()=>{window.EyeDropper=class{async open(){return {sRGBHex:'#ABCDEF'};}};document.getElementById('accentColor').click();});
  let dialog=page.getByRole('dialog',{name:/Cores/});await dialog.getByRole('button',{name:'Capturar cor da tela',exact:true}).click();
