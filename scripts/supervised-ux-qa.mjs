@@ -813,7 +813,7 @@ let browser;
 try{
  browser=await chromium.launch({headless,slowMo:automated?0:120,args:['--no-sandbox']});
  for(const theme of ['graphite','studio']){
-  for(const width of [1440,1024,768]){
+  for(const width of [1440,1024,768,390]){
    if(stopped)break;
    const context=await browser.newContext({viewport:{width,height:UX_QA_VIEWPORT_HEIGHT}});
    const page=await context.newPage();
@@ -831,7 +831,7 @@ try{
     try{await toolbarAudit(page,theme,width);toolbarPassed=true;}catch(e){if(e instanceof ReviewStopped)throw e;error('toolbar',theme,width,e);}
     try{await exercise(page,theme,width);inspectorPassed=true;}catch(e){if(e instanceof ReviewStopped)throw e;error('inspector',theme,width,e);}
     // Keep the headed browser available for inspection between viewports.
-    // Six checkpoints replace 282 interruptions while preserving m/q/ENTER.
+    // Eight checkpoints replace hundreds of interruptions while preserving m/q/ENTER.
     await checkpoint(theme+'/'+width+' — capturas concluídas; m=inspecionar, ENTER=próxima largura');
     for(const message of errors)findings.push({severity:'error',phase:'runtime',theme,width,message});
     scenarioPassed=toolbarPassed&&inspectorPassed&&errors.length===0;
