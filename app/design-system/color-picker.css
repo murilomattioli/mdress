@@ -61,6 +61,9 @@
  .mdress-color-picker input[type=number],.mdress-color-picker input[type=text]{height:44px}
  .mdress-color-picker .cp-opacity{grid-template-columns:auto minmax(0,1fr) 44px auto}
  .mdress-color-picker .cp-opacity input[type=number]{width:44px;height:44px}
+ .mdress-color-picker input[type=range]{height:44px;min-height:44px;background-size:100% 16px;background-position:center;background-repeat:no-repeat}
+ .mdress-color-picker .cp-opacity input[type=range]{height:44px;min-height:44px;background-size:100% 14px,8px 8px;background-position:center;background-repeat:no-repeat,repeat-x}
+ .mdress-color-picker .cp-spectrum{height:164px}
 }
 @media(max-width:360px){
  .mdress-color-picker .cp-grid{grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:repeat(20,44px)}
