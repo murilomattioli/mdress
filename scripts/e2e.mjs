@@ -67,6 +67,22 @@ try {
  await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Rolar ferramentas para a direita');
  assert.equal(await previousTools.isDisabled(),true,'Start of toolbar disables the backward arrow');
  await toolbar.screenshot({path:'test-results/ux-audit/toolbar-scroll-start-focus-handoff.png',animations:'disabled'});
+ // Newly added toolbar groups must be observed, and disabling a focused
+ // action must preserve keyboard navigation even without a resize event.
+ await toolbar.evaluate(el=>{
+  const group=document.createElement('span');group.className='tool-group';group.dataset.qaDynamicGroup='true';
+  const action=document.createElement('button');action.type='button';action.textContent='Ação QA';
+  action.dataset.qaDynamicAction='true';group.append(action);el.append(group);
+ });
+ const dynamicAction=toolbar.locator('[data-qa-dynamic-action]');
+ await dynamicAction.focus();
+ await dynamicAction.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>{
+  const active=document.activeElement;
+  return Boolean(active?.closest('.markdown-toolbar')&&!active.disabled&&
+   active!==document.querySelector('[data-qa-dynamic-action]'));
+ });
+ await toolbar.locator('[data-qa-dynamic-group]').evaluate(el=>el.remove());
  await toolbar.evaluate(el=>{el.parentElement.style.removeProperty('width');});
  await page.locator('#headingCommand').focus();
  for(let i=0;i<11;i++)await page.keyboard.press('Tab');
