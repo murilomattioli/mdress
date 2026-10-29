@@ -61,3 +61,17 @@ Ao terminar (inclusive após falha), abra `test-results/ux-audit/supervised/inde
 A galeria agora possui um visualizador ampliado: clique em uma captura para abrir as seis variantes no mesmo diálogo, use as setas esquerda/direita para comparar, Esc para fechar e **Abrir original** para inspeção em resolução nativa. O próprio diálogo permite **registrar o veredito e as observações do estado**, com sincronização imediata com a galeria. **Estado anterior** e **Próximo estado →** percorrem os estados visíveis nos dois sentidos sem fechar o visualizador, com contador de posição e layout responsivo (inclusive 390px); o foco retorna à miniatura do estado atual ao fechar. As setas do teclado não interferem na edição das observações. Nenhum estado é aprovado automaticamente pela navegação, e a seleção de revisão só é habilitada após decodificar as seis imagens. Na exportação, as 396 imagens são requisitadas novamente com URL exclusiva; aprovações anteriores são revertidas para pendentes caso um PNG tenha sido apagado ou substituído por um recurso inválido desde a revisão inicial. Restaurar a imagem não reaplica a aprovação automaticamente. Verificações de imagem simultâneas usam uma versão por estado: um resultado antigo não pode reabilitar a aprovação depois de uma verificação mais recente ter detectado evidência inválida. A invalidação também atualiza imediatamente o veredito e a disponibilidade dos controles no visualizador ampliado.
 
 A seleção exibida no combobox mantém nome acessível estável e anuncia o valor selecionado via `aria-describedby`, além de expor `title` para textos truncados. O handoff de foco do controle binário desabilitado exige um destino visível no inspetor, não apenas qualquer elemento tecnicamente focável.
+
+
+## Retomar a homologação após fechar o terminal
+
+Se a matriz supervisionada **já terminou com `summary.status=passed`**, mas você fechou o terminal ou escolheu deixar a revisão visual pendente, **não precisa repetir as 396 capturas**. Abra a galeria já gerada, revise todos os estados, exporte o JSON da mesma sessão e execute no PowerShell:
+
+```powershell
+cd F:\\Projects\\lumu\\tools\\mdress
+pnpm qa:resume-review "C:\\Users\\<usuario>\\Downloads\\mdress-ux023-review.json"
+```
+
+O comando reabre `test-results/supervised-ux-qa.json`, exige uma sessão **supervisionada e concluída**, valida o ID do JSON exportado e todos os 66 vereditos, e **relê os 396 arquivos PNG do disco**, verificando integridade e dimensões antes de registrar `humanReview.status=approved`. Captura ausente, corrompida, renomeada, sessão interrompida, resultado funcional falho ou JSON de outra sessão bloqueiam a aprovação sem modificar o relatório anterior. Não executa navegador nem CI, não cria capturas e **não realiza merge ou publicação**. A revisão visual e interativa precisa ter sido feita por você; esse comando apenas registra o veredito humano após verificar as evidências.
+
+Se a execução foi interrompida **antes de concluir a matriz**, o status permanece `stopped` e a homologação é recusada: execute `pnpm qa:supervised` novamente para produzir uma matriz completa. Preserve o diretório `test-results/ux-audit/supervised/` e o relatório original enquanto revisa, pois uma nova captura gera outro ID de sessão e invalida o JSON anterior.
