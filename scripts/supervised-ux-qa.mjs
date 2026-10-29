@@ -761,6 +761,7 @@ async function toolbarAudit(page,theme,width){
  await action.evaluate(el=>{el.disabled=false;});
  await action.focus();
  await action.evaluate(el=>{el.hidden=true;});
+ assert.equal(await action.isVisible(),false,'Hidden toolbar actions must not remain rendered');
  await page.waitForFunction(()=>{
   const active=document.activeElement,fixture=document.querySelector('[data-qa-focus-fixture]');
   return Boolean(active?.closest('.markdown-toolbar')&&active!==fixture&&
