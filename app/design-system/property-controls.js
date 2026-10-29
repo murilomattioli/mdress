@@ -270,6 +270,12 @@ function enhanceNumber(label,input,title){
  // Capture before the app's change listener: an invalid draft must never mutate the document.
  input.addEventListener('change',event=>{
   if(restoring)return;
+  // Disabling a focused number can synchronously emit a native change
+  // before MutationObserver runs. That event must not commit its draft.
+  if(input.disabled){
+   if(editing)rollbackDraft();
+   event.preventDefault();event.stopImmediatePropagation();update();return;
+  }
   if(!valid()){
    editing=true;update();event.preventDefault();event.stopImmediatePropagation();return;
   }
