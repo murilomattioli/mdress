@@ -86,6 +86,7 @@ try {
  await dynamicAction.evaluate(el=>{el.disabled=false;});
  await dynamicAction.focus();
  await toolbar.locator('[data-qa-dynamic-group]').evaluate(el=>{el.hidden=true;});
+ assert.equal(await dynamicAction.isVisible(),false,'Hidden toolbar groups must not render or remain tabbable');
  await page.waitForFunction(()=>{
   const active=document.activeElement,hidden=document.querySelector('[data-qa-dynamic-action]');
   return Boolean(active?.closest('.markdown-toolbar')&&active!==hidden&&
