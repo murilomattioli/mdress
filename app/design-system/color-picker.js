@@ -72,16 +72,25 @@ export function openColorPicker(input){
  const opacitySuffix=node('span','','%');opacityRow.append(opacityLabel,opacityRange,opacityValue,opacitySuffix);
  function applyOpacity(control){
   const value=control.valueAsNumber;
-  if(!Number.isFinite(value)||value<0||value>100){
+  if(!Number.isFinite(value)||!Number.isInteger(value)||value<0||value>100){
    control.setAttribute('aria-invalid','true');
-   status.textContent='Use uma opacidade entre 0% e 100%.';
+   status.textContent='Use um valor inteiro entre 0% e 100%.';
    return;
   }
   control.removeAttribute('aria-invalid');
   status.textContent='';
   opacity=value;sync();
   const target=anchor();
-  if(target){target.dataset.opacity=opacity/100;target.dispatchEvent(new CustomEvent('coloropacitychange',{bubbles:true,detail:opacity/100}));}
+  if(target){
+   const previous=target.dataset.opacity===undefined?1:Number(target.dataset.opacity);
+   const next=opacity/100;
+   // Do not create duplicate history entries for Enter/change or unchanged slider values.
+   // Repair corrupted persisted alpha instead of treating it as a valid unchanged value.
+   if(!Number.isFinite(previous)||previous<0||previous>1||Math.abs(previous-next)>1e-9){
+    target.dataset.opacity=next;
+    target.dispatchEvent(new CustomEvent('coloropacitychange',{bubbles:true,detail:next}));
+   }
+  }
  }
  opacityRange.oninput=()=>applyOpacity(opacityRange);opacityValue.onchange=()=>applyOpacity(opacityValue);
  opacityValue.onkeydown=e=>{
@@ -107,7 +116,12 @@ export function openColorPicker(input){
  }
  function commit(value,keepHSV=false){
   if(input.disabled){dialog.close();return;}hex=value;if(!keepHSV)hsv=rgbToHsv(hexToRgb(hex));status.textContent='';sync();
-  const target=anchor();if(target){target.value=hex;target.dispatchEvent(new Event('input',{bubbles:true}));target.dispatchEvent(new Event('change',{bubbles:true}));}
+  const target=anchor();if(target){
+   // Native color inputs normalize case; compare semantic colors, not raw strings.
+   // Enter followed by change and reselecting a swatch must not duplicate edits.
+   const changed=parseHex(target.value)!==hex;
+   if(changed){target.value=hex;target.dispatchEvent(new Event('input',{bubbles:true}));target.dispatchEvent(new Event('change',{bubbles:true}));}
+  }
  }
  pipette.onclick=async()=>{try{const result=await new window.EyeDropper().open();if(dialog.open)commit(parseHex(result.sRGBHex)||hex);}catch(error){if(error.name!=='AbortError')status.textContent='Não foi possível capturar a cor.';}};
  dialog.append(header,tabs,...panels,valueRow,opacityRow,footer,status);document.body.append(dialog);
