@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding} from './component-ux-findings.mjs';
+import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps} from './component-ux-findings.mjs';
 
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const findings=[],coverage=[],screenshots=[];
@@ -40,9 +40,24 @@ try{
        }
       }
      }
+     // Inspect actual rendered control rectangles, not just the row box.
+     // This catches stacked steppers, hex fields or segmented buttons while
+     // allowing scrollable toolbars and shared one-pixel borders.
+     const propertyRows=[...document.querySelectorAll('.design-inspector .ds-property-row')]
+      .filter(visible).map((row,index)=>({
+       name:row.querySelector('.ds-prop-name')?.textContent?.trim()||'row-'+index,
+       controls:[...row.querySelectorAll('button,input,select,textarea,[role="combobox"]')]
+        .filter(el=>visible(el)&&!el.closest('[hidden],[aria-hidden="true"],[inert]'))
+        .filter(el=>el.getBoundingClientRect().width>=5&&el.getBoundingClientRect().height>=5)
+        .map(el=>({
+         name:el.getAttribute('aria-label')||el.id||el.textContent?.trim().slice(0,45)||el.tagName,
+         rect:(()=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};})(),
+         html:el.outerHTML.slice(0,160)
+        }))
+      }));
      const inspector=document.querySelector('.design-inspector');
      const composer=document.querySelector('#inspector-sections');
-     return {categories,count:controls.length,violations,inspectorWidth:inspector?.getBoundingClientRect().width||0,
+     return {categories,count:controls.length,violations,propertyRows,inspectorWidth:inspector?.getBoundingClientRect().width||0,
       composerWidth:composer?.getBoundingClientRect().width||0};
     });
     // Keep a viewport screenshot tied to every audited theme/width scenario.
@@ -52,6 +67,11 @@ try{
     screenshots.push({theme,width,path:screenshot});
     coverage.push({theme,width,...{controls:data.count,types:data.categories,inspectorWidth:data.inspectorWidth},screenshot});
     for(const violation of data.violations)emit(violation.rule,violation.severity,violation.component,violation.detail,{theme,width,html:violation.html});
+    for(const collision of findInspectorControlOverlaps(data.propertyRows))
+     emit('control-overlap','error','inspector',
+      'Controles interativos se sobrepõem: '+collision.first+' / '+collision.second+
+      ' ('+collision.horizontal+'×'+collision.vertical+'px)',
+      {theme,width,row:collision.row,html:collision.html});
     for(const error of errors)emit('runtime-error','error','app',error,{theme,width});
     const missingCoverage=auditCoverageFinding(data.count,{theme,width});
     if(missingCoverage)findings.push(missingCoverage);

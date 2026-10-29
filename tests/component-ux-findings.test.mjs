@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding} from '../scripts/component-ux-findings.mjs';
+import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps} from '../scripts/component-ux-findings.mjs';
 
 const finding = (theme, width, severity = 'warning') => ({
   rule: 'scrollable-toolbar',
@@ -64,4 +64,34 @@ test('a viewport with zero inventoried controls fails rather than silently passi
   assert.equal(finding.rule,'coverage');
   assert.equal(summarizeAuditFindings([finding],[{theme:'studio',width:768}]).critical,1);
  }
+});
+
+test('inspector geometry audit catches overlapping interactive targets without flagging adjacent borders',()=>{
+ const control=(name,left,top,right,bottom)=>({name,rect:{left,top,right,bottom},html:'<button>'+name+'</button>'});
+ const rows=[
+  {name:'Number',controls:[
+   control('minus',0,0,44,44),control('value',43,0,110,44),control('plus',100,0,144,44)
+  ]},
+  {name:'Segment',controls:[
+   control('left',0,50,50,94),control('right',50,50,100,94)
+  ]},
+  {name:'Color',controls:[control('hex',0,100,80,144)]}
+ ];
+ const found=findInspectorControlOverlaps(rows);
+ assert.equal(found.length,1);
+ assert.equal(found[0].row,'Number');
+ assert.equal(found[0].first,'value');
+ assert.equal(found[0].second,'plus');
+ assert.equal(found[0].horizontal,10);
+ assert.equal(found[0].vertical,44);
+ assert.equal(findInspectorControlOverlaps(rows,10).length,0,
+  'A collision must exceed the minimum intersection in both axes');
+});
+test('inspector geometry audit ignores separate rows and near-zero overlap',()=>{
+ const control=(name,left,top,right,bottom)=>({name,rect:{left,top,right,bottom},html:name});
+ assert.deepEqual(findInspectorControlOverlaps([
+  {name:'A',controls:[control('a',0,0,44,44)]},
+  {name:'B',controls:[control('b',0,0,44,44)]},
+  {name:'C',controls:[control('c',0,0,44,44),control('d',41,0,85,44)]}
+ ]),[]);
 });

@@ -48,3 +48,29 @@ export function auditCoverageFinding(count,context){
  return {rule:'coverage',severity:'error',component:'app',
   detail:'Nenhum controle visível foi inventariado',context};
 }
+
+/**
+ * Detect actionable overlap between distinct inspector controls in the same
+ * property row. Intentional toolbar scrolling and adjacent shared borders
+ * are not collisions. Coordinates come from rendered browser rectangles.
+ */
+export function findInspectorControlOverlaps(rows,minimumIntersection=4){
+ const collisions=[];
+ for(const row of rows){
+  const controls=row.controls||[];
+  for(let i=0;i<controls.length;i++){
+   for(let j=i+1;j<controls.length;j++){
+    const a=controls[i],b=controls[j];
+    const horizontal=Math.min(a.rect.right,b.rect.right)-Math.max(a.rect.left,b.rect.left);
+    const vertical=Math.min(a.rect.bottom,b.rect.bottom)-Math.max(a.rect.top,b.rect.top);
+    if(horizontal<=minimumIntersection||vertical<=minimumIntersection)continue;
+    collisions.push({
+     row:row.name,first:a.name,second:b.name,
+     horizontal:Math.round(horizontal),vertical:Math.round(vertical),
+     html:a.html+' | '+b.html
+    });
+   }
+  }
+ }
+ return collisions;
+}
