@@ -28,6 +28,7 @@ function savedColors(){try{const list=JSON.parse(localStorage.getItem(STORE));re
 function node(tag,cls,text){const el=document.createElement(tag);el.className=cls||'';if(text)el.textContent=text;return el;}
 function button(label,icon){const b=node('button','cp-button');b.type='button';b.setAttribute('aria-label',label);b.title=label;if(icon){const svg=node('ds-icon');svg.setAttribute('name',icon);svg.setAttribute('size','18');b.append(svg);}else b.textContent=label;return b;}
 let active=null;
+let nextPickerId=0;
 export function openColorPicker(input){
  if(input.disabled)return;
  active?.close();
@@ -61,8 +62,8 @@ export function openColorPicker(input){
  const channels=['Vermelho','Verde','Azul'].map((label,index)=>{
   const row=node('label','cp-channel'),name=node('span','',label),range=node('input'),number=node('input');range.type='range';number.type='number';
   for(const el of [range,number]){el.min='0';el.max='255';el.step='1';el.setAttribute('aria-label',label+(el===range?' — controle':' — valor'));}
-  function apply(el){const value=el.valueAsNumber;if(!Number.isFinite(value)||value<0||value>255||!Number.isInteger(value)){el.setAttribute('aria-invalid','true');status.textContent='Use um valor inteiro entre 0 e 255.';return;}el.removeAttribute('aria-invalid');const rgb=hexToRgb(hex);rgb[index]=value;commit(rgbToHex(rgb));}
-  range.oninput=()=>apply(range);number.onchange=()=>apply(number);number.onkeydown=e=>{if(e.key==='Enter')apply(number);if(e.key==='Escape'){e.stopPropagation();number.value=hexToRgb(hex)[index];number.removeAttribute('aria-invalid');status.textContent='';}};
+  function apply(el){const value=el.valueAsNumber;if(!Number.isFinite(value)||value<0||value>255||!Number.isInteger(value)){showFieldError(el,'Use um valor inteiro entre 0 e 255.');return;}clearFieldError(el);const rgb=hexToRgb(hex);rgb[index]=value;commit(rgbToHex(rgb));}
+  range.oninput=()=>apply(range);number.onchange=()=>apply(number);number.onkeydown=e=>{if(e.key==='Enter')apply(number);if(e.key==='Escape'){e.stopPropagation();number.value=hexToRgb(hex)[index];clearFieldError(number);}};
   row.append(name,range,number);panels[2].append(row);return {range,number};
  });
  const valueRow=node('div','cp-value'),preview=node('span','cp-preview'),hexLabel=node('label','','Hexadecimal'),hexInput=node('input','cp-hex');hexInput.type='text';hexInput.maxLength=7;hexInput.spellcheck=false;hexInput.setAttribute('aria-label','Cor hexadecimal');hexLabel.append(hexInput);valueRow.append(preview,hexLabel);
@@ -73,12 +74,10 @@ export function openColorPicker(input){
  function applyOpacity(control){
   const value=control.valueAsNumber;
   if(!Number.isFinite(value)||!Number.isInteger(value)||value<0||value>100){
-   control.setAttribute('aria-invalid','true');
-   status.textContent='Use um valor inteiro entre 0% e 100%.';
+   showFieldError(control,'Use um valor inteiro entre 0% e 100%.');
    return;
   }
-  control.removeAttribute('aria-invalid');
-  status.textContent='';
+  clearFieldError(control);
   opacity=value;sync();
   const target=anchor();
   if(target){
@@ -97,25 +96,33 @@ export function openColorPicker(input){
   if(e.key!=='Escape')return;
   e.stopPropagation();
   opacityValue.value=opacity;
-  opacityValue.removeAttribute('aria-invalid');
-  status.textContent='';
+  clearFieldError(opacityValue);
  };
- const status=node('p','cp-status');status.setAttribute('role','status');
- function applyHex(){const value=parseHex(hexInput.value.trim());if(!value){hexInput.setAttribute('aria-invalid','true');status.textContent='Use seis dígitos: #RRGGBB.';return;}commit(value);}
- hexInput.onchange=applyHex;hexInput.onkeydown=e=>{if(e.key==='Enter')applyHex();if(e.key==='Escape'){e.stopPropagation();hexInput.value=hex;hexInput.removeAttribute('aria-invalid');status.textContent='';}};
+ const status=node('p','cp-status');status.id='mdress-color-error-'+(++nextPickerId);status.setAttribute('role','status');
+ function showFieldError(control,message){
+  control.setAttribute('aria-invalid','true');
+  control.setAttribute('aria-errormessage',status.id);
+  status.dataset.error='true';status.textContent=message;
+ }
+ function clearFieldError(control){
+  control.removeAttribute('aria-invalid');control.removeAttribute('aria-errormessage');
+  delete status.dataset.error;status.textContent='';
+ }
+ function applyHex(){const value=parseHex(hexInput.value.trim());if(!value){showFieldError(hexInput,'Use seis dígitos: #RRGGBB.');return;}commit(value);}
+ hexInput.onchange=applyHex;hexInput.onkeydown=e=>{if(e.key==='Enter')applyHex();if(e.key==='Escape'){e.stopPropagation();hexInput.value=hex;clearFieldError(hexInput);}};
  const footer=node('section','cp-saved'),footerTitle=node('div','cp-saved-title','Cores salvas'),swatches=node('div','cp-swatches'),add=button('Salvar cor atual','plus');footerTitle.append(add);footer.append(footerTitle,swatches);
  function renderSaved(){swatches.replaceChildren();saved.forEach(color=>{const b=button('Usar '+color);b.className='cp-saved-color';b.textContent='';b.style.background=color;b.onclick=()=>commit(color);swatches.append(b);});}
  add.onclick=()=>{saved=[hex,...saved.filter(c=>c!==hex)].slice(0,12);renderSaved();try{localStorage.setItem(STORE,JSON.stringify(saved));status.textContent='Cor salva.';}catch{status.textContent='Cor disponível nesta sessão; armazenamento indisponível.';}};
  function sync(){
-  opacityRange.value=opacityValue.value=opacity;opacityRange.removeAttribute('aria-invalid');opacityValue.removeAttribute('aria-invalid');opacityRange.style.setProperty('--cp-opacity-color',hex);
-  preview.style.background=hex+Math.round(opacity/100*255).toString(16).padStart(2,'0');hexInput.value=hex;hexInput.removeAttribute('aria-invalid');
+  opacityRange.value=opacityValue.value=opacity;for(const control of [opacityRange,opacityValue]){control.removeAttribute('aria-invalid');control.removeAttribute('aria-errormessage');}opacityRange.style.setProperty('--cp-opacity-color',hex);
+  preview.style.background=hex+Math.round(opacity/100*255).toString(16).padStart(2,'0');hexInput.value=hex;hexInput.removeAttribute('aria-invalid');hexInput.removeAttribute('aria-errormessage');
   cells.forEach(b=>b.setAttribute('aria-pressed',String(b.title===hex)));
   spectrum.style.backgroundColor=rgbToHex(hsvToRgb([hsv[0],100,100]));cursor.style.left=hsv[1]+'%';cursor.style.top=(100-hsv[2])+'%';
   spectrum.setAttribute('aria-description',`Saturação ${Math.round(hsv[1])}%, luminosidade ${Math.round(hsv[2])}%.`);hue.value=hsv[0];
-  const rgb=hexToRgb(hex);channels.forEach(({range,number},i)=>{range.value=number.value=rgb[i];number.removeAttribute('aria-invalid');const low=[...rgb],high=[...rgb];low[i]=0;high[i]=255;range.style.background=`linear-gradient(to right,${rgbToHex(low)},${rgbToHex(high)})`;});
+  const rgb=hexToRgb(hex);channels.forEach(({range,number},i)=>{range.value=number.value=rgb[i];number.removeAttribute('aria-invalid');number.removeAttribute('aria-errormessage');const low=[...rgb],high=[...rgb];low[i]=0;high[i]=255;range.style.background=`linear-gradient(to right,${rgbToHex(low)},${rgbToHex(high)})`;});
  }
  function commit(value,keepHSV=false){
-  if(input.disabled){dialog.close();return;}hex=value;if(!keepHSV)hsv=rgbToHsv(hexToRgb(hex));status.textContent='';sync();
+  if(input.disabled){dialog.close();return;}hex=value;if(!keepHSV)hsv=rgbToHsv(hexToRgb(hex));status.textContent='';delete status.dataset.error;sync();
   const target=anchor();if(target){
    // Native color inputs normalize case; compare semantic colors, not raw strings.
    // Enter followed by change and reselecting a swatch must not duplicate edits.
