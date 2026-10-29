@@ -34,6 +34,8 @@ jobs:
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173 >/dev/null && exit 0; sleep 1; done
           cat /tmp/mdress-server.log; exit 1
       - run: node scripts/e2e.mjs
+      - name: Alert dialogs — keyboard, cancellation and focus restoration
+        run: node scripts/alert-dialog-qa.mjs
       - name: Component UX Audit
         run: node scripts/component-ux-audit.mjs
       - name: Inspector and toolbar interaction matrix
