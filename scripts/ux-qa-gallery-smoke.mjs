@@ -177,6 +177,33 @@ try{
  assert.match(exported.states.workspace.note,/Foco, contraste/);
  assert.equal(Object.keys(exported.states).length,stateCount);
  assert.ok(exported.sessionId);
+ // A session-bound exported draft can recover decisions after storage loss,
+ // but foreign sessions and malformed state maps must never overwrite them.
+ const uploadReview=async data=>page.locator('#import-review').setInputFiles({
+  name:'mdress-ux023-review.json',mimeType:'application/json',
+  buffer:Buffer.from(JSON.stringify(data))
+ });
+ await status.selectOption('rejected');
+ await note.fill('Rascunho que será substituído pela importação.');
+ page.once('dialog',dialog=>dialog.accept());
+ await uploadReview(exported);
+ await page.locator('#review-import-status').getByText(/Revisão recuperada/).waitFor();
+ assert.equal(await status.inputValue(),'approved','Valid same-session import restores verdict');
+ assert.match(await note.inputValue(),/Foco, contraste/,'Valid import restores notes');
+ await uploadReview({...exported,sessionId:'foreign-session'});
+ assert.match(await page.locator('#review-import-status').innerText(),/Importação recusada/);
+ assert.equal(await status.inputValue(),'approved','Foreign sessions must not overwrite verdicts');
+ await uploadReview({...exported,states:{...exported.states,unknown:{status:'approved',note:''}}});
+ assert.match(await page.locator('#review-import-status').innerText(),/Importação recusada/);
+ assert.equal(await status.inputValue(),'approved','Unexpected states must not overwrite verdicts');
+ breakFreshReview=true;
+ page.once('dialog',dialog=>dialog.accept());
+ await uploadReview(exported);
+ await page.waitForFunction(()=>document.querySelector('#review-import-status')?.textContent.includes('Importação recusada'));
+ assert.equal(await status.inputValue(),'pending','Invalid PNG must revoke even a previously approved imported state');
+ breakFreshReview=false;
+ assert.equal(await page.evaluate(()=>verifyImages(document.querySelector('.state'),{fresh:true})),true);
+ await status.selectOption('approved');
  // Regression: the reviewer approved this state, then one PNG disappeared.
  // A cached img.decode() must NOT allow an approval to survive export.
  breakFreshReview=true;
