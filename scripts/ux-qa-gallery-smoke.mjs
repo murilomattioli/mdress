@@ -364,6 +364,9 @@ try{
  await page.locator('#reset-review').click();
  await resetDialog.locator('[data-confirm-accept]').click();
  await resetDialog.waitFor({state:'hidden'});
+ // The dialog close event resolves a promise; the awaiting reset handler
+ // applies the state mutation in the following microtask.
+ await page.waitForFunction(()=>document.querySelector('.review-status')?.value==='pending');
  assert.equal(await status.inputValue(),'pending');
  assert.match(await page.locator('#review-progress').innerText(),new RegExp('0/'+stateCount+' estados aprovados'));
  // An absent image must block a previously approved state from being signed
