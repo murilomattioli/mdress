@@ -239,7 +239,10 @@ async function importReview(file){
    imported[key]={status:entry.status,note:entry.note};
   }
   if(Object.values(saved).some(entry=>entry?.status!=="pending"||entry?.note)&&
-   !await askReviewConfirmation("Substituir as avaliações atuais pelo arquivo importado?","Substituir"))return;
+   !await askReviewConfirmation("Substituir as avaliações atuais pelo arquivo importado?","Substituir")){
+   importStatus.textContent="Importação cancelada. Avaliações preservadas.";
+   return;
+  }
   // Recheck approved states against the actual local image files before
   // restoring their verdicts. An imported JSON is not visual evidence.
   for(const section of states){
