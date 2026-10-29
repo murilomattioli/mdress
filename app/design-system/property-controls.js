@@ -482,7 +482,15 @@ function closePopup({restoreFocus=true}={}){
  // The portalled listbox no longer exists: never leave a dangling ARIA IDREF.
  trigger.removeAttribute('aria-controls');
  openSelect=null;onClose?.();
- if(restoreFocus)trigger.focus();
+ if(restoreFocus){
+  // Escape/resize may race with an inspector tab hiding or detaching.
+  // Never restore focus to a disabled or hidden combobox trigger.
+  const usable=trigger.isConnected&&!trigger.disabled&&
+   !trigger.closest('[hidden],[inert],[aria-hidden="true"]')&&
+   trigger.getClientRects().length&&getComputedStyle(trigger).visibility!=='hidden';
+  if(usable)trigger.focus({preventScroll:true});
+  else focusInspectorNeighbor(trigger,{visibleOnly:true});
+ }
 }
 export function isSelectOptionDisabled(option){
  return Boolean(option.disabled||(option.parentElement?.tagName==='OPTGROUP'&&option.parentElement.disabled));
@@ -537,7 +545,14 @@ export function selectPopoverLayout(anchor,viewport,contentHeight){
 // combobox trigger cannot receive focus, and body is not a useful fallback.
 function focusInspectorNeighbor(trigger,{visibleOnly=false}={}){
  const root=trigger.closest('.design-inspector');
- if(!root)return;
+ if(!root){
+  // A portalled option can retain focus after its entire inspector row was
+  // detached. There is no neighboring row to search in that case.
+  const toggle=[$('designToggle'),$('railDesign')].find(el=>el&&!el.disabled&&
+   el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');
+  toggle?.focus({preventScroll:true});
+  return;
+ }
  const controls=[...root.querySelectorAll('button,input,select,textarea,[tabindex]')];
  const index=controls.indexOf(trigger);
  const eligible=el=>{
