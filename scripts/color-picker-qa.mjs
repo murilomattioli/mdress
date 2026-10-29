@@ -14,9 +14,29 @@ try{
   const toggle=group.locator('.ds-accordion-toggle');if(await toggle.getAttribute('aria-expanded')==='false')await toggle.click();
   await input.click();
   const dialog=page.getByRole('dialog',{name:/Cores/});await dialog.waitFor();
+  // Regression: native Enter/change can both fire, but a semantic no-op
+  // must not create a second document edit or history entry.
+  await input.evaluate(el=>{
+   window.__colorPickerEvents={color:0,opacity:0};
+   el.addEventListener('change',()=>window.__colorPickerEvents.color++);
+   el.addEventListener('coloropacitychange',()=>window.__colorPickerEvents.opacity++);
+  });
+  const hexBefore=await input.inputValue();
+  const hexEditor=dialog.getByRole('textbox',{name:'Cor hexadecimal',exact:true});
+  await hexEditor.fill(hexBefore.toUpperCase());await hexEditor.press('Enter');
+  assert.equal(await page.evaluate(()=>window.__colorPickerEvents.color),0,'Reapplying current color must not emit change');
+  const distinct=hexBefore.toUpperCase()==='#123456'?'#654321':'#123456';
+  await hexEditor.fill(distinct);await hexEditor.press('Enter');
+  assert.equal(await page.evaluate(()=>window.__colorPickerEvents.color),1,'One real color edit emits exactly one change');
+  await hexEditor.press('Enter');
+  assert.equal(await page.evaluate(()=>window.__colorPickerEvents.color),1,'Repeated Enter must not duplicate color edits');
   await page.screenshot({path:`test-results/color-picker/grid-${width}.png`});
   const cell=dialog.locator('.cp-cell').nth(30);await cell.click();
   assert.equal((await input.inputValue()).toUpperCase(),await cell.getAttribute('title'));
+  const afterSwatch=await page.evaluate(()=>window.__colorPickerEvents.color);
+  await cell.click();
+  assert.equal(await page.evaluate(()=>window.__colorPickerEvents.color),afterSwatch,
+   'Clicking the already selected swatch must not emit duplicate changes');
   await dialog.getByRole('button',{name:'Salvar cor atual',exact:true}).click();
   const saved=await input.inputValue();
   await dialog.getByRole('tab',{name:'Espectro',exact:true}).click();
@@ -51,11 +71,19 @@ try{
    assert.match(await dialog.locator('.cp-status').textContent(),/0% e 100%/);
    await opacity.press('Escape');
    assert.equal(await opacity.inputValue(),originalOpacity);
+   await opacity.fill('42.5');await opacity.dispatchEvent('change');
+   assert.equal(await opacity.getAttribute('aria-invalid'),'true',
+    'Fractional opacity is invalid when the native step is one percent');
+   await opacity.press('Escape');
    assert.equal(await opacity.getAttribute('aria-invalid'),null);
    assert.equal(await dialog.isVisible(),true,'Escape on invalid opacity should not close the picker');
    await opacity.fill('42');await opacity.dispatchEvent('change');
    assert.equal(await input.getAttribute('data-opacity'),'0.42');
    assert.equal(await opacity.getAttribute('aria-invalid'),null);
+   assert.equal(await page.evaluate(()=>window.__colorPickerEvents.opacity),1);
+   await opacity.dispatchEvent('change');
+   assert.equal(await page.evaluate(()=>window.__colorPickerEvents.opacity),1,
+    'Repeated unchanged opacity must not generate extra history events');
    await page.screenshot({path:`test-results/color-picker/opacity-${width}.png`});
    await dialog.getByRole('button',{name:'Fechar seletor de cores',exact:true}).click();
   assert.equal(await input.evaluate(el=>el===document.activeElement),true);
