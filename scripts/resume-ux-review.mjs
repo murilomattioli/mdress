@@ -4,6 +4,7 @@
  * Usage: node scripts/resume-ux-review.mjs <exported-review.json>
  */
 import {readFile,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import {resolve,dirname,basename,relative,isAbsolute} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {summarizeUxCoverage,summarizeScreenshotCoverage,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS} from './ux-qa-coverage.mjs';
@@ -13,7 +14,7 @@ const SCREENSHOT_DIRECTORY=resolve('test-results/ux-audit/supervised');
 
 export function assessResumeReview(report,review){
  const problems=[];
- if(report?.schema!==5||report?.mode!=='supervised'||report?.headless!==false)
+ if(report?.schema!==6||report?.mode!=='supervised'||report?.headless!==false)
   problems.push('O relatório não pertence a uma sessão supervisionada compatível.');
  if(report?.stopped||report?.summary?.status!=='passed')
   problems.push('A matriz funcional precisa estar completa e aprovada antes da homologação.');
@@ -32,9 +33,36 @@ export function assessResumeReview(report,review){
   problems.push('As capturas do relatório não correspondem à matriz obrigatória.');
  if(report?.screenshots?.length!==UX_QA_MATRIX.length*UX_QA_REQUIRED_SCREENSHOTS.length)
   problems.push('Quantidade de capturas incompatível.');
+ if(Array.isArray(report?.screenshots)&&report.screenshots.some(item=>
+  !/^[a-f0-9]{64}$/.test(item?.sha256)))
+  problems.push('As capturas não contêm impressões SHA-256 válidas da sessão.');
  const validation=validateHumanReviewEvidence(review,report?.reviewSessionId);
  if(!validation.valid)problems.push('A revisão exportada não aprova todos os estados da mesma sessão.');
  return {valid:problems.length===0,problems,validation,screenshotCoverage};
+}
+
+/** Verify every PNG against its session fingerprint, not only its dimensions.
+ * A different but valid PNG must never inherit a human approval.
+ * An optional evidence directory keeps fixture tests isolated from live QA.
+ */
+export async function verifyScreenshotEvidence(screenshots,evidenceDirectory=SCREENSHOT_DIRECTORY){
+ for(const item of screenshots){
+  const expected=item.theme+'-'+item.width+'-'+item.state+'.png';
+  const path=resolve(item.path);
+  const within=relative(evidenceDirectory,path);
+  if(basename(path)!==expected||within.startsWith('..')||isAbsolute(within)||dirname(path)!==evidenceDirectory)
+   throw Error('Caminho de evidência inválido: '+item.path);
+  if(!/^[a-f0-9]{64}$/.test(item.sha256))
+   throw Error('Impressão SHA-256 ausente ou inválida: '+expected);
+  let bytes;
+  try{bytes=await readFile(path);}
+  catch{throw Error('Captura ausente: '+expected);}
+  if(!validateScreenshotViewport(bytes,item.width))
+   throw Error('Captura inválida ou corrompida: '+expected);
+  if(createHash('sha256').update(bytes).digest('hex')!==item.sha256)
+   throw Error('Captura modificada desde a sessão: '+expected);
+ }
+ return screenshots.length;
 }
 
 export async function resumeHumanReview(reportPath,reviewPath){
@@ -44,21 +72,7 @@ export async function resumeHumanReview(reportPath,reviewPath){
  const review=JSON.parse(await readFile(reviewFile,'utf8'));
  const assessment=assessResumeReview(report,review);
  if(!assessment.valid)throw Error(assessment.problems.join(' '));
- // Never trust only the JSON manifest: check all 396 PNGs again on disk.
- // Paths must stay inside the local QA evidence directory, never arbitrary
- // files supplied by a stale or edited report.
- for(const item of report.screenshots){
-  const expected=item.theme+'-'+item.width+'-'+item.state+'.png';
-  const path=resolve(item.path);
-  const within=relative(SCREENSHOT_DIRECTORY,path);
-  if(basename(path)!==expected||within.startsWith('..')||isAbsolute(within)||dirname(path)!==SCREENSHOT_DIRECTORY)
-   throw Error('Caminho de evidência inválido: '+item.path);
-  let bytes;
-  try{bytes=await readFile(path);}
-  catch{throw Error('Captura ausente: '+expected);}
-  if(!validateScreenshotViewport(bytes,item.width))
-   throw Error('Captura inválida ou corrompida: '+expected);
- }
+ await verifyScreenshotEvidence(report.screenshots);
  report.humanReview={
   status:'approved',requiresExplicitApproval:true,
   evidence:{file:reviewFile,...assessment.validation,verifiedScreenshots:report.screenshots.length,
