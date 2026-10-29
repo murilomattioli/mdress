@@ -85,12 +85,22 @@ try{
   }
   const saved=await input.inputValue();
   await dialog.getByRole('tab',{name:'Espectro',exact:true}).click();
+  if(width<=390){
+   const box=await dialog.locator('.cp-hue').boundingBox();
+   assert.ok(box&&box.height>=43.5,'Mobile hue slider needs a 44px touch target');
+  }
   await dialog.locator('.cp-spectrum').click({position:{x:80,y:80}});
   const before=await input.inputValue();await dialog.locator('.cp-spectrum').press('ArrowRight');assert.notEqual(await input.inputValue(),before);
   if(width<=390){const rect=await dialog.locator('.cp-spectrum').boundingBox();await page.touchscreen.tap(rect.x+120,rect.y+120);assert.notEqual(await input.inputValue(),before);}
   await page.screenshot({path:`test-results/color-picker/spectrum-${width}.png`});
   await dialog.getByRole('tab',{name:'RGB',exact:true}).click();
   assert.equal(await dialog.getByRole('tab',{name:'RGB',exact:true}).getAttribute('aria-selected'),'true');
+  if(width<=390){
+   for(const selector of ['.cp-channel input[type=range]','.cp-opacity input[type=range]']){
+    const box=await dialog.locator(selector).first().boundingBox();
+    assert.ok(box&&box.height>=43.5,'Mobile channel/opacity slider needs a 44px touch target: '+selector);
+   }
+  }
   const redChannel=dialog.getByRole('spinbutton',{name:'Vermelho — valor',exact:true});
    await redChannel.fill('999');await redChannel.dispatchEvent('change');
    assert.equal(await redChannel.getAttribute('aria-invalid'),'true');
