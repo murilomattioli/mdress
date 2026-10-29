@@ -108,10 +108,16 @@ function watchDisabledNativeFocus(input){
  };
 }
 function nativeCommit(input,next){
- if(input.disabled)return;
+ if(input.disabled)return false;
+ // A repeated selection, unchanged hex value or re-entered slider value is
+ // not a document edit. Let the native control normalize the candidate first
+ // (notably color casing and range snapping), then emit only real changes.
+ const previous=input.value;
  input.value=String(next);
+ if(input.value===previous)return false;
  input.dispatchEvent(new Event('input',{bubbles:true}));
  input.dispatchEvent(new Event('change',{bubbles:true}));
+ return true;
 }
 function enhanceRange(label,input,title){
  const unit=unitOf(input);
@@ -340,7 +346,7 @@ function enhanceBinary(label,input,title){
  const field=document.createElement('div');field.className='ds-property-binary';
  const name=span('ds-prop-name',title),group=document.createElement('div');group.className='ds-binary-group';
  group.setAttribute('role','group');group.setAttribute('aria-label',title);
- const off=button('ds-binary-option','Off'),on=button('ds-binary-option','On');
+ const off=button('ds-binary-option','Não'),on=button('ds-binary-option','Sim');
  off.setAttribute('aria-label',title+' desligado');on.setAttribute('aria-label',title+' ligado');
  input.classList.add('ds-binary-native');input.setAttribute('aria-hidden','true');input.tabIndex=-1;
  input.replaceWith(field);field.append(name,group,input);group.append(off,on);
@@ -355,7 +361,7 @@ function enhanceBinary(label,input,title){
   if(focused&&input.disabled)focusInspectorNeighbor(focused,{visibleOnly:true});
  };
  const commit=val=>{
-  if(input.disabled)return;
+  if(input.disabled||input.checked===val)return;
   input.checked=val;input.dispatchEvent(new Event('input',{bubbles:true}));
   input.dispatchEvent(new Event('change',{bubbles:true}));update();
  };
