@@ -365,7 +365,10 @@
 /* UX-023 mobile ergonomics: a 390px inspector must not reuse mouse-sized
  * 29–36px hit areas. Keep native IDs and source-of-truth controls unchanged. */
 @media(max-width:540px){
- .design-inspector .ds-property-range .ds-prop-track{min-height:44px}
+ /* A narrow grid track can be only 40–42px wide despite its 44px height.
+  * Keep the actual native slider hit area at least 44px in both axes. */
+ .design-inspector .ds-property-range .ds-prop-track{min-width:44px;min-height:44px}
+ .design-inspector .ds-property-range{grid-template-columns:minmax(0,1fr) minmax(44px,1fr) auto}
  .design-inspector .ds-prop-numberbox .ds-prop-number{height:44px!important}
  .design-inspector .ds-number-actions .ds-number-native{height:44px!important}
  .design-inspector .ds-number-step{min-width:44px;width:44px;min-height:44px;height:44px}
