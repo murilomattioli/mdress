@@ -1,5 +1,5 @@
 import {test} from 'node:test';import {strict as assert} from 'node:assert';
-import {normalizeRange,rangeConstraints,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex,selectPopoverLayout,selectPopupNeedsRefresh,visibleSelectOptions} from '../app/design-system/property-controls.js';
+import {normalizeRange,rangeConstraints,rangeStepTarget,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex,selectPopoverLayout,selectPopupNeedsRefresh,visibleSelectOptions} from '../app/design-system/property-controls.js';
 test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(11.22,9,14,.5),11);
  assert.equal(normalizeRange(1.174,1.1,2.2,.05),1.15);
@@ -35,6 +35,21 @@ test('range precision constraints follow native defaults and live attribute valu
  assert.equal(rangeConstraints({min:'1',max:'9',step:'0'}).valid,false);
  assert.equal(normalizeRange(4.375,0,5,'any'),4.375,'step=any must preserve valid fractional precision');
  assert.equal(normalizeRange(8,-4,5,'any'),5,'step=any still enforces native bounds');
+});
+test('range steppers handle free steps, grid endpoints and inert boundaries',()=>{
+ assert.equal(rangeStepTarget(9.25,1,2,14,'any'),9.37);
+ assert.equal(rangeStepTarget(9.25,-1,2,14,'any'),9.13);
+ assert.equal(rangeStepTarget(9.95,1,0,10,'any'),10);
+ assert.equal(rangeStepTarget(0,-1,0,10,'any'),null);
+ assert.equal(rangeStepTarget(10,1,0,10,'any'),null);
+ assert.equal(rangeStepTarget(6,1,0,10,6),null,'Off-grid max must disable inert increment');
+ assert.equal(rangeStepTarget(6,-1,0,10,6),0);
+ assert.equal(rangeStepTarget(0,1,0,10,6),6);
+ assert.equal(rangeStepTarget(0.3,1,0,0.3,0.1),null);
+ assert.equal(rangeStepTarget(0.2,-1,0,0.3,0.1),0.1);
+ assert.equal(rangeStepTarget(4,1,0,10,0),null);
+ assert.equal(rangeStepTarget(NaN,1,0,10,1),null);
+ assert.equal(rangeStepTarget(4,0,0,10,1),null);
 });
 test('value formatting preserves exact custom units',()=>{
  assert.equal(formatControlValue(11,'pt'),'11 pt');

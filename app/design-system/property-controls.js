@@ -109,6 +109,19 @@ export function rangeConstraints(input){
   (step==='any'||Number.isFinite(step)&&step>0);
  return {min,max,step,valid};
 }
+// Free-step ranges advance by 1% of the current span. Discrete grids
+// may end below max; an inert boundary button must be disabled.
+export function rangeStepTarget(value,direction,min,max,step){
+ if(![value,direction,min,max].every(Number.isFinite)||Math.abs(direction)!==1||min>=max)return null;
+ if(step==='any'){
+  const candidate=Number((value+direction*(max-min)/100).toPrecision(15));
+  const next=clamp(candidate,min,max);
+  return next===value?null:next;
+ }
+ if(!Number.isFinite(step)||step<=0)return null;
+ const next=normalizeRange(value+direction*step,min,max,step);
+ return next===value?null:next;
+}
 export function formatControlValue(v,unit=''){
  const value=Number(v);
  // Significant digits remove floating-point noise without turning tiny
@@ -219,8 +232,11 @@ function enhanceRange(label,input,title){
   if(input.disabled)editing=false;
   const focusedPrecision=document.activeElement===numeric;
   numeric.disabled=input.disabled;
-  minus.disabled=input.disabled||!boundsValid||value<=min;
-  plus.disabled=input.disabled||!boundsValid||value>=max;
+  const {step}=rangeConstraints(input);
+  const focusedStepper=[minus,plus].find(button=>document.activeElement===button);
+  minus.disabled=input.disabled||!boundsValid||rangeStepTarget(value,-1,min,max,step)===null;
+  plus.disabled=input.disabled||!boundsValid||rangeStepTarget(value,1,min,max,step)===null;
+  if(focusedStepper?.disabled)focusInspectorNeighbor(focusedStepper,{visibleOnly:true});
   if(input.disabled&&focusedPrecision)focusInspectorNeighbor(numeric,{visibleOnly:true});
   restoreNativeFocus();
   if(!editing)numeric.value=input.value;
@@ -228,7 +244,13 @@ function enhanceRange(label,input,title){
    (!boundsValid?'Verifique os limites e o incremento da faixa.':!valid()?validationMessage(numeric,min,max,unit):''):'');
   if(!Number.isNaN(value))field.setAttribute('data-value',formatControlValue(value,unit));
  };
- const increment=direction=>{const {min,max,step,valid}=rangeConstraints(input);if(valid){editing=false;nativeCommit(input,normalizeRange(Number(input.value)+direction*step,min,max,step));update();}};
+ const increment=direction=>{
+  const {min,max,step,valid}=rangeConstraints(input);
+  if(!valid)return;
+  const next=rangeStepTarget(Number(input.value),direction,min,max,step);
+  if(next===null)return;
+  editing=false;nativeCommit(input,next);update();
+ };
  minus.onclick=()=>increment(-1);plus.onclick=()=>increment(1);
  // A real slider gesture supersedes a stale numeric draft and its error.
  const nativeUpdate=()=>{editing=false;update();};
