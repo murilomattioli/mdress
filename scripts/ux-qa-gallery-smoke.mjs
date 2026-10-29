@@ -90,6 +90,12 @@ try{
  await viewer.locator('#viewer-next-state').click();
  assert.match(await page.locator('#viewer-label').innerText(),/toolbar/,
   'Next state navigation must load a different six-image matrix');
+ assert.match(await page.locator('#viewer-state-position').innerText(),new RegExp('Estado 2/'+stateCount));
+ await viewer.locator('#viewer-prev-state').click();
+ assert.match(await page.locator('#viewer-label').innerText(),/workspace/,
+  'Previous state navigation must return to the earlier matrix');
+ assert.match(await page.locator('#viewer-state-position').innerText(),new RegExp('Estado 1/'+stateCount));
+ await viewer.locator('#viewer-next-state').click();
  await page.waitForFunction(()=>!document.querySelector('#viewer-status').disabled);
  assert.equal(await viewerStatus.inputValue(),'pending','Next state starts pending, never auto-approved');
  await viewerStatus.selectOption('rejected');
@@ -154,6 +160,48 @@ try{
  if(repairedDisabled)console.error('Repaired evidence requests:',JSON.stringify(workspaceRequests.slice(-20)));
  assert.equal(repairedDisabled,false,
   'Restored dimensions must re-enable review: '+await page.locator('.state').first().locator('.image-warning').innerText());
+ // Race regression: a slow old success cannot override a newer failed
+ // evidence validation or silently re-enable the approval control.
+ await status.selectOption('approved');
+ const race=await page.evaluate(async()=>{
+  const section=document.querySelector('.state');
+  const originalFetch=window.fetch.bind(window);
+  let intercepted=0,releaseSlow;
+  window.fetch=async (...args)=>{
+   const address=String(args[0]);
+   if(address.includes('graphite-1440-workspace.png')&&address.includes('mdress-verify')){
+    intercepted++;
+    if(intercepted===1)await new Promise(resolve=>{releaseSlow=resolve;});
+    if(intercepted===2)return new Response('Missing screenshot',{status:404});
+   }
+   return originalFetch(...args);
+  };
+  try{
+   const oldCheck=verifyImages(section,{fresh:true});
+   for(let i=0;i<100&&!releaseSlow;i++)await new Promise(resolve=>setTimeout(resolve,10));
+   if(!releaseSlow)throw Error('First verification did not reach the slow image');
+   const newestResult=await verifyImages(section,{fresh:true});
+   releaseSlow();
+   const staleResult=await oldCheck;
+   return {newestResult,staleResult,disabled:section.querySelector('.review-status').disabled,
+    warning:!section.querySelector('.image-warning').hidden,
+    status:section.querySelector('.review-status').value};
+  }finally{
+   if(releaseSlow)releaseSlow();
+   window.fetch=originalFetch;
+  }
+ });
+ assert.equal(race.newestResult,false,'The latest missing image must fail');
+ assert.equal(race.staleResult,false,'Superseded image checks cannot claim success');
+ assert.equal(race.disabled,true,'Stale success cannot re-enable approval');
+ assert.equal(race.warning,true,'Latest evidence failure remains visible');
+ assert.equal(race.status,'pending','Latest failure revokes prior approval');
+ // A subsequent successful check restores the ability to review, but never
+ // the revoked approval itself.
+ const raceRecovered=await page.evaluate(()=>verifyImages(document.querySelector('.state'),{fresh:true}));
+ assert.equal(raceRecovered,true);
+ assert.equal(await status.isDisabled(),false);
+ assert.equal(await status.inputValue(),'pending');
  page.once('dialog',dialog=>dialog.accept());
  await page.locator('#reset-review').click();
  assert.equal(await status.inputValue(),'pending');
@@ -169,6 +217,6 @@ try{
  const broken=JSON.parse(await readFile(await (await brokenDownload).path(),'utf8'));
  assert.equal(broken.states.workspace.status,'pending');
  assert.match(await missing.locator('.image-warning').innerText(),/seis capturas/);
- console.log('Gallery smoke passed: review, modal keyboard, persistence, fresh export revalidation, missing/wrong-size PNG guards.');
+ console.log('Gallery smoke passed: review, bidirectional state navigation, modal keyboard, persistence, concurrent fresh checks, missing/wrong-size PNG guards.');
  await context.close();
 }finally{await browser.close();}
