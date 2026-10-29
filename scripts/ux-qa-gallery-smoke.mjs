@@ -124,6 +124,30 @@ try{
  await viewerNote.press('ArrowRight');
  assert.match(await page.locator('#viewer-label').innerText(),/1\/6/,
   'Arrow keys editing notes must not navigate screenshots');
+ await viewerNote.press('Shift+ArrowRight');
+ assert.match(await page.locator('#viewer-label').innerText(),/workspace/,
+  'Shift+ArrowRight while editing notes must not change states');
+ // Comparing control states must retain the same theme/viewport, including
+ // when using the keyboard shortcut, instead of silently returning to 1/6.
+ await viewer.locator('#viewer-next').click();
+ await viewer.locator('#viewer-next').click();
+ assert.match(await page.locator('#viewer-label').innerText(),/3\/6/);
+ await viewer.locator('#viewer-next-state').click();
+ assert.match(await page.locator('#viewer-label').innerText(),/3\/6.*toolbar/,
+  'Next state preserves the selected screenshot variant');
+ await viewer.locator('#viewer-prev-state').click();
+ assert.match(await page.locator('#viewer-label').innerText(),/3\/6.*workspace/,
+  'Previous state preserves the selected screenshot variant');
+ await viewer.locator('#viewer-close').focus();
+ await page.keyboard.press('Shift+ArrowRight');
+ assert.match(await page.locator('#viewer-label').innerText(),/3\/6.*toolbar/,
+  'Shift+Right compares the same viewport in the next state');
+ await page.keyboard.press('Shift+ArrowLeft');
+ assert.match(await page.locator('#viewer-label').innerText(),/3\/6.*workspace/,
+  'Shift+Left compares the same viewport in the previous state');
+ await viewer.locator('#viewer-prev').click();
+ await viewer.locator('#viewer-prev').click();
+ assert.match(await page.locator('#viewer-label').innerText(),/1\/6/);
  await viewer.locator('#viewer-next-state').click();
  assert.match(await page.locator('#viewer-label').innerText(),/toolbar/,
   'Next state navigation must load a different six-image matrix');
