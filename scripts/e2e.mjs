@@ -437,6 +437,30 @@ try {
  assert.equal(await themePicker.getAttribute('aria-expanded'),'false');
  assert.equal(await themePicker.getAttribute('aria-controls'),null,
   'Escape must remove aria-controls along with the portalled listbox');
+ // Detaching a combobox while its portalled option has focus must recover
+ // keyboard focus to the inspector toggle, never leave it on document.body.
+ await page.evaluate(async()=>{
+  const label=document.createElement('label');label.className='property-row';
+  label.textContent='QA lista removível';
+  const select=document.createElement('select');select.id='qaDetachedSelect';
+  for(const text of ['Primeiro','Segundo']){
+   const option=document.createElement('option');option.value=text;option.textContent=text;
+   select.append(option);
+  }
+  label.append(select);
+  document.querySelector('#inspector-style .ds-accordion-body').append(label);
+  const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+  enhancePropertyControls();
+ });
+ const detachedTrigger=page.locator('.ds-property-select')
+  .filter({has:page.locator('#qaDetachedSelect')}).locator('.ds-select-trigger');
+ await detachedTrigger.click();
+ assert.equal(await page.locator('.ds-select-popover [role="option"]:focus').count(),1,
+  'Fixture option must own keyboard focus before its anchor is removed');
+ await detachedTrigger.evaluate(el=>el.closest('label').remove());
+ await page.waitForFunction(()=>!document.querySelector('.ds-select-popover'));
+ assert.equal(await page.evaluate(()=>['designToggle','railDesign'].includes(document.activeElement?.id)),true,
+  'Detaching the focused combobox must restore focus to a visible inspector toggle');
  const colorControl=page.locator('.ds-property-color').filter({has:page.locator('#accentColor')});
  const colorHex=colorControl.locator('.ds-color-hex');
  await assertInspectorTextFocus(colorHex,'Hex color input must expose its own focus ring');
