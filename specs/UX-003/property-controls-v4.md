@@ -42,7 +42,7 @@ Reference: user-supplied screenshots of Designminis Background Remover property 
 7. Mesh gallery, editor and theme persistence unchanged.
 8. Canvas responsive views at 1366, 1600 and mobile; PDF remains text-extractable.
 9. Playwright regression verifies unchanged values produce zero native `input`/`change` events for range, color, select, segment and binary; screenshot of localized binary control is retained as visual evidence.
-10. Supervised UX-023 matrix: 68 states × two themes × four widths (1440/1024/768/390px) = 544 screenshots; all must be reviewed by a human before merge.
+10. Supervised UX-023 matrix: 74 states × two themes × four widths (1440/1024/768/390px) = 592 screenshots; all must be reviewed by a human before merge.
 
 11. At 390px, numeric steppers, color swatches, dropdowns, segmented/binary buttons and precision inputs expose 44px mobile targets; Playwright asserts the geometry and captures the inspector overlay.
 
@@ -50,7 +50,9 @@ Reference: user-supplied screenshots of Designminis Background Remover property 
 
 The Chromium component audit runs in Graphite and Studio at 390, 768, 1024 and 1440px. It rejects interactive hit-target collisions both **inside one property row** and **across different rows** when the rendered intersection exceeds 4px on each axis. Adjacent borders and intentionally scrollable toolbar actions are not treated as collisions. It also rejects missing or duplicated `aria-labelledby` / `aria-describedby` ID references, `aria-labelledby` chains whose existing targets provide no accessible text, visible controls with no accessible name, and keyboard-focusable controls inside `aria-hidden="true"` subtrees. For name computation, `aria-labelledby` takes precedence over a fallback `aria-label` or `title`; a broken/empty reference must not be silently treated as valid. Unit regressions cover row boundaries, collision thresholds, missing, duplicate and empty multi-ID references. At the 390px mobile breakpoint, the audit also fails when an enhanced inspector hit target measures less than 44px in either axis (with 0.5px rounding tolerance); the check explicitly excludes decorative elements and hidden native select sources. The native range slider retains a minimum 44×44px target even in narrow grids. Node regressions cover width, height and noninteractive exclusions.
 
-These checks are necessary but not a visual sign-off: the 544 supervised screenshots and interactive focus, contrast and ergonomics still require explicit human approval.
+The color-picker palette maintains a single roving Tab stop. Reopening the picker with a selected palette color makes that swatch the keyboard entry point; Arrow/Home/End update the Tab stop without emitting an edit until a swatch is activated. The dedicated Chromium color-picker gate exercises this behavior at 1440, 768 and 390px.
+
+These checks are necessary but not a visual sign-off: the 592 supervised screenshots and interactive focus, contrast and ergonomics still require explicit human approval.
 
 ## Limitations
 
