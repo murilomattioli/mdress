@@ -28,6 +28,7 @@ test('offline gallery renders the full comparison matrix and supports filtering'
  assert.match(html,/actualWidth!==expectedWidth/);
  assert.match(html,/actualHeight!==expectedHeight/);
  assert.match(html,/data-theme="graphite" data-viewport-width="1440" data-viewport-height="900"/);
+ assert.match(html,/data-theme="graphite" data-viewport-width="390" data-viewport-height="900"/);
  assert.match(html,/previousTheme=previous\?\.dataset\.theme/);
  assert.match(html,/if\(event\.shiftKey\)moveViewerState/);
  assert.match(html,/await verifyImages\(states\[offset\],\{fresh:true\}\)/);
