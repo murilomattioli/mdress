@@ -223,12 +223,24 @@ function enhanceNumber(label,input,title){
   }catch{return null;}
   return Number(probe.value)!==input.valueAsNumber?probe.value:null;
  };
- let committed=input.value,editing=false;
+ let committed=input.value,editing=false,draftEmitted=false,restoring=false;
+ // Valid input drafts are observable by app listeners before the change
+ // event commits them. Undoing a draft must notify those listeners too;
+ // otherwise Escape/disable restores only the DOM while the model stays stale.
+ const rollbackDraft=()=>{
+  const notify=draftEmitted&&input.value!==committed;
+  input.value=committed;editing=false;draftEmitted=false;
+  if(notify){
+   restoring=true;
+   try{input.dispatchEvent(new Event('input',{bubbles:true}));}
+   finally{restoring=false;}
+  }
+ };
  const update=()=>{
   // Disabling a numeric field must discard its uncommitted draft, just like
   // the range and hex controls. Otherwise an invalid number can remain in
   // the native source of truth after the inspector becomes read-only.
-  if(input.disabled&&editing){input.value=committed;editing=false;}
+  if(input.disabled&&editing)rollbackDraft();
   const ok=valid();
   if(!editing&&ok)committed=input.value;
   const {min,max}=bounds();
@@ -247,22 +259,25 @@ function enhanceNumber(label,input,title){
  };
  minus.onclick=()=>increment(-1);plus.onclick=()=>increment(1);
  input.addEventListener('input',event=>{
+  if(restoring)return;
   editing=true;update();
   // Native number fields emit `input` for empty, out-of-bounds and off-step
   // drafts. Do not leak those invalid values to document-level listeners;
   // only a valid draft may update the app's source of truth.
   if(!valid())event.stopImmediatePropagation();
+  else draftEmitted=true;
  },true);
  // Capture before the app's change listener: an invalid draft must never mutate the document.
  input.addEventListener('change',event=>{
+  if(restoring)return;
   if(!valid()){
    editing=true;update();event.preventDefault();event.stopImmediatePropagation();return;
   }
-  editing=false;committed=input.value;update();
+  editing=false;committed=input.value;draftEmitted=false;update();
  },true);
  input.addEventListener('keydown',event=>{
   if(event.key!=='Escape'||!editing)return;
-  event.preventDefault();input.value=committed;editing=false;update();
+  event.preventDefault();rollbackDraft();update();
  });
  new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled','min','max','step']});
  controllers.push(update);update();

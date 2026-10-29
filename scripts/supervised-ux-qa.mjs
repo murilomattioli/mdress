@@ -543,6 +543,11 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'number-valid');
  await input.fill(originalNumber);await input.dispatchEvent('change');
  assert.equal(await input.inputValue(),originalNumber);
+ await input.fill(nextNumber);
+ await input.press('Escape');
+ assert.equal(await input.inputValue(),originalNumber,'Escape must roll back a valid, uncommitted numeric draft');
+ assert.equal(await input.evaluate(el=>document.activeElement===el),true,'Rollback must preserve keyboard focus');
+ await capture(page,theme,width,'number-rollback-valid-draft');
  assert.match(await input.getAttribute('aria-label'),/margens/i,'Numeric control must preserve its existing accessible name');
  await input.evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>[...document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelectorAll('.ds-number-step')||[]].every(b=>b.disabled));

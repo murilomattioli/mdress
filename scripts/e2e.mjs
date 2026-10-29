@@ -189,7 +189,7 @@ try {
  await qaNumber.evaluate(el=>{
   const label=el.closest('label');
   label.dataset.inputBubbles='0';label.dataset.changeBubbles='0';
-  label.addEventListener('input',()=>{label.dataset.inputBubbles=String(Number(label.dataset.inputBubbles)+1);});
+  label.addEventListener('input',()=>{label.dataset.inputBubbles=String(Number(label.dataset.inputBubbles)+1);label.dataset.lastInput=el.value;});
   label.addEventListener('change',()=>{label.dataset.changeBubbles=String(Number(label.dataset.changeBubbles)+1);});
  });
  const bubbled=()=>qaNumber.evaluate(el=>({
@@ -209,6 +209,22 @@ try {
  await qaNumber.fill('11');await qaNumber.press('Escape');
  assert.equal(await qaNumber.inputValue(),'6','Escape restores the last valid number');
  assert.equal(await qaNumber.evaluate(el=>document.activeElement===el),true,'Escape preserves number field focus');
+ // A valid input draft has already bubbled to app listeners, even before
+ // change. Escape and live disable must undo that observable draft as well.
+ await qaNumber.fill('8');
+ assert.deepEqual(await bubbled(),{input:2,change:1});
+ await qaNumber.press('Escape');
+ assert.equal(await qaNumber.inputValue(),'6','Escape restores the last committed value');
+ assert.deepEqual(await bubbled(),{input:3,change:1},'Escape must emit an input rollback without an extra change commit');
+ assert.equal(await qaNumber.evaluate(el=>el.closest('label').dataset.lastInput),'6','External input observers must see the restored value');
+ await qaNumber.fill('10');
+ assert.deepEqual(await bubbled(),{input:4,change:1});
+ await qaNumber.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#qaNumberUnbounded')?.value==='6');
+ assert.equal(await qaNumber.inputValue(),'6','Disabling a field must roll back its uncommitted valid draft');
+ assert.deepEqual(await bubbled(),{input:5,change:1},'Disabling must notify external input observers of the rollback');
+ assert.equal(await qaNumber.evaluate(el=>el.closest('label').dataset.lastInput),'6');
+ await qaNumber.evaluate(el=>{el.disabled=false;});
  await qaNumber.evaluate(el=>el.closest('label').remove());
  // A disabled native checkbox must also disable its visible binary buttons.
  // With no target section, aligning to the page footer is not a valid action.
