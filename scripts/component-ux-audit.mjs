@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps, findInspectorCrossRowOverlaps, missingAriaReferenceIds} from './component-ux-findings.mjs';
+import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps, findInspectorCrossRowOverlaps} from './component-ux-findings.mjs';
 
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const findings=[],coverage=[],screenshots=[];
@@ -22,12 +22,15 @@ try{
      const controls=[...document.querySelectorAll('button,input,select,textarea,[role="combobox"],[role="slider"],[role="switch"]')].filter(visible);
      const categories={button:0,input:0,select:0,textarea:0,combobox:0,slider:0,switch:0};
      const violations=[];
+     // page.evaluate runs in Chromium, not Node: keep this DOM lookup local.
+     const missingAriaReferenceIds=value=>[...new Set(String(value||'').trim().split(/\s+/).filter(Boolean))]
+      .filter(id=>!document.getElementById(id));
      for(const control of controls){
       const tag=control.tagName.toLowerCase(),role=control.getAttribute('role');
       categories[role in categories?role:tag]=(categories[role in categories?role:tag]||0)+1;
       const labelledBy=control.getAttribute('aria-labelledby');
-      const brokenLabels=missingAriaReferenceIds(labelledBy,id=>Boolean(document.getElementById(id)));
-      const brokenDescriptions=missingAriaReferenceIds(control.getAttribute('aria-describedby'),id=>Boolean(document.getElementById(id)));
+      const brokenLabels=missingAriaReferenceIds(labelledBy);
+      const brokenDescriptions=missingAriaReferenceIds(control.getAttribute('aria-describedby'));
       for(const id of brokenLabels)violations.push({rule:'aria-labelledby-target',severity:'error',component:tag,detail:'Referência de nome acessível inexistente: '+id,html:control.outerHTML.slice(0,190)});
       for(const id of brokenDescriptions)violations.push({rule:'aria-describedby-target',severity:'error',component:tag,detail:'Referência de descrição acessível inexistente: '+id,html:control.outerHTML.slice(0,190)});
       const label=control.getAttribute('aria-label')?.trim()||
