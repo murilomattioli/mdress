@@ -93,8 +93,19 @@ try {
    !active.matches(':disabled,[aria-disabled="true"]')&&active.getClientRects().length);
  });
  await toolbar.screenshot({path:'test-results/ux-audit/toolbar-hidden-group-focus-handoff.png',animations:'disabled'});
- // Removing the currently focused action must recover focus as well.
+ // ARIA-disabled mode changes are observed even when the native button
+ // remains enabled; keyboard focus must leave the unavailable action.
  await toolbar.locator('[data-qa-dynamic-group]').evaluate(el=>{el.hidden=false;});
+ await dynamicAction.focus();
+ await dynamicAction.evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await page.waitForFunction(()=>{
+  const active=document.activeElement,fixture=document.querySelector('[data-qa-dynamic-action]');
+  return Boolean(active?.closest('.markdown-toolbar')&&active!==fixture&&
+   !active.matches(':disabled,[aria-disabled="true"]')&&active.getClientRects().length);
+ });
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-aria-disabled-focus-handoff.png',animations:'disabled'});
+ await dynamicAction.evaluate(el=>el.removeAttribute('aria-disabled'));
+ // Removing the currently focused action must recover focus as well.
  await dynamicAction.focus();
  await toolbar.locator('[data-qa-dynamic-group]').evaluate(el=>el.remove());
  await page.waitForFunction(()=>{
