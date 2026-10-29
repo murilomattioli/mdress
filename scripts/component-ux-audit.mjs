@@ -41,7 +41,7 @@ try{
       }
      }
      const inspector=document.querySelector('.design-inspector');
-     const composer=document.querySelector('#inspector-sections');
+     const composer=document.querySelector('#inspector-content');
      return {categories,count:controls.length,violations,inspectorWidth:inspector?.getBoundingClientRect().width||0,
       composerWidth:composer?.getBoundingClientRect().width||0};
     });

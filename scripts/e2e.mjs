@@ -1,18 +1,19 @@
 import {chromium} from 'playwright';
 import {strict as assert} from 'node:assert';
 import {mkdir} from 'node:fs/promises';
+async function reveal(page,id){await page.evaluate(async id=>{if(document.getElementById('themesView').classList.contains('hidden'))document.getElementById('designToggle').click();const {revealInspectorControl}=await import('/property-inspector.js');revealInspectorControl(id);},id);}
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const page=await browser.newPage({viewport:{width:1600,height:950}});
 const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 try {
- await page.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+ await page.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
  await page.locator('#source').waitFor();
  // Entity grouping must preserve original controls and their scope.
  assert.equal(await page.locator('#sectionComposerView #sectionStyleReset').count(),1);
- assert.equal(await page.locator('#inspector-page .ds-accordion').count(),4);
- assert.equal(await page.locator('#inspector-ai .ds-accordion').count(),2);
- assert.equal(await page.locator('#inspector-style .property-section').first().locator('#fontChoice').count(),1);
+ assert.equal(await page.locator('#inspector-page .ds-accordion').count(),2);
+ assert.equal(await page.locator('#inspector-themes .ds-accordion').count(),4);
+ assert.equal(await page.locator('#inspector-document .property-section').first().locator('#fontChoice').count(),1);
  await page.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent!=='Carregando…');
  const source=page.locator('#source');
  assert.ok((await source.inputValue()).includes('O título do artigo'));
@@ -28,7 +29,7 @@ try {
  // show focus for keyboard users without highlighting mouse-only or sibling focus.
  await page.locator('#newDoc').focus();
  await page.keyboard.press('Shift+Tab');
- const pickerFocused=await page.locator('#docPicker').evaluate(el=>el.matches(':focus-visible'));
+ const pickerFocused=await page.locator('[data-select-id=docPicker] .ds-select-trigger').evaluate(el=>el.matches(':focus-visible'));
  assert.equal(pickerFocused,true,'Document picker must receive keyboard-visible focus');
  const pickerRing=await page.locator('.document-selector').evaluate(el=>({
   width:getComputedStyle(el).outlineWidth,
@@ -56,7 +57,7 @@ try {
  await previousTools.click();
  await page.waitForFunction(()=>document.querySelector('.markdown-toolbar').scrollLeft<2);
  await toolbar.evaluate(el=>{el.parentElement.style.removeProperty('width');});
- await page.locator('#headingCommand').focus();
+ await page.locator('[data-select-id=headingCommand] .ds-select-trigger').focus();
  for(let i=0;i<11;i++)await page.keyboard.press('Tab');
  assert.equal(await page.evaluate(()=>document.activeElement?.dataset.mdCommand),'rule');
  const focusVisible=await toolbar.evaluate(root=>{
@@ -75,7 +76,7 @@ try {
  assert.equal(await page.locator('.workspace').getAttribute('data-mode'),'preview');
  await page.locator('[data-workspace-mode="split"]').click();
  await page.locator('#designToggle').click();
- assert.equal(await page.locator('[data-inspector-tab="style"]').getAttribute('aria-selected'),'true');
+ assert.equal(await page.locator('[data-inspector-tab="document"]').getAttribute('aria-selected'),'true');
  await page.locator('[data-inspector-tab="page"]').click();
  assert.equal(await page.locator('#inspector-page').isVisible(),true);
  assert.ok((await page.locator('#inspectorPageCount').textContent()).includes('página'));
@@ -128,7 +129,8 @@ try {
  assert.equal(await bottomBinary.locator('button:disabled').count(),2,'Disabled binary control must expose disabled buttons');
  await bottomBinary.locator('.ds-binary-option').last().evaluate(button=>button.click());
  assert.equal(await bottomEnabled.isChecked(),false,'Disabled binary control must not modify native state');
- await bottomBinary.screenshot({path:'test-results/ux-audit/inspector-binary-disabled.png',animations:'disabled'});
+ assert.equal(await bottomBinary.isVisible(),false,'Position controls stay hidden without a concrete section');
+ await page.locator('#inspector-content').screenshot({path:'test-results/ux-audit/inspector-binary-disabled.png',animations:'disabled'});
  assert.ok((await bottomTarget.locator('option').count())>1,'Fixture needs a selectable section');
  await bottomTarget.evaluate(el=>{el.value=el.options[1].value;el.dispatchEvent(new Event('change',{bubbles:true}));});
  await page.waitForFunction(()=>{
@@ -137,8 +139,10 @@ try {
   return native&&!native.disabled&&buttons?.length===2&&[...buttons].every(button=>!button.disabled);
  });
  await bottomTarget.evaluate(el=>{el.value='';el.dispatchEvent(new Event('change',{bubbles:true}));});
- await page.locator('[data-inspector-tab="background"]').click();
+ await page.locator('[data-inspector-tab="document"]').click();
+ await reveal(page,'backgroundGallery');
  assert.equal(await page.locator('.bg-preset').count(),15);
+ await reveal(page,'backgroundGallery');
  await page.locator('.bg-preset[aria-label="Usar fundo Soft Mesh"]').click();
  assert.equal(await page.locator('#bgKind').inputValue(),'mesh');
  assert.equal(await page.locator('.mesh-handle').count(),3);
@@ -162,14 +166,14 @@ try {
  await page.reload({waitUntil:'networkidle'});
  await page.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent==='Salvo localmente');
  await page.locator('#designToggle').click();
- await page.locator('[data-inspector-tab="background"]').click();
+ await page.locator('[data-inspector-tab="document"]').click();
  assert.equal(await page.locator('#bgKind').inputValue(),'mesh');
  assert.equal(await page.locator('.mesh-handle').count(),3);
 
  // PDF settings are appearance choices, not a fake "ATS accepted" toggle.
 
  // Precision property input and keyboard-accessible tab switching.
- await page.locator('[data-inspector-tab="style"]').click();
+ await page.locator('[data-inspector-tab="document"]').click();
  // A detached QA range must track live min/max/step changes without modifying
  // the saved document. Keep visual evidence of normal, invalid and disabled states.
  await page.evaluate(async()=>{
@@ -237,15 +241,16 @@ try {
  // Real DS components: select popover, color hex, segmented choices and accordion.
  assert.ok(await page.locator('.ds-property-range').count()>=3);
  assert.ok(await page.locator('.ds-property-select').count()>=1);
- const titleSection=page.locator('#inspector-style .ds-accordion-toggle').first();
+ const titleSection=page.locator('#inspector-document .ds-accordion-toggle').first();
 
  const headingHeight=await titleSection.evaluate(el=>Math.round(el.getBoundingClientRect().height));
- assert.ok(headingHeight>=40&&headingHeight<=46,'Accordion header is too tall: '+headingHeight);
+ assert.ok(headingHeight>=36&&headingHeight<=38,'Accordion header is too tall: '+headingHeight);
  assert.equal(await titleSection.locator('.ds-accordion-chevron svg path').getAttribute('d'),'m6 9 6 6 6-6');
  assert.equal((await titleSection.locator('.ds-accordion-meta').count()),0,'Non-informative section subtitle should be omitted');
  await titleSection.click();assert.equal(await titleSection.getAttribute('aria-expanded'),'false');
  await titleSection.click();assert.equal(await titleSection.getAttribute('aria-expanded'),'true');
- const themePicker=page.locator('#inspector-style .ds-property-select').filter({has:page.locator('#resumeTheme')}).locator('.ds-select-trigger');
+ await reveal(page,'resumeTheme');
+ const themePicker=page.locator('#inspector-themes .ds-property-select').filter({has:page.locator('#resumeTheme')}).locator('.ds-select-trigger');
  await themePicker.click();
  assert.equal(await themePicker.getAttribute('aria-expanded'),'true');
  assert.ok(await page.locator('.ds-select-popover [role="option"]').count()>=7);
@@ -277,6 +282,7 @@ try {
  assert.equal(await themePicker.getAttribute('aria-expanded'),'true','Re-enabled select must open normally');
  await page.keyboard.press('Escape');
  assert.equal(await themePicker.getAttribute('aria-expanded'),'false');
+ await reveal(page,'accentColor');
  const colorControl=page.locator('.ds-property-color').filter({has:page.locator('#accentColor')});
  const colorHex=colorControl.locator('.ds-color-hex');
  const previousAccent=await page.locator('#accentColor').inputValue();
@@ -331,9 +337,11 @@ try {
  await marginInput.fill(String(beforeMargin));await marginInput.dispatchEvent('change');
  assert.equal(await marginInput.getAttribute('aria-invalid'),null,'Valid numeric correction must clear the error');
  assert.equal(Number(await marginInput.inputValue()),beforeMargin);
+ await reveal(page,'sectionRule');
  const rules=page.locator('.ds-property-segment').filter({has:page.locator('#sectionRule')});
  await rules.getByRole('button',{name:'Bloco'}).click();
  assert.equal(await page.locator('#sectionRule').inputValue(),'block');
+ await reveal(page,'showPageGuides');
  const guides=page.locator('.ds-property-binary').filter({has:page.locator('#showPageGuides')});
  await guides.getByRole('button',{name:'Marcações de página desligado'}).click();
  assert.equal(await page.locator('#showPageGuides').isChecked(),false);
@@ -341,13 +349,13 @@ try {
  await guides.getByRole('button',{name:'Marcações de página ligado'}).click();
  assert.equal(await page.locator('#showPageGuides').isChecked(),true);
 
- await page.locator('[data-inspector-tab="style"]').click();
- await page.locator('[data-inspector-tab="style"]').focus();
+ await page.locator('[data-inspector-tab="document"]').click();
+ await page.locator('[data-inspector-tab="document"]').focus();
  await page.keyboard.press('ArrowRight');
- assert.equal(await page.locator('[data-inspector-tab="sections"]').getAttribute('aria-selected'),'true');
+ assert.equal(await page.locator('[data-inspector-tab="content"]').getAttribute('aria-selected'),'true');
  await page.keyboard.press('ArrowRight');
  assert.equal(await page.locator('[data-inspector-tab="page"]').getAttribute('aria-selected'),'true');
- await page.locator('[data-inspector-tab="background"]').click();
+ await page.locator('[data-inspector-tab="document"]').click();
  assert.ok(await page.locator('.ds-property-range').filter({has:page.locator('#bgOpacity')}).count());
  await page.locator('#printPDF').click();
  await page.locator('input[name="pdfPreset"][value="light"]').check();
@@ -386,7 +394,7 @@ try {
  const text=await page.locator('#pageStack .page-content').allTextContents();
  assert.match(text.join(' '),/MARCADOR TESTE ULTIMA PAGINA/);
  await page.locator('#nextPage').click();assert.equal(await page.locator('#currentPage').textContent(),'2 / '+count);
- await page.locator('#paperSize').selectOption('letter');
+ await reveal(page,'paperSize');await page.locator('#paperSize').selectOption('letter');
  await page.waitForFunction(()=>document.querySelector('#paginationStatus')?.dataset.status==='ready');
  assert.ok((await page.locator('#pageStack > .paper').count())>=3);
 
@@ -437,12 +445,13 @@ try {
  // mdress: Any Markdown document. Preview section breaks, theme locks and IA guidance.
  const mdress=await browser.newPage({viewport:{width:1500,height:900}});
  try{
-  await mdress.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await mdress.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
   await mdress.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent==='Salvo localmente');
   assert.match(await mdress.title(),/mdress/);
   assert.match(await mdress.locator('#source').inputValue(),/O título do artigo/);
   await mdress.locator('#designToggle').click();
-  await mdress.locator('[data-inspector-tab="style"]').click();
+  await mdress.locator('[data-inspector-tab="document"]').click();
+  await reveal(mdress,'shuffleTheme');await reveal(mdress,'resumeTheme');
   assert.ok(await mdress.locator('.theme-recipe-card').count()>=9);
   const beforeAccent=await mdress.locator('#accentColor').inputValue();
   await mdress.locator('[data-theme-lock="colors"]').click();
@@ -488,10 +497,11 @@ try {
   await mdress.locator('[data-theme-lock="colors"]').click();
   await mdress.locator('[data-theme-lock="background"]').click();
 
-  await mdress.locator('[data-inspector-tab="ai"]').click();
+  await reveal(mdress,'agentBrief');
   await mdress.locator('[data-ai-brief]').first().click();
   assert.match(await mdress.locator('#agentBrief').inputValue(),/Editorial sofisticado/);
   await mdress.locator('[data-inspector-tab="page"]').click();
+  await mdress.evaluate(()=>{document.getElementById('outlineDisclosure').open=true;document.querySelector('.outline-pagination').open=true;});
   const heading=mdress.locator('#pageBreakList .page-break-option[data-section-break-id^="2:"]').first();
   assert.ok(await heading.count(),'No section break choices');
   await heading.click();
@@ -503,11 +513,12 @@ try {
   await mdress.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent==='Salvo localmente');
   await mdress.locator('#designToggle').click();
   await mdress.locator('[data-inspector-tab="page"]').click();
+  await mdress.evaluate(()=>{document.getElementById('outlineDisclosure').open=true;document.querySelector('.outline-pagination').open=true;});
   assert.equal(await mdress.locator('#pageBreakList .page-break-option[data-section-break-id^="2:"]').first().getAttribute('aria-pressed'),'true','Page break not persisted');
 
   // The same policy can be changed from the source outline; no Markdown edits.
   const sourceBefore=await mdress.locator('#source').inputValue();
-  await mdress.locator('#outlineDisclosure > summary').click();
+  await mdress.locator('#outlineDisclosure').evaluate(el=>el.open=true);
   const outlineBreak=mdress.locator('.outline-break-toggle[data-section-break-id^="2:"]').first();
   assert.equal(await outlineBreak.getAttribute('aria-pressed'),'true');
   await outlineBreak.click();
@@ -520,6 +531,7 @@ try {
   await previewAction.click();
   assert.equal(await mdress.locator('#source').inputValue(),sourceBefore);
   await mdress.locator('[data-inspector-tab="page"]').click();
+  await mdress.evaluate(()=>{document.getElementById('outlineDisclosure').open=true;document.querySelector('.outline-pagination').open=true;});
   const toggled=mdress.locator('#pageBreakList .page-break-option[aria-pressed=true]');
   assert.ok(await toggled.count()>=1);
 
@@ -531,8 +543,8 @@ try {
   assert.match(await mdress.locator('#source').inputValue(),/Instalação/);
 
   // Per-section styling: first a global recipe, then a local override.
-  await mdress.locator('[data-inspector-tab="sections"]').click();
-  const composer=mdress.locator('#inspector-sections');
+  await mdress.locator('[data-inspector-tab="content"]').click();
+  const composer=mdress.locator('#inspector-content');
   const composerDimensions=await composer.evaluate(root=>{
     const bounds=root.getBoundingClientRect();
     const nodes=['.composer-mode-switch','#sectionStyleTarget','#sectionStyleControl'].map(query=>root.querySelector(query));
@@ -549,6 +561,7 @@ try {
   const secondNamedSection=await composer.locator('#sectionStyleTarget').evaluate(el=>[...el.options].filter(option=>option.value.startsWith('2:'))[1]?.value);
   assert.ok(secondNamedSection,'Named H2 sections should remain selectable alongside level scopes');
   await composer.locator('#sectionStyleTarget').selectOption(secondNamedSection);
+  await composer.locator('[data-style-gallery="section"]').click();
   await composer.locator('[data-section-preset="band"]').click();
   assert.ok(await mdress.locator('#pageStack .semantic-section[data-section-variant="band"]').count()>=1);
   assert.ok(await mdress.locator('#pageStack .semantic-section[data-section-variant="surface"]').count()>=1,'Local styling changed sibling sections');
@@ -559,26 +572,27 @@ try {
   await mdress.reload({waitUntil:'networkidle'});
   await mdress.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent==='Salvo localmente');
   await mdress.locator('#designToggle').click();
-  await mdress.locator('[data-inspector-tab="sections"]').click();
+  await mdress.locator('[data-inspector-tab="content"]').click();
   assert.equal(await mdress.locator('#source').inputValue(),sourceBeforeComposer,'Styling mutated Markdown');
   assert.equal(await mdress.locator('.section-style-density button[data-section-density="airy"]').getAttribute('aria-pressed'),'true','Section density not persisted');
   assert.ok(await mdress.locator('#pageStack .semantic-section[data-section-variant="band"]').count()>=1,'Section override not persisted');
   const button=mdress.locator('#pageStack .section-design-action').first();
   assert.ok(await button.count(),'Preview must offer a section styling affordance');
   await button.click({force:true});
-  assert.equal(await mdress.locator('[data-inspector-tab="sections"]').getAttribute('aria-selected'),'true');
+  assert.equal(await mdress.locator('[data-inspector-tab="content"]').getAttribute('aria-selected'),'true');
   await mdress.locator('[data-view="ats"]').click();
   assert.match(await mdress.locator('#atsView').textContent(),/Revisão do Markdown/);
  } finally {await mdress.close();}
  // Regression: a short H2 section fits on page 1, but a nested H3 has an explicit page break.
  const regression=await browser.newPage({viewport:{width:1500,height:960}});
  try{
-  await regression.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await regression.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
   await regression.locator('#source').waitFor();
   await regression.locator('#source').fill('# Documento\n\n## Experiência Profissional\nIntrodução da seção.\n\n### Big2be\nConteúdo da empresa.\n\n### Outra empresa\nConteúdo seguinte.');
   await regression.waitForFunction(()=>document.querySelector('#paginationStatus')?.dataset.status==='ready');
   await regression.locator('#designToggle').click();
   await regression.locator('[data-inspector-tab="page"]').click();
+  await regression.evaluate(()=>{document.getElementById('outlineDisclosure').open=true;document.querySelector('.outline-pagination').open=true;});
   await regression.locator('#pageBreakList .page-break-option[data-section-break-id^="3:big2be:"]').click();
   await regression.waitForFunction(()=>document.querySelector('#paginationStatus')?.dataset.status==='ready'&&document.querySelectorAll('#pageStack>.paper').length>=2);
   const pages=await regression.locator('#pageStack>.paper').allTextContents();
@@ -586,6 +600,7 @@ try {
   assert.doesNotMatch(pages[0],/Big2be/,'Explicit H3 break must prevent nested heading from staying on previous page');
   assert.match(pages[1],/Big2be/);
   // The parent H2 should also be able to start its own page independently.
+  await regression.evaluate(()=>{document.getElementById('outlineDisclosure').open=true;document.querySelector('.outline-pagination').open=true;});
   await regression.locator('#pageBreakList .page-break-option[data-section-break-id^="2:experiência profissional:"]').click();
   await regression.waitForFunction(()=>document.querySelector('#paginationStatus')?.dataset.status==='ready'&&document.querySelectorAll('#pageStack>.paper').length>=3);
   const parentPages=await regression.locator('#pageStack>.paper').allTextContents();
@@ -599,7 +614,7 @@ try {
  // Bidirectional scroll sync follows rendered heading landmarks across physical pages.
  const syncPage=await browser.newPage({viewport:{width:1600,height:900}});
  try{
-  await syncPage.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await syncPage.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
   await syncPage.locator('#source').waitFor();
   const markdown=Array.from({length:8},(_,i)=>'## Capítulo '+(i+1)+'\n\n'+Array.from({length:6},(_,j)=>'Parágrafo '+j+' '+('Texto de exemplo para testar a paginação e o alinhamento. '.repeat(2))).join('\n\n')).join('\n\n');
   await syncPage.locator('#source').fill('# Documento\n\n'+markdown);
@@ -619,7 +634,7 @@ try {
  // Individual preview styling: only the clicked item changes, including its marker.
  const elementPage=await browser.newPage({viewport:{width:1600,height:950}});
  try{
-  await elementPage.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await elementPage.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
   await elementPage.locator('#source').fill('# Lista\n\n- Primeiro item\n- Segundo item\n- Terceiro item');
   await elementPage.waitForFunction(()=>document.querySelector('#paginationStatus')?.dataset.status==='ready');
   await elementPage.locator('#pageStack li[data-md-element-id="li:2"]').click();
@@ -642,7 +657,9 @@ try {
   await elementPage.locator('[data-element-property="fontSize"]').dispatchEvent('change');
   await elementPage.waitForFunction(()=>document.querySelector('#pageStack li[data-md-element-id="li:2"]')?.style.fontSize==='24px');
   assert.notEqual(await elementPage.locator('#pageStack li[data-md-element-id="li:1"]').evaluate(el=>el.style.fontSize),'24px');
+  const acceptReset=elementPage.getByRole('alertdialog').waitFor({state:'visible'}).then(()=>elementPage.locator('[data-alert-confirm]').click());
   await elementPage.locator('[data-preview-style-reset]').click();
+  await acceptReset;
   await elementPage.waitForFunction(()=>!document.querySelector('#pageStack li[data-md-element-id="li:2"]')?.dataset.mdElementStyle);
   assert.equal(await elementPage.locator('#pageStack li[data-md-element-id="li:2"]').evaluate(el=>el.style.fontSize),'');
   assert.ok((await elementPage.locator('#source').inputValue()).includes('- Segundo item'));
@@ -652,7 +669,7 @@ try {
  // Source toolbar must form one contiguous editing cluster, never split ends.
  const toolbarPage=await browser.newPage({viewport:{width:1700,height:900}});
  try{
-  await toolbarPage.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await toolbarPage.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
   await toolbarPage.locator('#source').waitFor();
   const metrics=await toolbarPage.locator('.markdown-toolbar').evaluate(el=>{
    const groups=[...el.querySelectorAll('.tool-group')].map(node=>node.getBoundingClientRect());
@@ -671,10 +688,10 @@ try {
  // UX review evidence is a separate artifact from functional smoke assertions.
  const ux=await browser.newPage({viewport:{width:1440,height:900}});
  try{
-  await ux.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await ux.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
   await ux.locator('#source').waitFor();
   await ux.locator('#designToggle').click();
-  await ux.locator('[data-inspector-tab="sections"]').click();
+  await ux.locator('[data-inspector-tab="content"]').click();
   // Capture component states as actual rendered browser images for design review.
   await ux.locator('body').evaluate(el=>el.dataset.theme='graphite');
   await ux.setViewportSize({width:1440,height:900});

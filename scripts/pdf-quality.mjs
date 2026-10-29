@@ -5,11 +5,12 @@ import {mkdtemp,stat,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 
+async function reveal(page,id){await page.evaluate(async id=>{if(document.getElementById('themesView').classList.contains('hidden'))document.getElementById('designToggle').click();const {revealInspectorControl}=await import('/property-inspector.js');revealInspectorControl(id);},id);}
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const temp=await mkdtemp(join(tmpdir(),'resume-pdf-quality-'));
 const metrics=[];
 const MAX_BYTES=5*1024*1024;
-const base='http://127.0.0.1:4173';
+const base=(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173');
 
 async function openDocument(){
  const page=await browser.newPage({viewport:{width:1500,height:900}});
@@ -20,7 +21,8 @@ async function openDocument(){
 }
 async function setPaperTheme(page,id){
  await page.locator('#designToggle').click();
- await page.locator('[data-inspector-tab="background"]').click();
+ await page.locator('[data-inspector-tab="document"]').click();
+ await reveal(page,'backgroundGallery');
  await page.locator('.bg-preset[aria-label="Usar fundo '+id+'"]').click();
  await page.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent==='Salvo localmente');
 }
@@ -28,7 +30,7 @@ async function printScenario(name,{backgroundPreset=null,profile='visual',backgr
  const page=await openDocument();
  try{
   if(backgroundPreset)await setPaperTheme(page,backgroundPreset);
-  if(paper==='letter')await page.locator('#paperSize').selectOption('letter');
+  if(paper==='letter'){await reveal(page,'paperSize');await page.locator('#paperSize').selectOption('letter');}
   if(long){
    const tail='\n## Experiências complementares\n'+Array.from({length:130},(_,i)=>'- Projeto '+(i+1)+': otimização, React, TypeScript e documentação acessível em aplicações empresariais.').join('\n')+'\n\n## Encerramento\nMARCADOR FINAL MULTIPAGINA';
    await page.locator('#source').fill((await page.locator('#source').inputValue())+tail);
@@ -120,7 +122,7 @@ async function testExperienceSectionFlow(){
   const markdown='# Currículo de teste\n\n## Experiência Profissional\n\n'+records.join('\n\n')+'\n\n## Formação Acadêmica\n\nCurso de Engenharia de Software. Fim do currículo.';
   await page.locator('#source').fill(markdown);
   await page.locator('#designToggle').click();
-  await page.locator('[data-inspector-tab="sections"]').click();
+  await page.locator('[data-inspector-tab="content"]').click();
   await page.locator('[data-style-nav="section:1"]').click();
   await page.waitForFunction(()=>document.querySelector('#paginationStatus')?.dataset.status==='ready',{timeout:20000});
   const decorated=await page.locator('#pageStack > .paper .semantic-section[data-section-variant="surface"]').count();
@@ -162,6 +164,7 @@ async function testExplicitBreakOnDocumentSection(){
  try{
   await page.locator('#designToggle').click();
   await page.locator('[data-inspector-tab="page"]').click();
+  await page.evaluate(()=>{document.getElementById('outlineDisclosure').open=true;document.querySelector('.outline-pagination').open=true;});
   const choices=page.locator('#pageBreakList .page-break-option[data-section-break-id^="2:"]');
   assert.ok(await choices.count()>=2,'No markdown sections were found');
   await choices.first().click();

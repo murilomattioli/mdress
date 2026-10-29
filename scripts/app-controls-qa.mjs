@@ -1,0 +1,34 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
+await mkdir('test-results/app-controls',{recursive:true});
+const browser=await chromium.launch();
+try{
+ const page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ page.on('dialog',dialog=>{errors.push('Unexpected native '+dialog.type());dialog.dismiss();});
+ await page.goto('http://127.0.0.1:4174');
+ assert.equal(await page.locator('select:not([hidden]):not(.ds-select-native)').count(),0);
+ const trigger=id=>page.locator(`[data-select-id=${id}] .ds-select-trigger`);
+ await trigger('zoom').click();await page.getByRole('option',{name:'125%',exact:true}).click();
+ assert.equal(await page.locator('#zoom').inputValue(),'1.25');
+ await page.locator('#zoomIn').click();assert.equal(await trigger('zoom').textContent(),'138%');
+ await trigger('zoom').click();await page.screenshot({path:'test-results/app-controls/zoom.png'});await page.keyboard.press('Escape');
+ await page.locator('#newDoc').click();await page.locator('#newDocumentName').fill('QA component library');
+ await trigger('newDocumentStarter').click();await page.getByRole('option',{name:'Documentação',exact:true}).click();
+ assert.equal(await page.locator('#newDocumentStarter').inputValue(),'documentation');
+ await trigger('newDocumentTheme').click();await page.screenshot({path:'test-results/app-controls/new-document.png'});await page.keyboard.press('Escape');
+ assert.equal(await page.locator('#newDocumentDialog').isVisible(),true);
+ await page.locator('#newDocumentForm button[type=submit]').click();
+ await page.waitForFunction(()=>document.querySelector('#source').value.includes('#'));
+ await page.locator('#siteSettings').click();await trigger('appTheme').click();await page.getByRole('option',{name:'Graphite',exact:true}).click();
+ assert.equal(await page.locator('body').getAttribute('data-theme'),'graphite');
+ await page.locator('#settingsDialog button[value=close]').click();
+ await page.locator('#printPDF').click();await trigger('pdfPaper').click();await page.getByRole('option',{name:'Carta / Letter',exact:true}).click();
+ assert.equal(await page.locator('#pdfPaper').inputValue(),'letter');
+ await page.screenshot({path:'test-results/app-controls/export.png'});await page.locator('#exportSettingsDialog button[value=cancel]').click();
+ await page.evaluate(()=>document.getElementById('renameDoc').click());await page.getByRole('textbox',{name:'Nome do documento'}).fill('Nome atualizado');await page.getByRole('textbox',{name:'Nome do documento'}).press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#docPicker').selectedOptions[0].textContent==='Nome atualizado');
+ await page.setViewportSize({width:390,height:844});await trigger('docPicker').click();await page.screenshot({path:'test-results/app-controls/mobile.png'});
+ assert.deepEqual(errors,[]);console.log('All selects enhanced; zoom, dialog options/top layer, creation, app theme, export, rename and mobile passed.');
+}finally{await browser.close();}

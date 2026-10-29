@@ -70,7 +70,7 @@ async function revealInspector(page,tab){
  await target.click();
 }
 async function exercise(page,theme,width){
- await revealInspector(page,'style');
+ await revealInspector(page,'document');
  const labelReadability=await page.locator('.design-inspector .ds-property-row .ds-prop-name:visible').evaluateAll(labels=>
   labels.map(el=>({fontSize:parseFloat(getComputedStyle(el).fontSize),text:el.textContent,title:el.title})));
  assert.ok(labelReadability.length>0&&labelReadability.every(item=>item.fontSize>=12&&item.title===item.text),
@@ -481,6 +481,7 @@ async function exercise(page,theme,width){
  assert.equal(await native.isChecked(),originalBinary);
  // Segmented selects must skip disabled options and preserve focus when
  // an active option becomes unavailable while the inspector remains open.
+ await revealInspector(page,'content');
  const segment=page.locator('.ds-property-segment').filter({has:page.locator('#sectionRule')});
  await segment.scrollIntoViewIfNeeded();
  const nativeSegment=page.locator('#sectionRule');
