@@ -68,6 +68,26 @@ try{
  await page.reload();
  assert.equal(await status.inputValue(),'approved','Review must survive reload in this session');
  assert.match(await note.inputValue(),/Foco, contraste/);
+ assert.equal(await page.locator('.state').first().locator('.badge').getAttribute('aria-label'),'Revisão aprovada',
+  'Screen readers must hear the actual persisted verdict');
+ // A failed localStorage write must remain visible even when the review
+ // counter refreshes. A subsequent successful save clears the warning.
+ await page.evaluate(()=>{
+  window.__qaOriginalSetItem=Storage.prototype.setItem;
+  Storage.prototype.setItem=function(){throw Error('QuotaExceededError');};
+ });
+ await note.fill('Foco, contraste e clipping — salvamento indisponível.');
+ assert.match(await page.locator('#review-warning').innerText(),/Armazenamento indisponível/,
+  'Notes must warn immediately when they cannot be persisted');
+ await status.selectOption('rejected');
+ assert.match(await page.locator('#review-warning').innerText(),/Armazenamento indisponível/,
+  'Verdict refresh must not overwrite the storage failure warning');
+ assert.equal(await page.locator('.state').first().locator('.badge').getAttribute('aria-label'),'Revisão reprovada');
+ await page.evaluate(()=>{Storage.prototype.setItem=window.__qaOriginalSetItem;});
+ await status.selectOption('approved');
+ await note.fill('Foco, contraste e clipping verificados manualmente neste cenário de teste.');
+ assert.doesNotMatch(await page.locator('#review-warning').innerText(),/Armazenamento indisponível/,
+  'A successful save must clear the storage failure warning');
  // The modal supports keyboard comparison and restores focus to its trigger.
  const firstImage=page.locator('.state').first().locator('figure a').first();
  await firstImage.click();
@@ -97,6 +117,7 @@ try{
  assert.match(await viewerNote.inputValue(),/Foco, contraste/);
  await viewerStatus.selectOption('rejected');
  assert.equal(await status.inputValue(),'rejected','Rejecting inside the viewer updates the state');
+ assert.equal(await page.locator('.state').first().locator('.badge').getAttribute('aria-label'),'Revisão reprovada');
  await viewerStatus.selectOption('approved');
  await viewerNote.fill('Foco, contraste, clipping e teclado verificados no visualizador.');
  assert.match(await note.inputValue(),/teclado verificados/,'Viewer notes persist in the state');
