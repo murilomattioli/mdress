@@ -182,6 +182,30 @@ try {
  await page.locator('[data-inspector-tab="page"]').click();
  assert.equal(await page.locator('#inspector-page').isVisible(),true);
  assert.ok((await page.locator('#inspectorPageCount').textContent()).includes('página'));
+ // A bounded number's auxiliary slider must mirror disabled/invalid native
+ // constraints and recover keyboard focus instead of leaving it on <body>.
+ const marginNumber=page.locator('#marginMm');
+ const marginScrub=page.locator('.ds-property-number').filter({has:marginNumber}).locator('.ds-scrub-range');
+ assert.equal(await marginScrub.count(),1);
+ await marginScrub.focus();
+ await marginNumber.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelector('.ds-scrub-range')?.disabled);
+ assert.equal(await page.evaluate(()=>document.activeElement!==document.body&&
+  Boolean(document.activeElement?.closest('.design-inspector'))&&!document.activeElement?.disabled),true,
+  'Disabling the focused numeric scrub slider must recover inspector focus');
+ await page.screenshot({path:'test-results/ux-audit/number-scrub-disabled-focus-handoff.png',animations:'disabled'});
+ await marginNumber.evaluate(el=>{el.disabled=false;});
+ const marginOriginalMax=await marginNumber.getAttribute('max');
+ await marginScrub.focus();
+ await marginNumber.evaluate(el=>{el.max=el.min;});
+ await page.waitForFunction(()=>document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelector('.ds-scrub-range')?.disabled);
+ assert.equal(await page.evaluate(()=>document.activeElement!==document.body&&
+  Boolean(document.activeElement?.closest('.design-inspector'))&&!document.activeElement?.disabled),true,
+  'Invalid numeric bounds must disable the slider and recover keyboard focus');
+ assert.equal(await marginScrub.evaluate(el=>el.closest('.ds-number-actions').style.getPropertyValue('--ds-range-progress')),'0%');
+ await page.screenshot({path:'test-results/ux-audit/number-scrub-invalid-bounds.png',animations:'disabled'});
+ await marginNumber.evaluate((el,max)=>{el.max=max;},marginOriginalMax);
+ await page.waitForFunction(()=>!document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelector('.ds-scrub-range')?.disabled);
  // Enhanced steppers must honor native optional bounds and step=any.
  // Exercise an isolated inspector fixture so no document settings are changed.
  await page.evaluate(async()=>{
