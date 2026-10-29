@@ -202,8 +202,9 @@ function syncViewerReview(){
  const position=visibleStates.indexOf(viewerSection);
  viewerStatePosition.textContent=position<0?"Estado filtrado":
   "Estado "+(position+1)+"/"+visibleStates.length;
- viewerNextState.disabled=visibleStates.length<2;
- viewerPrevState.disabled=visibleStates.length<2;
+ const hasDestination=visibleStates.some(section=>section!==viewerSection);
+ viewerNextState.disabled=!hasDestination;
+ viewerPrevState.disabled=!hasDestination;
 }
 function setViewerSection(section,anchor){
  viewerSection=section;
@@ -257,12 +258,18 @@ viewerNote.addEventListener("input",()=>{
 });
 function moveViewerState(direction){
  if(!viewerSection)return;
- const visible=states.filter(section=>!section.hidden);
- const index=visible.indexOf(viewerSection);
- if(index<0||visible.length<2)return;
- const next=visible[(index+direction+visible.length)%visible.length];
- const anchor=next.querySelector("figure a");
- if(anchor)setViewerSection(next,anchor);
+ // Approving with "Ocultar aprovados" active hides the current state.
+ // Continue from its original position rather than getting stuck because
+ // the current state no longer appears in the filtered list.
+ const current=states.indexOf(viewerSection);
+ for(let offset=1;offset<states.length;offset++){
+  const index=(current+direction*offset+states.length*2)%states.length;
+  const next=states[index];
+  if(next.hidden)continue;
+  const anchor=next.querySelector("figure a");
+  if(anchor)setViewerSection(next,anchor);
+  return;
+ }
 }
 viewerNextState.addEventListener("click",()=>moveViewerState(1));
 viewerPrevState.addEventListener("click",()=>moveViewerState(-1));
