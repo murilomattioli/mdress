@@ -203,10 +203,19 @@ try{
  assert.ok(exported.sessionId);
  // A session-bound exported draft can recover decisions after storage loss,
  // but foreign sessions and malformed state maps must never overwrite them.
- const uploadReview=async data=>page.locator('#import-review').setInputFiles({
-  name:'mdress-ux023-review.json',mimeType:'application/json',
-  buffer:Buffer.from(JSON.stringify(data))
- });
+ const uploadReview=async data=>{
+  await page.locator('#import-review').setInputFiles({
+   name:'mdress-ux023-review.json',mimeType:'application/json',
+   buffer:Buffer.from(JSON.stringify(data))
+  });
+  // setInputFiles dispatches a change event, but the handler awaits file.text()
+  // and may still be validating when the Playwright call resolves. The gallery
+  // clears the input only in finally; wait for that completion signal.
+  await page.waitForFunction(()=>{
+   const input=document.querySelector('#import-review');
+   return input.value===''&&!document.querySelector('#import-review-button').disabled;
+  });
+ };
  await status.selectOption('rejected');
  await note.fill('Rascunho que será substituído pela importação.');
  page.once('dialog',dialog=>dialog.accept());
