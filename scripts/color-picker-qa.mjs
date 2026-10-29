@@ -45,6 +45,26 @@ try{
   await cell.click();
   assert.equal(await page.evaluate(()=>window.__colorPickerEvents.color),afterSwatch,
    'Clicking the already selected swatch must not emit duplicate changes');
+  // Keyboard users should land on the currently selected swatch on reopening,
+  // rather than always having to traverse the palette from its first cell.
+  const selectedSwatchColor=await cell.getAttribute('title');
+  await dialog.getByRole('button',{name:'Fechar seletor de cores',exact:true}).click();
+  await input.click();await dialog.waitFor();
+  await page.keyboard.press('Tab');
+  const selectedTabStop=dialog.locator('.cp-cell[tabindex="0"]');
+  assert.equal(await selectedTabStop.count(),1,'Palette exposes exactly one keyboard Tab stop');
+  assert.equal(await selectedTabStop.getAttribute('title'),selectedSwatchColor,
+   'The selected swatch is the palette entry point');
+  assert.equal(await selectedTabStop.evaluate(el=>document.activeElement===el),true,
+   'Tab from the palette tab must focus the selected swatch');
+  await page.keyboard.press('ArrowRight');
+  assert.equal(await dialog.locator('.cp-cell[tabindex="0"]').count(),1,
+   'Arrow navigation preserves exactly one Tab stop');
+  assert.equal(await dialog.locator('.cp-cell[tabindex="0"]').evaluate(el=>document.activeElement===el),true,
+   'Arrow navigation moves both focus and the roving Tab stop');
+  await page.keyboard.press('Home');
+  assert.equal(await dialog.locator('.cp-cell').first().getAttribute('tabindex'),'0',
+   'Home moves the palette Tab stop to its first color');
   await dialog.getByRole('button',{name:'Salvar cor atual',exact:true}).click();
   const saved=await input.inputValue();
   await dialog.getByRole('tab',{name:'Espectro',exact:true}).click();
