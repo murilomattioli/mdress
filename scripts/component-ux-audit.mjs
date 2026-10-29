@@ -94,9 +94,17 @@ try{
          html:el.outerHTML.slice(0,160)
         }))
       }));
+     // Header and select quick actions sit outside some property-row hit-area
+     // lists. Audit them explicitly instead of silently exempting 28px icons.
+     const quickTargets=[...document.querySelectorAll('.design-inspector .ds-quick-action')]
+      .filter(visible).map(el=>({
+       name:el.getAttribute('aria-label')||el.title||'Quick action',
+       rect:(()=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};})(),
+       touchTarget:true,html:el.outerHTML.slice(0,160)
+      }));
      const inspector=document.querySelector('.design-inspector');
      const composer=document.querySelector('#inspector-content');
-     return {categories,count:controls.length,violations,propertyRows,inspectorWidth:inspector?.getBoundingClientRect().width||0,
+     return {categories,count:controls.length,violations,propertyRows,quickTargets,inspectorWidth:inspector?.getBoundingClientRect().width||0,
       composerWidth:composer?.getBoundingClientRect().width||0};
     });
     // Keep a viewport screenshot tied to every audited theme/width scenario.
@@ -119,7 +127,7 @@ try{
       {theme,width,row:collision.row,otherRow:collision.otherRow,html:collision.html});
     // Desktop inspectors can remain compact. The mobile breakpoint promises
     // at least 44x44px for each enhanced interactive hit area.
-    if(width<=540)for(const target of findUndersizedTouchTargets(data.propertyRows))
+    if(width<=540)for(const target of findUndersizedTouchTargets([...data.propertyRows,{name:'quick-actions',controls:data.quickTargets}]))
      emit('mobile-touch-target','error','inspector',
       'Alvo interativo menor que 44×44px: '+target.name+
       ' ('+target.width+'×'+target.height+'px)',
