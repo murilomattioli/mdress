@@ -242,7 +242,13 @@ function enhanceNumber(label,input,title){
   update();
  };
  minus.onclick=()=>increment(-1);plus.onclick=()=>increment(1);
- input.addEventListener('input',()=>{editing=true;update();});
+ input.addEventListener('input',event=>{
+  editing=true;update();
+  // Native number fields emit `input` for empty, out-of-bounds and off-step
+  // drafts. Do not leak those invalid values to document-level listeners;
+  // only a valid draft may update the app's source of truth.
+  if(!valid())event.stopImmediatePropagation();
+ },true);
  // Capture before the app's change listener: an invalid draft must never mutate the document.
  input.addEventListener('change',event=>{
   if(!valid()){
