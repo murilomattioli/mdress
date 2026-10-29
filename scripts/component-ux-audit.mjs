@@ -22,21 +22,43 @@ try{
      const controls=[...document.querySelectorAll('button,input,select,textarea,[role="combobox"],[role="slider"],[role="switch"]')].filter(visible);
      const categories={button:0,input:0,select:0,textarea:0,combobox:0,slider:0,switch:0};
      const violations=[];
-     // page.evaluate runs in Chromium, not Node: keep this DOM lookup local.
-     const missingAriaReferenceIds=value=>[...new Set(String(value||'').trim().split(/\s+/).filter(Boolean))]
-      .filter(id=>!document.getElementById(id));
+     // Compute ID cardinality once: getElementById alone silently accepts
+     // duplicate IDs and can resolve the wrong accessible-name target.
+     const idCounts=new Map();
+     for(const element of document.querySelectorAll('[id]')){
+      idCounts.set(element.id,(idCounts.get(element.id)||0)+1);
+     }
+     // page.evaluate runs in Chromium, not Node: keep DOM lookups local.
+     const ids=value=>[...new Set(String(value||'').trim().split(/\s+/).filter(Boolean))];
+     const missingAriaReferenceIds=value=>ids(value).filter(id=>!document.getElementById(id));
+     const referenceText=id=>{
+      const element=document.getElementById(id);
+      return element?(element.getAttribute('aria-label')?.trim()||element.textContent?.trim()||''):'';
+     };
      for(const control of controls){
       const tag=control.tagName.toLowerCase(),role=control.getAttribute('role');
       categories[role in categories?role:tag]=(categories[role in categories?role:tag]||0)+1;
       const labelledBy=control.getAttribute('aria-labelledby');
+      const describedBy=control.getAttribute('aria-describedby');
       const brokenLabels=missingAriaReferenceIds(labelledBy);
-      const brokenDescriptions=missingAriaReferenceIds(control.getAttribute('aria-describedby'));
+      const brokenDescriptions=missingAriaReferenceIds(describedBy);
       for(const id of brokenLabels)violations.push({rule:'aria-labelledby-target',severity:'error',component:tag,detail:'Referência de nome acessível inexistente: '+id,html:control.outerHTML.slice(0,190)});
       for(const id of brokenDescriptions)violations.push({rule:'aria-describedby-target',severity:'error',component:tag,detail:'Referência de descrição acessível inexistente: '+id,html:control.outerHTML.slice(0,190)});
-      const label=control.getAttribute('aria-label')?.trim()||
-       labelledBy?.split(/\s+/).map(id=>document.getElementById(id)?.textContent||'').join(' ').trim()||
-       control.labels?.[0]?.textContent?.trim()||control.getAttribute('title')?.trim()||
-       (tag==='button'?control.textContent.trim():'');
+      for(const id of new Set([...ids(labelledBy),...ids(describedBy)])){
+       if((idCounts.get(id)||0)>1)violations.push({rule:'aria-idref-duplicate',severity:'error',component:tag,detail:'Referência ARIA ambígua (ID duplicado): '+id,html:control.outerHTML.slice(0,190)});
+      }
+      // aria-labelledby takes precedence over aria-label. An empty existing
+      // target cannot be rescued by a fallback title or a visible button label.
+      const referencedLabel=ids(labelledBy).map(referenceText).join(' ').trim();
+      if(ids(labelledBy).length&&!brokenLabels.length&&!referencedLabel){
+       violations.push({rule:'aria-labelledby-empty',severity:'error',component:tag,detail:'Nome acessível aponta somente para referências vazias',html:control.outerHTML.slice(0,190)});
+      }
+      const label=ids(labelledBy).length?referencedLabel:
+       (control.getAttribute('aria-label')?.trim()||control.labels?.[0]?.textContent?.trim()||
+       control.getAttribute('title')?.trim()||(tag==='button'?control.textContent.trim():''));
+      if(control.closest('[aria-hidden="true"]')&&control.tabIndex>=0&&!control.disabled){
+       violations.push({rule:'aria-hidden-focusable',severity:'error',component:tag,detail:'Controle focável dentro de aria-hidden=true',html:control.outerHTML.slice(0,190)});
+      }
       if(!label && !['hidden','submit'].includes(control.type)&&!control.closest('[aria-hidden="true"]')){
        violations.push({rule:'accessible-name',severity:'error',component:tag,detail:'Controle visível sem nome acessível',html:control.outerHTML.slice(0,190)});
       }
