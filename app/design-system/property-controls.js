@@ -109,6 +109,14 @@ export function rangeConstraints(input){
   (step==='any'||Number.isFinite(step)&&step>0);
  return {min,max,step,valid};
 }
+// Auxiliary numeric scrub sliders require two finite, ordered native bounds.
+// A number input itself may remain usable with a single bound; its slider
+// cannot truthfully represent that domain and must be disabled.
+export function numericScrubBoundsValid(min,max,step){
+ const increment=step===''?1:step==='any'?'any':Number(step);
+ return Number.isFinite(min)&&Number.isFinite(max)&&min<max&&
+  (increment==='any'||Number.isFinite(increment)&&increment>0);
+}
 // Free-step ranges advance by 1% of the current span. Discrete grids
 // may end below max; an inert boundary button must be disabled.
 export function rangeStepTarget(value,direction,min,max,step){
@@ -347,9 +355,7 @@ function enhanceNumber(label,input,title){
   if(slider){
    // Dynamic native constraints can invalidate a formerly bounded slider.
    // Do not expose a misleading default 0..100 range or a NaN progress track.
-   const step=input.step===''?1:input.step==='any'?'any':Number(input.step);
-   const usable=Number.isFinite(min)&&Number.isFinite(max)&&min<max&&
-    (step==='any'||Number.isFinite(step)&&step>0);
+   const usable=numericScrubBoundsValid(min,max,input.step);
    slider.min=input.min;slider.max=input.max;slider.step=input.step||'1';
    slider.disabled=input.disabled||!usable;
    if(usable){
