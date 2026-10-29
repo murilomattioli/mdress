@@ -7,12 +7,12 @@ const full=()=>UX_QA_MATRIX.map(({theme,width})=>({theme,width,scenario:true,ins
 
 test('full matrix passes only when every scenario and sub-audit passes',()=>{
  const result=summarizeUxCoverage(full(),[],false);
- assert.deepEqual([result.status,result.expected,result.passing,result.complete],['passed',6,6,true]);
+ assert.deepEqual([result.status,result.expected,result.passing,result.complete],['passed',UX_QA_MATRIX.length,UX_QA_MATRIX.length,true]);
 });
 test('a missing or duplicated viewport never counts as full coverage',()=>{
  const missing=full().slice(0,-1);
  assert.equal(summarizeUxCoverage(missing,[],false).status,'failed');
- const duplicate=full();duplicate[5]={...duplicate[0]};
+ const duplicate=full();duplicate[duplicate.length-1]={...duplicate[0]};
  assert.equal(summarizeUxCoverage(duplicate,[],false).complete,false);
 });
 test('toolbar, inspector, runtime and finding failures fail the report',()=>{
