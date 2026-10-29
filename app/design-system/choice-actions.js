@@ -1,5 +1,5 @@
 /** Shared previous/next/random actions. Adapters supply current enabled choices. */
-export function createChoiceActions({label,source,readChoices,actions=[
+export function createChoiceActions({label,source,readChoices,onUnavailableFocus=null,actions=[
  {action:'previous',title:'Anterior',icon:'arrow-left'},
  {action:'next',title:'Próximo',icon:'arrow-right'},
  {action:'random',title:'Aleatório',icon:'shuffle'}
@@ -24,10 +24,25 @@ export function createChoiceActions({label,source,readChoices,actions=[
   };
   buttons.push({button,config});group.append(button);
  }
- function refresh(){const insufficient=readChoices().length<2;buttons.forEach(({button,config})=>{
-  button.disabled=Boolean(typeof config.disabled==='function'?config.disabled():config.disabled)||(!config.onSelect&&insufficient);
-  button.hidden=(typeof config.visible==='function'?config.visible():config.visible)===false;
- });}
+ function refresh(){
+  // A source option can disappear or become disabled while its quick action
+  // owns keyboard focus. Capture focus before changing the button state:
+  // Chromium may move focus to <body> synchronously on disable/hide.
+  const focused=buttons.find(({button})=>document.activeElement===button)?.button;
+  const insufficient=readChoices().length<2;
+  buttons.forEach(({button,config})=>{
+   const disabled=Boolean(typeof config.disabled==='function'?config.disabled():config.disabled)||(!config.onSelect&&insufficient);
+   const hidden=(typeof config.visible==='function'?config.visible():config.visible)===false;
+   if(button.disabled!==disabled)button.disabled=disabled;
+   if(button.hidden!==hidden)button.hidden=hidden;
+  });
+  if(focused&&(focused.disabled||focused.hidden)){
+   const alternative=buttons.map(({button})=>button).find(button=>
+    button!==focused&&!button.disabled&&!button.hidden&&button.getClientRects().length);
+   if(alternative)alternative.focus({preventScroll:true});
+   else if(typeof onUnavailableFocus==='function')onUnavailableFocus(focused);
+  }
+ }
  group.append(status);refresh();
  new MutationObserver(refresh).observe(source,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled','hidden','selected','aria-pressed']});
  return group;
