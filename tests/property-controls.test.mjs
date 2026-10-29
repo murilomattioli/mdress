@@ -15,6 +15,12 @@ test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(1,0,1,2),0,'Steps larger than the range have only one legal value');
  assert.equal(normalizeRange(0.95,0.05,1,0.2),0.85,'A fractional grid must stay aligned at the upper edge');
  assert.equal(normalizeRange(10,0,10,5),10,'An aligned maximum must remain selectable');
+ assert.equal(normalizeRange(0.99999999995,0,0.99999999995,0.1),0.9,
+  'A near-grid maximum must not be accepted as an off-step value');
+ assert.equal(normalizeRange(0.3,0,0.3,0.1),0.3,
+  'IEEE-754 rounding must not exclude an aligned fractional maximum');
+ assert.equal(normalizeRange(0.95,0.05,0.95,0.1),0.95,
+  'An offset fractional maximum remains selectable despite binary rounding');
 });
 test('precision control rejects unsupported numeric states',()=>{
  assert.throws(()=>normalizeRange(NaN,0,1,.1));
@@ -82,6 +88,12 @@ test('combobox typeahead skips disabled items and cycles matching initials',()=>
  assert.equal(findEnabledOptionIndex(options,'',2),-1);
  assert.equal(findEnabledOptionIndex([], 's'),-1);
  assert.equal(findEnabledOptionIndex([{label:'Árvore',disabled:false}], 'á'),0,'Unicode labels remain searchable');
+ assert.equal(findEnabledOptionIndex([{label:'Árvore tipográfica',disabled:false}], 'arv'),0,
+  'Portuguese diacritics must not prevent unaccented keyboard searches');
+ assert.equal(findEnabledOptionIndex([{label:'A\u0301rvore tipográfica',disabled:false}], 'ÁRV'),0,
+  'Decomposed Unicode and case variants must normalize consistently');
+ assert.equal(findEnabledOptionIndex([{label:'Árvore',disabled:true},{label:'Arvoredo',disabled:false}], 'arv'),1,
+  'Accent-insensitive typeahead must still skip disabled options');
 });
 
 

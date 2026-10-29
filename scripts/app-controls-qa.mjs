@@ -24,9 +24,9 @@ try{
  await page.locator('#siteSettings').click();await trigger('appTheme').click();await page.getByRole('option',{name:'Graphite',exact:true}).click();
  assert.equal(await page.locator('body').getAttribute('data-theme'),'graphite');
  await page.locator('#settingsDialog button[value=close]').click();
- await page.locator('#printPDF').click();await trigger('pdfPaper').click();await page.getByRole('option',{name:'Carta / Letter',exact:true}).click();
+ await page.locator('#printPDF').click();await trigger('pdfPaper').click();await page.getByRole('option',{name:'Carta · 216 × 279 mm',exact:true}).click();
  assert.equal(await page.locator('#pdfPaper').inputValue(),'letter');
- await page.screenshot({path:'test-results/app-controls/export.png'});await page.locator('#exportSettingsDialog button[value=cancel]').click();
+ await page.screenshot({path:'test-results/app-controls/export.png'});await page.locator('#exportSettingsDialog .pdf-footer button[value=cancel]').click();
  await page.evaluate(()=>document.getElementById('renameDoc').click());await page.getByRole('textbox',{name:'Nome do documento'}).fill('Nome atualizado');await page.getByRole('textbox',{name:'Nome do documento'}).press('Enter');
  await page.waitForFunction(()=>document.querySelector('#docPicker').selectedOptions[0].textContent==='Nome atualizado');
  await page.setViewportSize({width:390,height:844});await trigger('docPicker').click();await page.screenshot({path:'test-results/app-controls/mobile.png'});

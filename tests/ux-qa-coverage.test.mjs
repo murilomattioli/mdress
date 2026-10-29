@@ -7,12 +7,12 @@ const full=()=>UX_QA_MATRIX.map(({theme,width})=>({theme,width,scenario:true,ins
 
 test('full matrix passes only when every scenario and sub-audit passes',()=>{
  const result=summarizeUxCoverage(full(),[],false);
- assert.deepEqual([result.status,result.expected,result.passing,result.complete],['passed',6,6,true]);
+ assert.deepEqual([result.status,result.expected,result.passing,result.complete],['passed',UX_QA_MATRIX.length,UX_QA_MATRIX.length,true]);
 });
 test('a missing or duplicated viewport never counts as full coverage',()=>{
  const missing=full().slice(0,-1);
  assert.equal(summarizeUxCoverage(missing,[],false).status,'failed');
- const duplicate=full();duplicate[5]={...duplicate[0]};
+ const duplicate=full();duplicate[duplicate.length-1]={...duplicate[0]};
  assert.equal(summarizeUxCoverage(duplicate,[],false).complete,false);
 });
 test('toolbar, inspector, runtime and finding failures fail the report',()=>{
@@ -44,8 +44,9 @@ test('visual evidence requires every control state in every viewport exactly onc
  const all=UX_QA_MATRIX.flatMap(({theme,width})=>
   UX_QA_REQUIRED_SCREENSHOTS.map(state=>({theme,width,state,path:theme+'-'+width+'-'+state+'.png'})));
  const complete=summarizeScreenshotCoverage(all);
- assert.equal(complete.expected,300);
- assert.equal(complete.captured,300);
+ const expected=UX_QA_MATRIX.length*UX_QA_REQUIRED_SCREENSHOTS.length;
+ assert.equal(complete.expected,expected);
+ assert.equal(complete.captured,expected);
  assert.deepEqual(complete.missing,[]);
  assert.deepEqual(complete.duplicates,[]);
  assert.deepEqual(complete.unexpected,[]);
@@ -56,14 +57,28 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.deepEqual(repeated.duplicates,['graphite:1440:workspace']);
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-any'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-tab-backward'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-accordion-collapse-focus-handoff'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-tab-switch-focus-handoff'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-inspector-close-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-last-focus'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-disabled-focus-handoff'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-hidden-focus-handoff'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-detached-focus-handoff'));
+ assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,68,'68 distinct states are mandatory');
+ assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,68,'State names must be unique');
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('number-disabled-invalid-draft'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('number-rollback-valid-draft'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('color-draft-sync'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-native-override'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('binary-disabled-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-disabled-trigger-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-live-options'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-live-focus-handoff'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-removed-disabled-neighbor'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-disabled-focus-handoff'));
+ for(const state of ['range-disabled-focus-handoff','color-disabled-focus-handoff','color-swatch-focus','color-swatch-disabled-focus-handoff',
+  'number-disabled-focus-handoff','number-stepper-disabled-focus-handoff'])
+  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes(state),state+' must be captured');
  const unexpected=summarizeScreenshotCoverage([...all,{theme:'graphite',width:1440,state:'not-in-contract',path:'graphite-1440-not-in-contract.png'}]);
  assert.deepEqual(unexpected.unexpected,['graphite:1440:not-in-contract']);
  const wrongPath=summarizeScreenshotCoverage(all.map((row,index)=>index===0?{...row,path:'stale-capture.png'}:row));
@@ -72,7 +87,7 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.deepEqual(missingPath.invalidPaths,['graphite:1440:workspace']);
 });
 
-test('human review requires a matching session and explicit approval of all 50 states',()=>{
+test('human review requires a matching session and explicit approval of every required state',()=>{
  const session='review-session-1';
  const states=Object.fromEntries(UX_QA_REQUIRED_SCREENSHOTS.map(state=>[state,{status:'approved',note:''}]));
  const complete={schema:1,sessionId:session,states};
@@ -132,4 +147,53 @@ test('PNG evidence requires a complete, CRC-valid, full-viewport image',()=>{
  badHeader.writeUInt32BE(1,16);
  assert.equal(validateScreenshotViewport(badHeader,1440),false);
  assert.equal(validateScreenshotViewport(Buffer.from('not a PNG'),1440),false);
+ // A valid CRC alone does not mean the PNG contains decodable pixels.
+ const badZlib=Buffer.concat([
+  Buffer.from('89504e470d0a1a0a','hex'),
+  chunk('IHDR',header),
+  chunk('IDAT',Buffer.from('not compressed image data')),
+  chunk('IEND',Buffer.alloc(0))
+ ]);
+ assert.equal(validateScreenshotViewport(badZlib,1440),false,
+  'CRC-correct but undecodable IDAT must fail');
+ const shortRaster=Buffer.concat([
+  Buffer.from('89504e470d0a1a0a','hex'),
+  chunk('IHDR',header),
+  chunk('IDAT',deflateSync(Buffer.from('short raster'))),
+  chunk('IEND',Buffer.alloc(0))
+ ]);
+ assert.equal(validateScreenshotViewport(shortRaster,1440),false,
+  'Inflated raster must contain every full-viewport scanline');
+ const badFilter=Buffer.alloc((1440*3+1)*UX_QA_VIEWPORT_HEIGHT);
+ badFilter[0]=5;
+ const invalidScanline=Buffer.concat([
+  Buffer.from('89504e470d0a1a0a','hex'),
+  chunk('IHDR',header),
+  chunk('IDAT',deflateSync(badFilter)),
+  chunk('IEND',Buffer.alloc(0))
+ ]);
+ assert.equal(validateScreenshotViewport(invalidScanline,1440),false,
+  'Invalid PNG row filters must fail even with correct CRC and zlib');
+ const interlacedHeader=Buffer.from(header);
+ interlacedHeader[12]=1;
+ const unsupportedInterlace=Buffer.concat([
+  Buffer.from('89504e470d0a1a0a','hex'),
+  chunk('IHDR',interlacedHeader),
+  chunk('IDAT',deflateSync(Buffer.alloc((1440*3+1)*UX_QA_VIEWPORT_HEIGHT))),
+  chunk('IEND',Buffer.alloc(0))
+ ]);
+ assert.equal(validateScreenshotViewport(unsupportedInterlace,1440),false,
+  'Unsupported interlaced formats must not be falsely accepted');
+ const compressed=deflateSync(Buffer.alloc((1440*3+1)*UX_QA_VIEWPORT_HEIGHT));
+ const split=Math.floor(compressed.length/2);
+ const interruptedIdat=Buffer.concat([
+  Buffer.from('89504e470d0a1a0a','hex'),
+  chunk('IHDR',header),
+  chunk('IDAT',compressed.subarray(0,split)),
+  chunk('tEXt',Buffer.from('comment')),
+  chunk('IDAT',compressed.subarray(split)),
+  chunk('IEND',Buffer.alloc(0))
+ ]);
+ assert.equal(validateScreenshotViewport(interruptedIdat,1440),false,
+  'IDAT chunks separated by ancillary data violate PNG ordering');
 });

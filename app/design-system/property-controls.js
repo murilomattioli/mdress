@@ -80,7 +80,18 @@ export function normalizeRange(value,min,max,step){
  // The upper bound is not necessarily on the step grid. Clamping a
  // rounded step to max would produce a stepMismatch (e.g. 10 for 0..10/6).
  // Restrict the index before reconstructing the value instead.
- const lastIndex=Math.floor((max-min)/step+1e-9);
+ // A fixed epsilon in *step indices* can accept a maximum that is
+ // genuinely off-grid (e.g. max=0.99999999995, step=0.1). Only compensate
+ // for IEEE-754 rounding at the magnitude of the actual candidate value.
+ const ratio=(max-min)/step;
+ let lastIndex=Math.max(0,Math.floor(ratio));
+ const fits=index=>{
+  const candidate=min+index*step;
+  const tolerance=Number.EPSILON*4*Math.max(Math.abs(min),Math.abs(max),Math.abs(candidate));
+  return candidate<=max+tolerance;
+ };
+ if(lastIndex>0&&!fits(lastIndex))lastIndex--;
+ if(fits(lastIndex+1))lastIndex++;
  const index=clamp(Math.round((clamp(value,min,max)-min)/step),0,lastIndex);
  const snapped=min+index*step;
  // Decimal-place caps silently turn sub-picosecond / micro-scale steps into
@@ -134,11 +145,31 @@ function feedbackFor(label,control){
   else control.removeAttribute('aria-invalid');
  };
 }
+// Disabling a focused native input may blur it before a MutationObserver runs.
+// Remember its focus until the disabled-state update can move keyboard users
+// to another visible inspector control; never steal focus after a real click.
+function watchDisabledNativeFocus(input){
+ let hadFocus=false;
+ input.addEventListener('focus',()=>{hadFocus=true;});
+ input.addEventListener('blur',()=>{if(!input.disabled)hadFocus=false;});
+ return ()=>{
+  if(!input.disabled){hadFocus=document.activeElement===input;return;}
+  if(hadFocus&&(document.activeElement===input||document.activeElement===document.body))
+   focusInspectorNeighbor(input,{visibleOnly:true});
+  hadFocus=false;
+ };
+}
 function nativeCommit(input,next){
- if(input.disabled)return;
+ if(input.disabled)return false;
+ // A repeated selection, unchanged hex value or re-entered slider value is
+ // not a document edit. Let the native control normalize the candidate first
+ // (notably color casing and range snapping), then emit only real changes.
+ const previous=input.value;
  input.value=String(next);
+ if(input.value===previous)return false;
  input.dispatchEvent(new Event('input',{bubbles:true}));
  input.dispatchEvent(new Event('change',{bubbles:true}));
+ return true;
 }
 function scrubStep(title,direction){
  const node=button('ds-number-step ds-scrub-step','');
@@ -155,6 +186,7 @@ function enhanceRange(label,input,title){
  const fill=span('ds-prop-fill'),ticks=span('ds-prop-ticks'),thumb=span('ds-prop-thumb');
  const valueBox=document.createElement('div');valueBox.className='ds-prop-numberbox';
  const numeric=document.createElement('input');numeric.type='number';numeric.className='ds-prop-number';
+ const restoreNativeFocus=watchDisabledNativeFocus(input);
  const syncConstraints=()=>{
   const constraints=rangeConstraints(input);
   numeric.min=String(constraints.min);
@@ -185,9 +217,12 @@ function enhanceRange(label,input,title){
   const pct=boundsValid?(clamp(value,min,max)-min)/(max-min)*100:0;
   field.style.setProperty('--ds-range-progress',pct+'%');
   if(input.disabled)editing=false;
+  const focusedPrecision=document.activeElement===numeric;
   numeric.disabled=input.disabled;
   minus.disabled=input.disabled||!boundsValid||value<=min;
   plus.disabled=input.disabled||!boundsValid||value>=max;
+  if(input.disabled&&focusedPrecision)focusInspectorNeighbor(numeric,{visibleOnly:true});
+  restoreNativeFocus();
   if(!editing)numeric.value=input.value;
   setError(!input.disabled&&editing?
    (!boundsValid?'Verifique os limites e o incremento da faixa.':!valid()?validationMessage(numeric,min,max,unit):''):'');
@@ -209,7 +244,7 @@ function enhanceRange(label,input,title){
   update();
  });
  numeric.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){e.preventDefault();editing=false;update();numeric.blur();}
+  if(e.key==='Escape'){e.preventDefault();editing=false;update(); /* Keep keyboard focus for the next edit. */ }
   if(e.key==='Enter'){numeric.dispatchEvent(new Event('change'));if(valid())numeric.blur();}
  });
  // Double-click resets only when an explicit initial value is available.
@@ -243,6 +278,7 @@ function enhanceNumber(label,input,title){
  }
  const bounds=()=>({min:input.min===''?-Infinity:Number(input.min),max:input.max===''?Infinity:Number(input.max)});
  const setError=feedbackFor(label,input);
+ const restoreNativeFocus=watchDisabledNativeFocus(input);
  const valid=()=>input.validity.valid&&((input.hasAttribute('data-inherit')&&input.value==='')||(input.value.trim()!==''&&Number.isFinite(input.valueAsNumber)));
  // Let the browser enforce the native number step grid, including fractional
  // bases and absent bounds. The previous synthetic 0..999 range blocked
@@ -264,15 +300,34 @@ function enhanceNumber(label,input,title){
   }catch{return null;}
   return Number(probe.value)!==input.valueAsNumber?probe.value:null;
  };
- let committed=input.value,editing=false;
+ let committed=input.value,editing=false,draftEmitted=false,restoring=false;
+ // Valid input drafts are observable by app listeners before the change
+ // event commits them. Undoing a draft must notify those listeners too;
+ // otherwise Escape/disable restores only the DOM while the model stays stale.
+ const rollbackDraft=()=>{
+  const notify=draftEmitted&&input.value!==committed;
+  input.value=committed;editing=false;draftEmitted=false;
+  if(notify){
+   restoring=true;
+   try{input.dispatchEvent(new Event('input',{bubbles:true}));}
+   finally{restoring=false;}
+  }
+ };
  const update=()=>{
+  // Disabling a numeric field must discard its uncommitted draft, just like
+  // the range and hex controls. Otherwise an invalid number can remain in
+  // the native source of truth after the inspector becomes read-only.
+  if(input.disabled&&editing)rollbackDraft();
   const ok=valid();
   if(!editing&&ok)committed=input.value;
   const {min,max}=bounds();
   if(slider){slider.min=input.min;slider.max=input.max;slider.step=input.step||'1';slider.disabled=input.disabled;slider.value=input.value;controls.style.setProperty('--ds-range-progress',((Number(input.value)-min)/(max-min)*100)+'%');}
-  setError(editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
+  setError(!input.disabled&&editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
+  const focusedStepper=[minus,plus].find(button=>document.activeElement===button);
   minus.disabled=stepTarget(-1)===null;
   plus.disabled=stepTarget(1)===null;
+  if(focusedStepper?.disabled)focusInspectorNeighbor(focusedStepper,{visibleOnly:true});
+  restoreNativeFocus();
  };
  const increment=direction=>{
   const next=stepTarget(direction);
@@ -281,17 +336,32 @@ function enhanceNumber(label,input,title){
   update();
  };
  minus.onclick=()=>increment(-1);plus.onclick=()=>increment(1);
- input.addEventListener('input',()=>{editing=true;update();});
+ input.addEventListener('input',event=>{
+  if(restoring)return;
+  editing=true;update();
+  // Native number fields emit `input` for empty, out-of-bounds and off-step
+  // drafts. Do not leak those invalid values to document-level listeners;
+  // only a valid draft may update the app's source of truth.
+  if(!valid())event.stopImmediatePropagation();
+  else draftEmitted=true;
+ },true);
  // Capture before the app's change listener: an invalid draft must never mutate the document.
  input.addEventListener('change',event=>{
+  if(restoring)return;
+  // Disabling a focused number can synchronously emit a native change
+  // before MutationObserver runs. That event must not commit its draft.
+  if(input.disabled){
+   if(editing)rollbackDraft();
+   event.preventDefault();event.stopImmediatePropagation();update();return;
+  }
   if(!valid()){
    editing=true;update();event.preventDefault();event.stopImmediatePropagation();return;
   }
-  editing=false;committed=input.value;update();
+  editing=false;committed=input.value;draftEmitted=false;update();
  },true);
  input.addEventListener('keydown',event=>{
   if(event.key!=='Escape'||!editing)return;
-  event.preventDefault();input.value=committed;editing=false;update();
+  event.preventDefault();rollbackDraft();update();
  });
  new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled','min','max','step']});
  controllers.push(update);update();
@@ -303,8 +373,10 @@ function enhanceColor(label,input,title){
  const swatch=document.createElement('span');swatch.className='ds-color-swatch';
  const hex=document.createElement('input');hex.type='text';hex.className='ds-color-hex';hex.maxLength=7;
  hex.spellcheck=false;hex.autocomplete='off';hex.setAttribute('aria-label',title+' — hexadecimal');
+ if(!input.hasAttribute('aria-label'))input.setAttribute('aria-label',title+' — seletor de cor');
  hex.setAttribute('inputmode','text');
  const setError=feedbackFor(label,hex);
+ const restoreNativeFocus=watchDisabledNativeFocus(input);
  input.classList.add('ds-color-native');
  input.setAttribute('aria-haspopup','dialog');
  input.replaceWith(field);
@@ -323,7 +395,12 @@ function enhanceColor(label,input,title){
   // App-level inspector synchronization must not discard an uncommitted
   // hex draft (especially an invalid one) or clear its error announcement.
   if(!editing){hex.value=v;setError('');}
-  hex.disabled=input.disabled;swatch.style.backgroundColor=v;
+  const focusedHex=document.activeElement===hex;
+  hex.disabled=input.disabled;
+  pipette.disabled=input.disabled||!canPick||picking;
+  if(input.disabled&&focusedHex)focusInspectorNeighbor(hex,{visibleOnly:true});
+  restoreNativeFocus();
+  swatch.style.backgroundColor=v;
   pipette.disabled=input.disabled||!canPick||picking;
  };
  pipette.addEventListener('click',async event=>{
@@ -348,7 +425,7 @@ function enhanceColor(label,input,title){
   editing=false;setError('');nativeCommit(input,v);update();
  });
  hex.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){editing=false;update();hex.blur();}
+  if(e.key==='Escape'){e.preventDefault();editing=false;update(); /* Keep keyboard focus for the next edit. */ }
   if(e.key==='Enter'){hex.dispatchEvent(new Event('change'));if(isHex(hex.value.trim()))hex.blur();}
  });
  // A real native swatch edit takes precedence over the pending text draft.
@@ -362,7 +439,7 @@ function enhanceBinary(label,input,title){
  const field=document.createElement('div');field.className='ds-property-binary';
  const name=span('ds-prop-name',title),group=document.createElement('div');group.className='ds-binary-group';
  group.setAttribute('role','group');group.setAttribute('aria-label',title);
- const states={bottomSectionEnabled:['No fluxo','No rodapé'],selectedSectionBreak:['Continuar','Nova página'],showPageGuides:['Ocultar','Mostrar']}[input.id]||['Off','On'];
+ const states={bottomSectionEnabled:['No fluxo','No rodapé'],selectedSectionBreak:['Continuar','Nova página'],showPageGuides:['Ocultar','Mostrar']}[input.id]||['Não','Sim'];
  const off=button('ds-binary-option',states[0]),on=button('ds-binary-option',states[1]);
  off.setAttribute('aria-label',title+' desligado');on.setAttribute('aria-label',title+' ligado');
  input.classList.add('ds-binary-native');input.setAttribute('aria-hidden','true');input.tabIndex=-1;
@@ -378,7 +455,7 @@ function enhanceBinary(label,input,title){
   if(focused&&input.disabled)focusInspectorNeighbor(focused,{visibleOnly:true});
  };
  const commit=val=>{
-  if(input.disabled)return;
+  if(input.disabled||input.checked===val)return;
   input.checked=val;input.dispatchEvent(new Event('input',{bubbles:true}));
   input.dispatchEvent(new Event('change',{bubbles:true}));update();
  };
@@ -444,6 +521,9 @@ function enhanceSegment(label,select,title){
    const item=rendered[index];
    return item.option!==option||item.value!==option.value||item.label!==labelFor(option);
   });
+  // Apply disabled states before restoring focus after live option changes.
+  // The nearest replacement can itself be disabled or removed.
+  let focusRecovery=null;
   if(changed){
    const focusedIndex=rendered.findIndex(item=>item.button===document.activeElement);
    const focusedOption=rendered[focusedIndex]?.option;
@@ -456,20 +536,26 @@ function enhanceSegment(label,select,title){
    });
    elements=rendered.map(item=>item.button);
    group.replaceChildren(...elements);
-   // Reordering/removing an option must not strand focus on a detached
-   // button. Preserve the native option identity when possible.
-   if(focusedIndex!==-1){
-    const next=rendered.find(item=>item.option===focusedOption)?.button||
-     elements[Math.min(focusedIndex,elements.length-1)];
-    if(next)next.focus({preventScroll:true});
-    else {group.tabIndex=-1;group.focus({preventScroll:true});}
-   }
+   if(focusedIndex!==-1)focusRecovery={focusedIndex,focusedOption};
   }
-  const focused=elements.indexOf(document.activeElement);
+  // Disabling a focused button may synchronously blur it to <body>.
+  // Capture the owner before touching the disabled property.
+  const focusedBeforeDisable=elements.indexOf(document.activeElement);
   for(const [index,btn] of elements.entries()){
    btn.setAttribute('aria-pressed',String(btn.dataset.value===select.value));
    btn.disabled=select.disabled||isSelectOptionDisabled(rendered[index].option);
   }
+  if(focusRecovery){
+   const {focusedIndex,focusedOption}=focusRecovery;
+   const preserved=rendered.find(item=>item.option===focusedOption&&!item.button.disabled);
+   const start=Math.min(focusedIndex,rendered.length);
+   const nearest=[...rendered.slice(start),...rendered.slice(0,start).reverse()]
+    .find(item=>!item.button.disabled);
+   const target=preserved?.button||nearest?.button;
+   if(target)target.focus({preventScroll:true});
+   else focusInspectorNeighbor(select,{visibleOnly:true});
+  }
+  const focused=focusRecovery?elements.indexOf(document.activeElement):focusedBeforeDisable;
   if(focused!==-1&&elements[focused].disabled){
    const next=nextEnabledSegmentIndex(elements.map(item=>item.disabled),focused,'ArrowRight');
    if(next!==-1)elements[next].focus({preventScroll:true});
@@ -484,10 +570,21 @@ function enhanceSegment(label,select,title){
 }
 function closePopup({restoreFocus=true}={}){
  if(!openSelect)return;
- const {popup,trigger,onClose}=openSelect;
+ const {popup,trigger,onClose,visibilityObserver}=openSelect;
+ visibilityObserver?.disconnect();
  popup.remove();trigger.setAttribute('aria-expanded','false');
+ // The portalled listbox no longer exists: never leave a dangling ARIA IDREF.
+ trigger.removeAttribute('aria-controls');
  openSelect=null;onClose?.();
- if(restoreFocus)trigger.focus();
+ if(restoreFocus){
+  // Escape/resize may race with an inspector tab hiding or detaching.
+  // Never restore focus to a disabled or hidden combobox trigger.
+  const usable=trigger.isConnected&&!trigger.disabled&&
+   !trigger.closest('[hidden],[inert],[aria-hidden="true"]')&&
+   trigger.getClientRects().length&&getComputedStyle(trigger).visibility!=='hidden';
+  if(usable)trigger.focus({preventScroll:true});
+  else focusInspectorNeighbor(trigger,{visibleOnly:true});
+ }
 }
 export function isSelectOptionDisabled(option){
  return Boolean(option.disabled||(option.parentElement?.tagName==='OPTGROUP'&&option.parentElement.disabled));
@@ -510,12 +607,15 @@ export function selectPopupNeedsRefresh(rendered,visible){
 }
 // Native-select-style typeahead: skip disabled options and cycle repeated initials.
 export function findEnabledOptionIndex(options,prefix,afterIndex=-1){
- const query=String(prefix).trim().toLocaleLowerCase();
+ // Normalize accents so typing "arv" can find "Árvore" in Portuguese.
+ // Keep the original label for visual display and screen readers.
+ const fold=text=>String(text).normalize('NFD').replace(/\p{M}/gu,'').trim().toLocaleLowerCase();
+ const query=fold(prefix);
  if(!query||!options.length)return -1;
  for(let offset=1;offset<=options.length;offset++){
   const index=(afterIndex+offset+options.length)%options.length;
   const option=options[index];
-  if(!option.disabled&&String(option.label).trim().toLocaleLowerCase().startsWith(query))return index;
+  if(!option.disabled&&fold(option.label).startsWith(query))return index;
  }
  return -1;
 }
@@ -538,13 +638,20 @@ export function selectPopoverLayout(anchor,viewport,contentHeight){
 // keyboard focus, move to a real enabled inspector control. A disabled
 // combobox trigger cannot receive focus, and body is not a useful fallback.
 function focusInspectorNeighbor(trigger,{visibleOnly=false}={}){
- const root=trigger.closest('.design-inspector,dialog')||document.body;
- if(!root)return;
+ const root=trigger.isConnected?(trigger.closest('.design-inspector,dialog')||document.body):null;
+ if(!root){
+  // A portalled option can retain focus after its entire inspector row was
+  // detached. There is no neighboring row to search in that case.
+  const toggle=[$('designToggle'),$('railDesign')].find(el=>el&&!el.disabled&&
+   el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');
+  toggle?.focus({preventScroll:true});
+  return;
+ }
  const controls=[...root.querySelectorAll('button,input,select,textarea,[tabindex]')];
  const index=controls.indexOf(trigger);
  const eligible=el=>{
   if(el===trigger||el.disabled||el.tabIndex<0||
-   el.closest('[hidden],[inert]')||!el.getClientRects().length||
+   el.closest('[hidden],[inert],[aria-hidden="true"]')||!el.getClientRects().length||
    getComputedStyle(el).visibility==='hidden')return false;
   if(!visibleOnly)return true;
   const rect=el.getBoundingClientRect();
@@ -560,7 +667,15 @@ function focusInspectorNeighbor(trigger,{visibleOnly=false}={}){
  const next=controls.slice(index+1).find(eligible)||
   controls.slice(0,index).reverse().find(eligible);
  if(next)next.focus({preventScroll:true});
- else {root.tabIndex=-1;root.focus({preventScroll:true});}
+ else if(root.getClientRects().length&&
+  !root.closest('[hidden],[inert],[aria-hidden="true"]')&&
+  getComputedStyle(root).visibility!=='hidden'){
+  root.tabIndex=-1;root.focus({preventScroll:true});
+ }else{
+  // Closing the inspector itself must not focus a hidden panel.
+  const toggle=[$('designToggle'),$('railDesign')].find(el=>el&&!el.disabled&&el.getClientRects().length);
+  toggle?.focus({preventScroll:true});
+ }
 }
 function makeListbox(label,select,title){
  label.classList.add('ds-property-row','ds-property-row--select');
@@ -589,7 +704,6 @@ function makeListbox(label,select,title){
  }
  const popupId='ds-select-list-'+(++nextUid);
  const searchable=select.hasAttribute('data-searchable');
- trigger.setAttribute('aria-controls',searchable?popupId+'-results':popupId);
  const update=()=>{
   const o=select.selectedOptions[0];
   const selectedLabel=o?.label||o?.textContent||'Selecionar';
@@ -682,6 +796,7 @@ function makeListbox(label,select,title){
    const thumbnail=selectThumbnail(select,opt.value);
    if(thumbnail){item.classList.add('ds-select-option--preview');item.prepend(thumbnail);}
    item.dataset.value=opt.value;
+   item.title=text.textContent; // Full label remains discoverable when ellipsized.
    item.addEventListener('click',()=>{if(isSelectOptionDisabled(opt))return;nativeCommit(select,opt.value);closePopup();});
    item.addEventListener('keydown',e=>{
     const move=(dir)=>{const available=buttons.filter(b=>!b.disabled&&!b.hidden);const cur=available.indexOf(item);if(search&&dir===-1&&cur===0){search.focus();return;}available[(cur+dir+available.length)%available.length]?.focus();};
@@ -695,7 +810,7 @@ function makeListbox(label,select,title){
      closePopup({restoreFocus:false});
      trigger.focus({preventScroll:true});
     }
-    if(e.key.length===1&&/[\p{L}\p{N}]/u.test(e.key)&&!e.altKey&&!e.ctrlKey&&!e.metaKey){
+    if(!e.isComposing&&e.key.length===1&&/[\p{L}\p{N}]/u.test(e.key)&&!e.altKey&&!e.ctrlKey&&!e.metaKey){
      // Search full labels while typing quickly; repeated initials still cycle.
      const now=Date.now(),query=now-lastTypedAt<700?typeahead+e.key:e.key;
      const options=buttons.map(b=>({disabled:b.disabled||b.hidden,label:b.querySelector('.ds-option-label')?.textContent||''}));
@@ -732,6 +847,7 @@ function makeListbox(label,select,title){
    });
   }
   (trigger.closest('dialog')||document.body).append(popup);popup.showPopover();
+  trigger.setAttribute('aria-controls',searchable?popupId+'-results':popupId);
   const reposition=()=>{
    const anchor=trigger.getBoundingClientRect();
    const box=selectPopoverLayout(searchable?{...anchor.toJSON(),width:320}:anchor,
@@ -745,6 +861,27 @@ function makeListbox(label,select,title){
   reposition();
   trigger.setAttribute('aria-expanded','true');
   openSelect={popup,trigger,optionItems,sourceItems:opts.map(option=>({option,value:option.value,label:option.label||option.textContent,group:option.parentElement?.tagName==='OPTGROUP'?option.parentElement.label:null})),reposition,onClose:()=>{}};
+  // The listbox is portalled to body, so hiding its source accordion,
+  // inspector tab or entire panel does not automatically remove it.
+  // Observe only the anchor's ancestor chain while open. This also catches
+  // programmatic tab changes (no pointerdown) and detached inspector nodes.
+  const visibilityObserver=new MutationObserver(()=>{
+   if(openSelect?.trigger!==trigger)return;
+   const hidden=!trigger.isConnected||
+    Boolean(trigger.closest('[hidden],[inert],[aria-hidden="true"]'))||
+    !trigger.getClientRects().length||
+    getComputedStyle(trigger).visibility==='hidden';
+   if(!hidden)return;
+   const focusInPopup=popup.contains(document.activeElement);
+   closePopup({restoreFocus:false});
+   if(focusInPopup)focusInspectorNeighbor(trigger,{visibleOnly:true});
+  });
+  for(let ancestor=trigger;ancestor;ancestor=ancestor.parentElement)
+   visibilityObserver.observe(ancestor,{
+    attributes:true,attributeFilter:['hidden','inert','aria-hidden','class','style'],
+    childList:true
+   });
+  openSelect.visibilityObserver=visibilityObserver;
   const target=buttons.find(b=>b.dataset.value===preferredValue&&!b.disabled)||
    buttons.find(b=>b.dataset.value===select.value&&!b.disabled)||
    buttons.find(b=>!b.disabled);
@@ -873,6 +1010,14 @@ export function initializePropertyControls(){
  }
  document.addEventListener('pointerdown',event=>{
   if(openSelect&&!openSelect.popup.contains(event.target)&&!openSelect.trigger.contains(event.target))closePopup({restoreFocus:false});
+ });
+ // Focus may leave a portalled listbox without a pointer event (scripted
+ // focus, browser navigation or assistive technology). Do not leave an
+ // expanded combobox behind when keyboard focus moves elsewhere. Preserve
+ // the new focus target instead of stealing focus back to the trigger.
+ document.addEventListener('focusin',event=>{
+  if(openSelect&&!openSelect.popup.contains(event.target)&&!openSelect.trigger.contains(event.target))
+   closePopup({restoreFocus:false});
  });
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openSelect){event.preventDefault();closePopup();}});
  document.addEventListener('close',event=>{

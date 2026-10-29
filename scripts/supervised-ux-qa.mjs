@@ -8,11 +8,12 @@
 import {chromium} from 'playwright';
 import {strict as assert} from 'node:assert';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
 import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT} from './ux-qa-coverage.mjs';
 import {renderUxQaGallery} from './ux-qa-gallery.mjs';
+import {verifyScreenshotEvidence} from './resume-ux-review.mjs';
 
 const args=new Set(process.argv.slice(2));
 const automated=args.has('--auto');
@@ -22,7 +23,8 @@ if(!automated&&!stdin.isTTY){
 }
 const headless=args.has('--headless');
 const url=process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173';
-const directory='test-results/ux-audit/supervised';
+const directory=process.env.MDRESS_QA_DIRECTORY||'test-results/ux-audit/supervised';
+const reportPath=process.env.MDRESS_QA_REPORT||'test-results/supervised-ux-qa.json';
 const findings=[],screenshots=[],traces=[],coverage=[];
 let stopped=false,humanReview='not-reviewed',humanReviewEvidence=null;
 const reviewSessionId=randomUUID();
@@ -49,8 +51,23 @@ async function capture(page,theme,width,name){
  // Evidence must be an actual nonempty PNG, not only a reached checkpoint.
  assert.ok(validateScreenshotViewport(png,width),
   'PNG evidence must match the full '+width+'×'+UX_QA_VIEWPORT_HEIGHT+' viewport: '+path);
- screenshots.push({theme,width,state:name,path});
+ screenshots.push({theme,width,state:name,path,sha256:createHash('sha256').update(png).digest('hex')});
  // Interactive review pauses once per viewport, not once per PNG.
+}
+async function assertInspectorFocusHandoff(page,description){
+ const focus=await page.evaluate(()=>{
+  const active=document.activeElement,rect=active?.getBoundingClientRect();
+  const scroll=active?.closest('.inspector-scroll')?.getBoundingClientRect();
+  return {
+   tag:active?.tagName,inside:Boolean(active?.closest('.design-inspector')),
+   interactive:Boolean(active?.matches('button,input,select,textarea,[role="combobox"]')),
+   body:active===document.body,disabled:Boolean(active?.disabled),
+   visible:Boolean(rect?.width&&rect?.height&&rect.bottom>0&&rect.top<innerHeight&&
+    rect.right>0&&rect.left<innerWidth&&(!scroll||rect.bottom>scroll.top&&rect.top<scroll.bottom))
+  };
+ });
+ assert.ok(focus.inside&&focus.interactive&&!focus.body&&!focus.disabled&&focus.visible,
+  description+': '+JSON.stringify(focus));
 }
 function error(phase,theme,width,e){
  findings.push({severity:'error',phase,theme,width,message:e?.stack||String(e)});
@@ -91,6 +108,10 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'range-invalid');
  await precise.press('Escape');
  assert.equal(await precise.getAttribute('aria-invalid'),null);
+ assert.equal(await precise.evaluate(el=>el===document.activeElement),true,
+  'Cancelling an invalid precision draft must preserve keyboard focus');
+ assert.equal(await precise.inputValue(),originalRange,'Escape restores native range value');
+ await capture(page,theme,width,'range-escape-focused');
  // Dragging the real slider must override an abandoned invalid numeric draft.
  await precise.fill('9999');
  await page.locator('#fontSize').evaluate(el=>{
@@ -113,6 +134,12 @@ async function exercise(page,theme,width){
  await page.locator('#fontSize').evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>document.querySelector('.ds-property-range .ds-prop-number')?.disabled===true);
  await capture(page,theme,width,'range-disabled');
+ await page.locator('#fontSize').evaluate(el=>{el.disabled=false;});
+ await precise.focus();
+ await page.locator('#fontSize').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#fontSize')?.closest('.ds-property-range')?.querySelector('.ds-prop-number')?.disabled);
+ await assertInspectorFocusHandoff(page,'Disabling a focused range precision draft must preserve inspector keyboard focus');
+ await capture(page,theme,width,'range-disabled-focus-handoff');
  await page.locator('#fontSize').evaluate(el=>{el.disabled=false;});
  // Inspect live native range constraints in every theme and viewport, using
  // an isolated fixture that never touches persisted document settings.
@@ -152,7 +179,16 @@ async function exercise(page,theme,width){
  const hex=color.locator('.ds-color-hex');
  await color.scrollIntoViewIfNeeded();
  await hex.focus();await capture(page,theme,width,'color-focus');
- const originalColor=await page.locator('#accentColor').inputValue();
+ const colorPickerName=await page.locator('#accentColor').getAttribute('aria-label');
+ assert.ok(colorPickerName?.includes('seletor de cor'),
+  'The native color swatch needs an accessible name distinct from the hex text field');
+ const nativeSwatch=page.locator('#accentColor');
+ await nativeSwatch.focus();
+ assert.equal(await nativeSwatch.evaluate(el=>el===document.activeElement),true,
+  'The native color picker must remain keyboard-focusable');
+ await capture(page,theme,width,'color-swatch-focus');
+ await hex.focus();
+ const originalColor=await nativeSwatch.inputValue();
  await hex.fill('#BAD');await hex.dispatchEvent('change');
  assert.equal(await hex.getAttribute('aria-invalid'),'true');
  assert.equal(await color.locator('..').locator('.ds-prop-error').isVisible(),true);
@@ -170,6 +206,10 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'color-draft-sync');
  await hex.press('Escape');
  assert.equal(await hex.getAttribute('aria-invalid'),null);
+ assert.equal(await hex.evaluate(el=>el===document.activeElement),true,
+  'Cancelling an invalid hex draft must preserve keyboard focus');
+ assert.equal((await hex.inputValue()).toLowerCase(),originalColor.toLowerCase());
+ await capture(page,theme,width,'color-escape-focused');
  const nextColor=originalColor.toLowerCase()==='#abcdef'?'#123456':'#abcdef';
  await hex.fill(nextColor);await hex.dispatchEvent('change');
  assert.equal(await page.locator('#accentColor').inputValue(),nextColor);
@@ -177,9 +217,21 @@ async function exercise(page,theme,width){
  await hex.fill(originalColor);await hex.dispatchEvent('change');
  assert.equal(await page.locator('#accentColor').inputValue(),originalColor);
  await page.locator('#accentColor').evaluate(el=>{el.disabled=true;});
- await page.waitForFunction(()=>document.querySelector('.ds-property-color .ds-color-hex')?.disabled===true);
+ await page.waitForFunction(()=>document.querySelector('#accentColor')?.closest('.ds-property-color')?.querySelector('.ds-color-hex')?.disabled===true);
  await capture(page,theme,width,'color-disabled');
  await page.locator('#accentColor').evaluate(el=>{el.disabled=false;});
+ await hex.focus();
+ await page.locator('#accentColor').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#accentColor')?.closest('.ds-property-color')?.querySelector('.ds-color-hex')?.disabled);
+ await assertInspectorFocusHandoff(page,'Disabling a focused color hex draft must preserve inspector keyboard focus');
+ await capture(page,theme,width,'color-disabled-focus-handoff');
+ await page.locator('#accentColor').evaluate(el=>{el.disabled=false;});
+ await nativeSwatch.focus();
+ await nativeSwatch.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#accentColor')?.disabled===true);
+ await assertInspectorFocusHandoff(page,'Disabling a focused native color swatch must preserve inspector keyboard focus');
+ await capture(page,theme,width,'color-swatch-disabled-focus-handoff');
+ await nativeSwatch.evaluate(el=>{el.disabled=false;});
  const select=page.locator('.ds-property-select').filter({has:page.locator('#fontChoice')});
  const trigger=select.locator('.ds-select-trigger');
  await trigger.scrollIntoViewIfNeeded();await trigger.hover();await capture(page,theme,width,'select-hover');
@@ -202,6 +254,7 @@ async function exercise(page,theme,width){
  assert.equal(await page.locator('#'+describedBy).textContent(),selectedLabel);
  // An optgroup's disabled state must propagate to every enhanced option,
  // including when the native select changes while its popup is open.
+ await page.locator('.ds-select-popover [data-value=system]').focus();
  const firstGroup=page.locator('#fontChoice optgroup').first();
  await firstGroup.evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>[...document.querySelectorAll('.ds-select-popover [data-value]')]
@@ -239,11 +292,29 @@ async function exercise(page,theme,width){
  // is open: adding, hiding and removing options must not strand keyboard focus.
  await page.locator('#fontChoice').evaluate(el=>{
   const option=document.createElement('option');
-  option.value='qa-temporary';option.textContent='QA temporary';
+  option.value='qa-temporary';
+  option.textContent='ÁrvoreTipográficaExtremamenteLongaSemEspaçosParaTestarOverflowDoCombobox';
   el.querySelector('optgroup').append(option);
  });
  const injected=page.locator('.ds-select-popover [data-value="qa-temporary"]');
  await injected.waitFor({state:'visible'});
+ // A long, unbroken label must never widen the portalled listbox beyond
+ // the viewport. Ellipsis is allowed only if the full text is discoverable.
+ await page.locator('.ds-select-popover [data-value="serif"]').focus();
+ await page.keyboard.type('arv',{delay:45});
+ assert.equal(await injected.evaluate(el=>el===document.activeElement),true,
+  'Typing arv must focus Árvore even without its accent');
+ const longOption=await injected.evaluate(el=>{
+  const popup=el.closest('.ds-select-popover'),label=el.querySelector('.ds-option-label');
+  return {popupOverflow:popup.scrollWidth-popup.clientWidth,
+   optionOverflow:el.scrollWidth-el.clientWidth,
+   clipped:label.scrollWidth>label.clientWidth,
+   title:el.title,label:label.textContent};
+ });
+ assert.ok(longOption.popupOverflow<=1&&longOption.optionOverflow<=1&&
+  longOption.clipped&&longOption.title===longOption.label,
+  'Long option must be ellipsized without clipping the popup or hiding its full tooltip: '+JSON.stringify(longOption));
+ await capture(page,theme,width,'select-long-option');
  await injected.focus();
  assert.equal(await injected.evaluate(el=>el===document.activeElement),true);
  // A live native value change must update data-value and preserve focus on
@@ -370,6 +441,52 @@ async function exercise(page,theme,width){
    key+' from portalled listbox must follow inspector tab order: '+JSON.stringify(focusState));
   await capture(page,theme,width,key==='Tab'?'select-tab-forward':'select-tab-backward');
  }
+ // Closing the source accordion via script must dismiss its portalled
+ // listbox. Otherwise the orphaned options remain interactive outside a
+ // hidden section and keyboard focus disappears into detached UI.
+ await trigger.focus();await trigger.press('ArrowDown');
+ await page.locator('#fontChoice').evaluate(el=>{
+  const toggle=el.closest('.ds-accordion')?.querySelector('.ds-accordion-toggle');
+  if(!toggle||toggle.getAttribute('aria-expanded')!=='true')throw Error('Font accordion unavailable');
+  toggle.click();
+ });
+ await page.waitForFunction(()=>document.querySelector('#fontChoice')?.closest('.ds-property-select')
+  ?.querySelector('.ds-select-trigger')?.getAttribute('aria-expanded')==='false');
+ assert.equal(await page.locator('.ds-select-popover').count(),0,
+  'Collapsing an accordion must remove its portalled listbox');
+ await assertInspectorFocusHandoff(page,'Accordion collapse must restore visible inspector keyboard focus');
+ await capture(page,theme,width,'select-accordion-collapse-focus-handoff');
+ await page.locator('#fontChoice').evaluate(el=>
+  el.closest('.ds-accordion').querySelector('.ds-accordion-toggle').click());
+ await trigger.scrollIntoViewIfNeeded();
+ // Programmatic tab changes also lack pointerdown. A popup must never
+ // survive when its source panel is hidden by a tab transition.
+ await trigger.focus();await trigger.press('ArrowDown');
+ await page.locator('[data-inspector-tab="page"]').evaluate(el=>el.click());
+ await page.waitForFunction(()=>document.querySelector('#fontChoice')?.closest('.ds-property-select')
+  ?.querySelector('.ds-select-trigger')?.getAttribute('aria-expanded')==='false');
+ assert.equal(await page.locator('.ds-select-popover').count(),0,
+  'Changing inspector tabs must dismiss a stale listbox');
+ await assertInspectorFocusHandoff(page,'Inspector tab switch must preserve visible keyboard focus');
+ await capture(page,theme,width,'select-tab-switch-focus-handoff');
+ await revealInspector(page,'document');
+ await trigger.scrollIntoViewIfNeeded();
+ // Closing the entire inspector while a portalled option is focused must
+ // hand focus to the visible opener, not to the now-hidden inspector root.
+ await trigger.focus();await trigger.press('ArrowDown');
+ await page.locator('#designToggle').evaluate(el=>el.click());
+ await page.waitForFunction(()=>document.querySelector('#themesView')?.classList.contains('hidden')&&
+  !document.querySelector('.ds-select-popover'));
+ const panelCloseFocus=await page.evaluate(()=>{
+  const el=document.activeElement,rect=el?.getBoundingClientRect();
+  return {id:el?.id,visible:Boolean(rect?.width&&rect?.height&&
+   rect.top<innerHeight&&rect.bottom>0&&rect.left<innerWidth&&rect.right>0)};
+ });
+ assert.ok(['designToggle','railDesign'].includes(panelCloseFocus.id)&&panelCloseFocus.visible,
+  'Closing the inspector must focus its visible opener: '+JSON.stringify(panelCloseFocus));
+ await capture(page,theme,width,'select-inspector-close-focus-handoff');
+ await revealInspector(page,'document');
+ await trigger.scrollIntoViewIfNeeded();
  await trigger.focus();await trigger.press('ArrowDown');
  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
  await page.locator('#fontChoice').evaluate(el=>{el.disabled=true;});
@@ -429,10 +546,41 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'number-valid');
  await input.fill(originalNumber);await input.dispatchEvent('change');
  assert.equal(await input.inputValue(),originalNumber);
+ await input.fill(nextNumber);
+ await input.press('Escape');
+ assert.equal(await input.inputValue(),originalNumber,'Escape must roll back a valid, uncommitted numeric draft');
+ assert.equal(await input.evaluate(el=>document.activeElement===el),true,'Rollback must preserve keyboard focus');
+ await capture(page,theme,width,'number-rollback-valid-draft');
  assert.match(await input.getAttribute('aria-label'),/margens/i,'Numeric control must preserve its existing accessible name');
  await input.evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>[...document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelectorAll('.ds-number-step')||[]].every(b=>b.disabled));
  await capture(page,theme,width,'number-disabled');
+ await input.evaluate(el=>{el.disabled=false;});
+ // Disabling during an invalid edit must restore the last committed value
+ // and clear stale error feedback, without publishing the invalid draft.
+ await input.fill('9999');
+ assert.equal(await input.getAttribute('aria-invalid'),'true');
+ await input.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(value=>document.querySelector('#marginMm')?.value===value,originalNumber);
+ assert.equal(await input.inputValue(),originalNumber,
+  'Disabling a numeric field must discard the uncommitted invalid draft');
+ assert.equal(await input.getAttribute('aria-invalid'),null);
+ assert.equal(await number.locator('..').locator('.ds-prop-error').isVisible(),false);
+ await capture(page,theme,width,'number-disabled-invalid-draft');
+ await input.evaluate(el=>{el.disabled=false;});
+ await input.focus();
+ await input.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>[...document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelectorAll('.ds-number-step')||[]].every(b=>b.disabled));
+ await assertInspectorFocusHandoff(page,'Disabling a focused native number must preserve inspector keyboard focus');
+ await capture(page,theme,width,'number-disabled-focus-handoff');
+ await input.evaluate(el=>{el.disabled=false;});
+ const increment=number.locator('.ds-number-step').last();
+ await increment.focus();
+ assert.equal(await increment.evaluate(el=>el===document.activeElement),true,'Number stepper must be keyboard focusable');
+ await input.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>[...document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelectorAll('.ds-number-step')||[]].every(b=>b.disabled));
+ await assertInspectorFocusHandoff(page,'Disabling a focused number stepper must preserve inspector keyboard focus');
+ await capture(page,theme,width,'number-stepper-disabled-focus-handoff');
  await input.evaluate(el=>{el.disabled=false;});
  const binary=page.locator('.ds-property-binary').filter({has:page.locator('#showPageGuides')});
  const native=page.locator('#showPageGuides');
@@ -544,7 +692,19 @@ async function exercise(page,theme,width){
  assert.ok(segmentFocus.inside&&segmentFocus.enabled&&segmentFocus.attached&&!segmentFocus.isBody,
   'Removing a focused segment must transfer focus to an existing enabled option: '+JSON.stringify(segmentFocus));
  await capture(page,theme,width,'segment-live-focus-handoff');
- await nativeSegment.locator('option[value="none"]').evaluate(el=>{el.hidden=false;});
+ // A disabled nearest neighbor must be skipped when the focused option disappears.
+ await nativeSegment.locator('option[value="none"]').evaluate(el=>{el.hidden=false;el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelector('[data-value="none"]')?.disabled===true);
+ await block.focus();
+ await blockOption.evaluate(el=>{el.hidden=true;});
+ await page.waitForFunction(()=>!document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelector('[data-value="block"]'));
+ assert.equal(await line.evaluate(el=>el===document.activeElement),true,
+  'Removing a focused segment must skip disabled neighboring options');
+ await capture(page,theme,width,'segment-removed-disabled-neighbor');
+ await blockOption.evaluate(el=>{el.hidden=false;});
+ await nativeSegment.locator('option[value="none"]').evaluate(el=>{el.disabled=false;});
  await blockOption.evaluate((el,text)=>{el.textContent=text;},originalBlockText);
  await page.waitForFunction(()=>document.querySelector('#sectionRule')?.closest('.ds-property-segment')
   ?.querySelectorAll('.ds-segment-option').length===3);
@@ -604,13 +764,59 @@ async function toolbarAudit(page,theme,width){
  assert.equal(await last.evaluate(el=>el===document.activeElement),true,
   'Focusing the last toolbar action must preserve keyboard focus');
  await capture(page,theme,width,'toolbar-last-focus');
+ // A command can become unavailable while it owns keyboard focus (for
+ // example, undo/redo after document history changes). The toolbar must
+ // hand focus to another enabled action rather than dropping it on body.
+ // Use an isolated visual fixture: application state can immediately
+ // re-enable real formatting commands, invalidating a disabled-state test.
+ await toolbar.evaluate(el=>{
+  const source=el.querySelector('[data-md-command="bold"]');
+  const fixture=source.cloneNode(true);
+  fixture.removeAttribute('data-md-command');
+  fixture.dataset.qaFocusFixture='true';
+  fixture.setAttribute('aria-label','Comando indisponível (QA)');
+  fixture.title='Comando indisponível (QA)';
+  source.after(fixture);
+ });
+ const action=toolbar.locator('[data-qa-focus-fixture]');
+ await action.focus();
+ await action.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>{
+  const active=document.activeElement;
+  return Boolean(active?.closest('.markdown-toolbar')&&!active.disabled&&
+   active!==document.querySelector('[data-qa-focus-fixture]'));
+ });
+ assert.equal(await action.evaluate(el=>el===document.activeElement),false,
+  'Disabled Markdown command must relinquish focus');
+ await capture(page,theme,width,'toolbar-disabled-focus-handoff');
+ // Hidden and detached actions can also drop focus onto body without
+ // ever receiving disabled=true. Cover both across the full QA matrix.
+ await action.evaluate(el=>{el.disabled=false;});
+ await action.focus();
+ await action.evaluate(el=>{el.hidden=true;});
+ assert.equal(await action.isVisible(),false,'Hidden toolbar actions must not remain rendered');
+ await page.waitForFunction(()=>{
+  const active=document.activeElement,fixture=document.querySelector('[data-qa-focus-fixture]');
+  return Boolean(active?.closest('.markdown-toolbar')&&active!==fixture&&
+   !active.matches(':disabled,[aria-disabled="true"]')&&active.getClientRects().length);
+ });
+ await capture(page,theme,width,'toolbar-hidden-focus-handoff');
+ await action.evaluate(el=>{el.hidden=false;});
+ await action.focus();
+ await action.evaluate(el=>el.remove());
+ await page.waitForFunction(()=>{
+  const active=document.activeElement;
+  return Boolean(active?.closest('.markdown-toolbar')&&active!==document.body&&
+   !active.matches(':disabled,[aria-disabled="true"]')&&active.getClientRects().length);
+ });
+ await capture(page,theme,width,'toolbar-detached-focus-handoff');
 }
 await mkdir(directory,{recursive:true});
 let browser;
 try{
  browser=await chromium.launch({headless,slowMo:automated?0:120,args:['--no-sandbox']});
  for(const theme of ['graphite','studio']){
-  for(const width of [1440,1024,768]){
+  for(const width of [1440,1024,768,390]){
    if(stopped)break;
    const context=await browser.newContext({viewport:{width,height:UX_QA_VIEWPORT_HEIGHT}});
    const page=await context.newPage();
@@ -628,7 +834,7 @@ try{
     try{await toolbarAudit(page,theme,width);toolbarPassed=true;}catch(e){if(e instanceof ReviewStopped)throw e;error('toolbar',theme,width,e);}
     try{await exercise(page,theme,width);inspectorPassed=true;}catch(e){if(e instanceof ReviewStopped)throw e;error('inspector',theme,width,e);}
     // Keep the headed browser available for inspection between viewports.
-    // Six checkpoints replace 282 interruptions while preserving m/q/ENTER.
+    // Eight checkpoints replace hundreds of interruptions while preserving m/q/ENTER.
     await checkpoint(theme+'/'+width+' — capturas concluídas; m=inspecionar, ENTER=próxima largura');
     for(const message of errors)findings.push({severity:'error',phase:'runtime',theme,width,message});
     scenarioPassed=toolbarPassed&&inspectorPassed&&errors.length===0;
@@ -659,7 +865,8 @@ finally{
    // Validate bytes again after capture: files may be truncated, replaced
    // or corrupted before the final report and human review are generated.
    const png=await readFile(entry.path);
-   if(!validateScreenshotViewport(png,entry.width))missingFiles.push(entry.path);
+   if(!validateScreenshotViewport(png,entry.width)||
+    createHash('sha256').update(png).digest('hex')!==entry.sha256)missingFiles.push(entry.path);
   }catch{missingFiles.push(entry.path);}
  }
  if(missingFiles.length)findings.push({severity:'error',phase:'screenshot-files',theme:'all',width:0,
@@ -699,6 +906,18 @@ finally{
       if(!validation.valid){
        humanReview='not-reviewed';
        console.error('[UX QA] Aprovação recusada: sessão incorreta ou estados pendentes/reprovados. '+JSON.stringify(validation));
+      }else{
+       // The reviewer may spend hours inspecting the gallery. Revalidate
+       // immutable evidence at sign-off, not just before opening the gallery.
+       try{
+        humanReviewEvidence.verifiedScreenshots=await verifyScreenshotEvidence(screenshots);
+        humanReviewEvidence.verifiedAt=new Date().toISOString();
+       }catch(error){
+        humanReview='not-reviewed';
+        humanReviewEvidence.valid=false;
+        humanReviewEvidence.error=error.message;
+        console.error('[UX QA] Aprovação recusada: '+error.message);
+       }
       }
      }catch(e){
       humanReview='not-reviewed';
@@ -711,10 +930,10 @@ finally{
  }
  io?.close();
  const summary=summarizeUxCoverage(coverage,findings,stopped);
- const report={schema:5,reviewSessionId,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,screenshotCoverage,
+ const report={schema:6,reviewSessionId,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,screenshotCoverage,
   humanReview:{status:automated?'not-applicable':humanReview,requiresExplicitApproval:true,evidence:humanReviewEvidence},
   gallery:galleryPath,coverage,screenshots,traces,findings};
- await writeFile('test-results/supervised-ux-qa.json',JSON.stringify(report,null,2)+'\n');
- console.log('[UX QA] report: test-results/supervised-ux-qa.json | status: '+summary.status+' | human review: '+report.humanReview.status+' | scenarios: '+summary.passing+'/'+summary.expected+' | screenshots: '+screenshots.length+' | findings: '+findings.length);
+ await writeFile(reportPath,JSON.stringify(report,null,2)+'\n');
+ console.log('[UX QA] report: '+reportPath+' | status: '+summary.status+' | human review: '+report.humanReview.status+' | scenarios: '+summary.passing+'/'+summary.expected+' | screenshots: '+screenshots.length+' | findings: '+findings.length);
  if(summary.status!=='passed'||humanReview==='rejected')process.exitCode=1;
 }

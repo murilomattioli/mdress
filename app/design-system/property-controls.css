@@ -178,6 +178,11 @@
  scrollbar-color:var(--ds-border) transparent;
 }
 .ds-select-option{display:flex;align-items:center;justify-content:space-between;gap:9px;border:0;border-radius:6px;min-height:34px;padding:7px 9px;background:transparent;color:var(--ds-text-secondary);font:550 11px/1.25 var(--ds-font);text-align:left}
+/* Native option labels can contain unbroken user-defined theme names. Keep
+ * them inside the portalled listbox and expose the full text via title. */
+.ds-select-option{width:100%;min-width:0}
+.ds-select-option .ds-option-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ds-select-popover .ds-select-group-label{overflow-wrap:anywhere}
 .ds-select-option:hover,.ds-select-option:focus-visible{background:var(--ds-panel-raised);color:var(--ds-text)}
 .ds-select-option:disabled{opacity:.48;cursor:not-allowed}
 .ds-select-popover--searchable{overflow:hidden;padding:8px;gap:6px}
@@ -268,6 +273,15 @@
 }
 .ds-property-range:has(.ds-range-native:focus-visible) .ds-prop-track{outline:2px solid var(--ds-focus);outline-offset:2px}
 .ds-property-color:has(.ds-color-native:focus-visible) .ds-color-swatch{outline:2px solid var(--ds-focus);outline-offset:2px}
+/* Native text inputs previously removed their own outline and relied only
+ * on the large row border. Show a 2px keyboard-focus indicator on the exact
+ * editable field without consuming the tight mobile layout's outer space. */
+.design-inspector .ds-prop-numberbox .ds-prop-number:focus-visible,
+.design-inspector .ds-number-actions .ds-number-native:focus-visible,
+.design-inspector .ds-color-right .ds-color-hex:focus-visible{
+ outline:2px solid var(--ds-focus)!important;
+ outline-offset:-2px!important;
+}
 @container(max-width:245px){
  .ds-property-range{grid-template-columns:minmax(52px,1fr) minmax(40px,1fr) minmax(60px,75px);gap:4px;padding-inline:6px}
  .ds-property-number{grid-template-columns:minmax(45px,1fr) auto;gap:4px;padding-inline:6px}
@@ -630,7 +644,7 @@
  display:grid;grid-template-columns:minmax(0,1fr) auto!important;grid-template-rows:auto var(--inspector-field-height);gap:4px 8px;align-items:center;
 }
 .design-inspector :is(#inspector-document,#inspector-content,#inspector-page,#inspector-themes) .ds-property-select>.ds-prop-name{
- display:flex;grid-column:1;grid-row:1;align-items:center;justify-content:flex-start;gap:6px;width:auto;min-height:24px;font-size:11px;font-weight:500;color:var(--ds-text-secondary);
+ display:flex;grid-column:1;grid-row:1;align-items:center;justify-content:flex-start;gap:6px;width:auto;min-height:24px;font-size:12px;font-weight:500;color:var(--ds-text-secondary);
 }
 .design-inspector .ds-property-select .ds-prop-name-hidden{position:static;width:auto;height:auto;padding:0;margin:0;overflow:visible;clip-path:none;white-space:normal}
 .design-inspector .ds-property-select>.ds-choice-actions{grid-column:2;grid-row:1;justify-self:end}
@@ -642,7 +656,7 @@
  display:grid;grid-template-columns:minmax(0,1fr) var(--inspector-value-width)!important;grid-template-rows:auto var(--inspector-field-height);gap:4px 8px;align-items:center;
 }
 .design-inspector :is(#inspector-document,#inspector-content,#inspector-page,#inspector-themes) :is(.ds-property-color,.ds-property-number,.ds-property-binary,.ds-property-segment,.ds-property-range)>.ds-prop-name{
- display:flex;grid-column:1/-1;grid-row:1;align-items:center;justify-content:flex-start;gap:6px;width:auto;min-height:24px;font-size:11px;font-weight:500;color:var(--ds-text-secondary);
+ display:flex;grid-column:1/-1;grid-row:1;align-items:center;justify-content:flex-start;gap:6px;width:auto;min-height:24px;font-size:12px;font-weight:500;color:var(--ds-text-secondary);
 }
 .design-inspector .ds-prop-name-hidden{position:static;width:auto;height:auto;padding:0;margin:0;overflow:visible;clip-path:none;white-space:normal}
 .design-inspector :is(.ds-color-right,.ds-number-actions,.ds-binary-group,.ds-segment-buttons){grid-column:1/-1;grid-row:2;width:100%}
@@ -679,5 +693,27 @@
 .design-inspector .ds-scrub-control :is(.ds-prop-fill,.ds-prop-ticks,.ds-prop-thumb),.design-inspector .ds-scrub-control .ds-prop-track::before{display:none}
 .design-inspector .ds-scrub-control :is(.ds-range-native,.ds-scrub-range){position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:ew-resize;padding:0}
 .design-inspector .ds-scrub-control .ds-prop-numberbox{flex:0 0 72px;width:72px;height:100%;min-width:0;border:0;background:transparent;padding:0 4px}
-.design-inspector .ds-scrub-control .ds-number-native{flex:0 0 48px;width:48px;min-width:0;background:transparent;border:0;padding:0 3px;text-align:right}
+.design-inspector .ds-scrub-control .ds-number-native{flex:0 0 56px;width:56px;min-width:0;background:transparent;border:0;padding:0 3px;text-align:right}
 .design-inspector .ds-scrub-control .ds-prop-unit{flex:none;padding-right:5px}
+
+/* UX-023 mobile ergonomics: a 390px inspector must not reuse mouse-sized
+ * 29–36px hit areas. Keep native IDs and source-of-truth controls unchanged. */
+@media(max-width:540px){
+ /* A narrow grid track can be only 40–42px wide despite its 44px height.
+  * Keep the actual native slider hit area at least 44px in both axes. */
+ .design-inspector .ds-property-range .ds-prop-track{min-width:44px;min-height:44px}
+ .design-inspector .ds-property-range{grid-template-columns:minmax(44px,1fr) auto}
+ .design-inspector .ds-prop-numberbox .ds-prop-number{height:44px!important}
+ .design-inspector .ds-number-actions .ds-number-native{height:44px!important}
+ .design-inspector .ds-number-step{min-width:44px;width:44px;min-height:44px;height:44px}
+ .design-inspector .ds-color-swatch{min-width:44px;width:44px;height:44px}
+ .design-inspector .ds-color-hex{height:44px!important}
+ .design-inspector .ds-select-trigger{min-height:44px;height:44px}
+ .design-inspector .ds-select-option{min-height:44px}
+ .design-inspector .ds-segment-option,.design-inspector .ds-binary-option{min-height:44px;height:44px}
+}
+
+@media(max-width:540px){.design-inspector{--inspector-field-height:44px}.design-inspector .ds-scrub-control .ds-scrub-step{flex-basis:44px;width:44px;height:44px}.design-inspector .ds-scrub-control{height:44px}.design-inspector .ds-scrub-control .ds-prop-track{min-width:44px;min-height:42px}}
+
+.design-inspector :is(#inspector-document,#inspector-content,#inspector-page,#inspector-themes) .ds-prop-name{font-size:12px}
+@media(max-width:540px){.design-inspector .ds-property-color .ds-color-right{padding-block:0;min-height:46px}.design-inspector .ds-property-color .ds-color-swatch{flex-basis:44px;width:44px;height:44px}.design-inspector .ds-property-color .ds-color-hex{height:44px!important}}

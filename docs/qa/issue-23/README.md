@@ -1,0 +1,31 @@
+# Issue #23 — evidências duráveis
+
+Capturadas localmente em 29/10/2026, sobre a integração de `7d2688b`, `c341201`, `7e2e19f` e `0a0870c`. Documento sintético padrão; nenhum documento pessoal do usuário.
+
+- [Desktop graphite, 1440 × 900](desktop-fonts.png): busca de fonte, painel e editor.
+- [Mobile studio, 390 × 900](mobile-fonts.png): listbox dentro do viewport e foco visível.
+- [PDF Soft Mesh](pdf-mesh.png): primeira página renderizada do PDF real, após corrigir a regra responsiva que ocultava o canvas na impressão com o inspetor aberto.
+
+Estas três imagens foram inspecionadas pelo agente. Não representam aprovação humana das 544 capturas. A matriz automática completa passou em 8/8 cenários, sem findings, e está em `test-results/ux-audit/supervised/index.html` (gerada localmente, não versionada). Os artefatos de CI expiram em dois dias; estas imagens permanecem no Git.
+
+## Reproduzir sem instalar dependências
+
+Com Node e Playwright já disponíveis:
+
+```powershell
+$env:PORT='4174'
+npm run dev
+# Outro terminal:
+$env:MDRESS_AUDIT_URL='http://127.0.0.1:4174'
+npm run check
+npm test
+node scripts/e2e.mjs
+node scripts/component-ux-audit.mjs
+npm run qa:automatic
+node scripts/ux-qa-gallery-smoke.mjs
+npm run qa:supervised
+```
+
+No runner headed: ENTER avança, `m` permite intervenção no navegador, ENTER retoma, `q` interrompe sem aprovar. Para não sobrescrever outra sessão, configure `MDRESS_QA_DIRECTORY` e `MDRESS_QA_REPORT`. Exporte a revisão na galeria e use `npm run qa:resume-review -- CAMINHO_DO_JSON` para retomar a homologação vinculada às capturas.
+
+`node scripts/pdf-quality.mjs` requer `pdfinfo` e `pdftotext` existentes. Alternativamente, `MDRESS_PDF_PYTHON` pode apontar para um Python existente com pypdf, sem instalação. A suíte verifica texto extraível, tamanho, paginação física, títulos/primeiro parágrafo e quebras explícitas; não certifica acessibilidade PDF/UA.

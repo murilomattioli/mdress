@@ -181,7 +181,7 @@ button,select,input,textarea{font:inherit}
  .ds-segmented button span{display:none}
  .page-stack{--preview-zoom:.64}
 }
-@media(max-width:860px){
+@media screen and (max-width:860px){
  .topbar{grid-template-columns:1fr auto;gap:8px}
  .appbar-center{display:flex;grid-column:1/-1;grid-row:2;justify-content:center;gap:8px}
  :root{--ds-appbar-height:108px}
@@ -340,6 +340,8 @@ button,select,input,textarea{font:inherit}
 
 /* Overflow affordances stay outside the scrolling toolbar so they remain visible. */
 .editor-panel .markdown-toolbar-shell{display:flex;align-items:stretch;min-width:0;flex:0 0 auto;background:var(--ds-panel);border-bottom:1px solid var(--ds-border-subtle)}
+/* Author-level flex/button rules must not override native hidden semantics. */
+.editor-panel .markdown-toolbar [hidden]{display:none!important}
 .editor-panel .markdown-toolbar-shell .markdown-toolbar{flex:1 1 auto;min-width:0;border-bottom:0}
 .editor-panel .toolbar-scroll-button{display:grid;place-items:center;flex:0 0 28px;width:28px;min-width:28px;padding:0;border:0;border-radius:0;background:var(--ds-panel-raised);color:var(--ds-text);font-size:23px;cursor:pointer}
 .editor-panel .toolbar-scroll-button:hover:not(:disabled){background:var(--ds-panel-hover)}
@@ -350,7 +352,7 @@ button,select,input,textarea{font:inherit}
 /* UX-023: the design inspector must remain reachable on compact screens.
  * The preview canvas is hidden in split/edit mode, but it owns the inspector.
  * Expose only its inspector as a floating overlay when the Design rail opens. */
-@media(max-width:860px){
+@media screen and (max-width:860px){
  .workspace[data-mode=split] .preview-panel:has(.design-inspector:not(.hidden)),
  .workspace[data-mode=edit] .preview-panel:has(.design-inspector:not(.hidden)){
   display:flex!important;position:absolute!important;inset:0 0 0 var(--rail-width);

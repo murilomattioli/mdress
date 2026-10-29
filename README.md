@@ -4,7 +4,7 @@
 
 Editor visual de Markdown com pré-visualização, personalização de estilos e exportação.
 
-> **v0.1.0 — migração em andamento.** Este branch é um snapshot parcial de desenvolvimento e ainda não está pronto para merge ou release.
+> **v0.1.0 — migração em andamento.** O snapshot original foi importado; a evolução de UX está no PR #27, empilhado no PR #4. Homologação humana e decisões de licença/escopo legado continuam pendentes antes da integração.
 
 ## Padrões de interface
 
@@ -20,7 +20,7 @@ npm run check
 npm test
 ```
 
-O servidor local usa a porta 4173. Testes de navegador e auditoria de componentes dependem do Playwright e de uma importação completa dos assets.
+O servidor local usa a porta 4173. Testes de navegador dependem do Playwright já disponível. Veja [evidências e comandos de homologação](docs/qa/issue-23/README.md) e [estado da migração](docs/migration-status.md).
 
 ## Governança
 
