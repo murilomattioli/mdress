@@ -82,11 +82,16 @@ export function attachToolbarOverflow(toolbar){
  };
  toolbar.addEventListener('scroll',schedule,{passive:true});
  toolbar.addEventListener('focusout',event=>{
-  // Hiding a focused group can blur it before the observer runs. Retain
-  // its origin until the focus handoff is completed.
-  if(event.target===lastFocusedAction&&focusable(event.target))
-   lastFocusedAction=null;
+  // A focused action can blur *before* the DOM removal/hidden mutation.
+  // A null relatedTarget is not proof of deliberate keyboard navigation.
+  if(event.target===lastFocusedAction&&event.relatedTarget&&
+   !toolbar.contains(event.relatedTarget))lastFocusedAction=null;
  });
+ // A pointer interaction outside the toolbar is intentional; never pull
+ // its focus back when a subsequent toolbar mutation arrives.
+ document.addEventListener('pointerdown',event=>{
+  if(!shell.contains(event.target))lastFocusedAction=null;
+ },{capture:true});
  toolbar.addEventListener('focusin',event=>{
   const target=event.target;
   if(target.matches?.(actionSelector))lastFocusedAction=target;
