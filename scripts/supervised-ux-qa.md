@@ -10,15 +10,15 @@ git status --short # preserve alterações locais antes de trocar de branch
 git fetch origin
 git switch feat/23-property-controls-ux-qa
 git pull --ff-only origin feat/23-property-controls-ux-qa
-pnpm install
-pnpm exec playwright install chromium
-pnpm dev
+npm install --include=dev
+npx playwright install chromium
+npm run dev
 ```
 
 Abra um segundo terminal na mesma pasta:
 
 ```powershell
-pnpm qa:supervised
+npm run qa:supervised
 ```
 
 O runner faz **um checkpoint por tema e largura (oito ao todo)**, depois de capturar os estados daquele viewport. Não é necessário pressionar Enter a cada screenshot. **Enter** avança ao próximo checkpoint, **m** libera o navegador para intervenção manual e **q** interrompe imediatamente o ciclo (inclusive no prompt de retomada), com código de saída não zero. **Ao terminar a matriz funcional, o modo supervisionado solicita um veredito visual explícito:** `a` solicita o arquivo JSON exportado da galeria (a aprovação só é registrada se todos os 72 estados tiverem sido marcados como aprovados na sessão atual); `r` reprova (exit code não zero), **Enter** mantém a revisão pendente e `q` interrompe. Arquivo ausente, sessão divergente ou estados pendentes/reprovados impedem a aprovação, mas não transformam checks automatizados verdes em falhas funcionais. Um resultado funcional `passed` nunca é sinônimo de homologação visual. A interrupção encerra a matriz sem solicitar checkpoints adicionais. O relatório inclui `summary.status` (`passed`, `failed` ou `stopped`) e `humanReview.status` (`approved`, `rejected`, `not-reviewed` ou `not-applicable` no CI) e reprova cobertura incompleta, repetida ou com subauditorias falhas. Capturas incluem estados hover de range e select. A auditoria salva as capturas em `test-results/ux-audit/supervised/` e o relatório em `test-results/supervised-ux-qa.json` (ignorados pelo Git). Se o servidor usar outra porta, configure `$env:MDRESS_AUDIT_URL='http://127.0.0.1:4174'` antes de executar o runner.
@@ -28,7 +28,7 @@ O runner faz **um checkpoint por tema e largura (oito ao todo)**, depois de capt
 O runner grava um `*-trace.zip` por cenário que **falhar ou for interrompido**. Cenários aprovados descartam o trace para evitar artefatos grandes. O JSON `test-results/supervised-ux-qa.json` lista os arquivos em `traces`, com tema e largura; os ZIPs ficam em `test-results/ux-audit/supervised/`. O Browser Smoke anexa esses traces quando houver falha. Para abrir localmente:
 
 ```powershell
-pnpm exec playwright show-trace test-results/ux-audit/supervised/graphite-1440-trace.zip
+npx playwright show-trace test-results/ux-audit/supervised/graphite-1440-trace.zip
 ```
 
 Os traces podem conter o conteúdo dos documentos usados nos testes. Não publique esses ZIPs fora de um ambiente de QA controlado sem revisá-los.
@@ -36,7 +36,7 @@ Os traces podem conter o conteúdo dos documentos usados nos testes. Não publiq
 ## Execução automática (CI ou terminal)
 
 ```powershell
-pnpm qa:automatic
+npm run qa:automatic
 ```
 
 O CI executa Chromium headless, sem interação humana. Checks verdes indicam apenas que as assertivas automatizadas passaram. Avalie screenshots de foco, erros, controles desabilitados, overflow e legibilidade em todos os tamanhos testados. Registre problemas na issue #23, com tema, largura e estado. Não faça merge antes da homologação.
@@ -71,12 +71,12 @@ Se a matriz supervisionada **já terminou com `summary.status=passed`**, mas voc
 
 ```powershell
 cd F:\Projects\lumu\tools\mdress
-pnpm qa:resume-review "C:\Users\<usuario>\Downloads\mdress-ux023-review.json"
+npm run qa:resume-review -- "C:\Users\<usuario>\Downloads\mdress-ux023-review.json"
 ```
 
 O comando reabre `test-results/supervised-ux-qa.json`, exige uma sessão **supervisionada e concluída**, valida o ID do JSON exportado e todos os 72 vereditos, e **relê os 576 arquivos PNG do disco**, verificando integridade e dimensões antes de registrar `humanReview.status=approved`. Captura ausente, corrompida, renomeada, sessão interrompida, resultado funcional falho ou JSON de outra sessão bloqueiam a aprovação sem modificar o relatório anterior. Não executa navegador nem CI, não cria capturas e **não realiza merge ou publicação**. A revisão visual e interativa precisa ter sido feita por você; esse comando apenas registra o veredito humano após verificar as evidências.
 
-Se a execução foi interrompida **antes de concluir a matriz**, o status permanece `stopped` e a homologação é recusada: execute `pnpm qa:supervised` novamente para produzir uma matriz completa. Preserve o diretório `test-results/ux-audit/supervised/` e o relatório original enquanto revisa, pois uma nova captura gera outro ID de sessão e invalida o JSON anterior.
+Se a execução foi interrompida **antes de concluir a matriz**, o status permanece `stopped` e a homologação é recusada: execute `npm run qa:supervised` novamente para produzir uma matriz completa. Preserve o diretório `test-results/ux-audit/supervised/` e o relatório original enquanto revisa, pois uma nova captura gera outro ID de sessão e invalida o JSON anterior.
 
 
 ### Slider auxiliar de números e limites dinâmicos
