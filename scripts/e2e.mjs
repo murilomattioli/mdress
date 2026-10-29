@@ -67,6 +67,16 @@ try {
  await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Rolar ferramentas para a direita');
  assert.equal(await previousTools.isDisabled(),true,'Start of toolbar disables the backward arrow');
  await toolbar.screenshot({path:'test-results/ux-audit/toolbar-scroll-start-focus-handoff.png',animations:'disabled'});
+ // Switching to a mode that hides the toolbar while a scroll arrow owns
+ // focus must land on the editor, never on a hidden command or the body.
+ await nextTools.focus();
+ await toolbar.evaluate(el=>{el.style.display='none';});
+ await page.waitForFunction(()=>document.activeElement?.id==='source');
+ assert.equal(await page.locator('#source').evaluate(el=>el===document.activeElement),true,
+  'Hiding a toolbar with a focused scroll arrow must restore editor focus');
+ await page.screenshot({path:'test-results/ux-audit/toolbar-hidden-arrow-focus-handoff.png',animations:'disabled'});
+ await toolbar.evaluate(el=>{el.style.removeProperty('display');});
+ await nextTools.waitFor({state:'visible'});
  // Newly added toolbar groups must be observed, and disabling a focused
  // action must preserve keyboard navigation even without a resize event.
  await toolbar.evaluate(el=>{
