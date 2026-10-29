@@ -1,5 +1,5 @@
 import {test} from 'node:test';import {strict as assert} from 'node:assert';
-import {normalizeRange,rangeConstraints,rangeStepTarget,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex,selectPopoverLayout,selectPopupNeedsRefresh,visibleSelectOptions} from '../app/design-system/property-controls.js';
+import {normalizeRange,rangeConstraints,rangeStepTarget,numericScrubBoundsValid,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex,selectPopoverLayout,selectPopupNeedsRefresh,visibleSelectOptions} from '../app/design-system/property-controls.js';
 test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(11.22,9,14,.5),11);
  assert.equal(normalizeRange(1.174,1.1,2.2,.05),1.15);
@@ -50,6 +50,17 @@ test('range steppers handle free steps, grid endpoints and inert boundaries',()=
  assert.equal(rangeStepTarget(4,1,0,10,0),null);
  assert.equal(rangeStepTarget(NaN,1,0,10,1),null);
  assert.equal(rangeStepTarget(4,0,0,10,1),null);
+});
+test('numeric scrub slider refuses invalid live bounds without disabling the native number field',()=>{
+ assert.equal(numericScrubBoundsValid(8,35,'1'),true);
+ assert.equal(numericScrubBoundsValid(0,10,'any'),true);
+ assert.equal(numericScrubBoundsValid(0,10,''),true);
+ assert.equal(numericScrubBoundsValid(8,8,'1'),false,'Equal limits have no draggable interval');
+ assert.equal(numericScrubBoundsValid(35,8,'1'),false,'Reversed bounds cannot be represented');
+ assert.equal(numericScrubBoundsValid(-Infinity,35,'1'),false,'One-sided bounds cannot use a scrub slider');
+ assert.equal(numericScrubBoundsValid(8,Infinity,'1'),false,'Unbounded values cannot use a scrub slider');
+ assert.equal(numericScrubBoundsValid(0,10,'0'),false,'Zero step is invalid');
+ assert.equal(numericScrubBoundsValid(0,10,'invalid'),false,'Invalid step must disable the slider');
 });
 test('value formatting preserves exact custom units',()=>{
  assert.equal(formatControlValue(11,'pt'),'11 pt');
