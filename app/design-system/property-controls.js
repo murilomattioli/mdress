@@ -479,6 +479,8 @@ function closePopup({restoreFocus=true}={}){
  const {popup,trigger,onClose,visibilityObserver}=openSelect;
  visibilityObserver?.disconnect();
  popup.remove();trigger.setAttribute('aria-expanded','false');
+ // The portalled listbox no longer exists: never leave a dangling ARIA IDREF.
+ trigger.removeAttribute('aria-controls');
  openSelect=null;onClose?.();
  if(restoreFocus)trigger.focus();
 }
@@ -587,7 +589,7 @@ function makeListbox(label,select,title){
  select.setAttribute('aria-hidden','true');select.tabIndex=-1;
  select.replaceWith(field);field.append(name,trigger,select);
  const popupId='ds-select-list-'+(++nextUid);
- trigger.setAttribute('aria-controls',popupId);
+ // aria-controls is valid only while its portalled listbox exists.
  const update=()=>{
   const o=select.selectedOptions[0];
   const selectedLabel=o?.label||o?.textContent||'Selecionar';
@@ -687,6 +689,7 @@ function makeListbox(label,select,title){
    popup.append(item);buttons.push(item);optionItems.push({option:opt,item,group,label:text.textContent,value:opt.value});
   }
   document.body.append(popup);
+  trigger.setAttribute('aria-controls',popupId);
   const reposition=()=>{
    const box=selectPopoverLayout(trigger.getBoundingClientRect(),
     {width:window.innerWidth,height:window.innerHeight},popup.scrollHeight);
