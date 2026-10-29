@@ -74,6 +74,33 @@ try{
  const viewer=page.locator('#image-viewer');
  assert.equal(await viewer.isVisible(),true);
  assert.match(await page.locator('#viewer-label').innerText(),/1\/6/);
+ const viewerStatus=page.locator('#viewer-status');
+ const viewerNote=page.locator('#viewer-note');
+ await page.waitForFunction(()=>!document.querySelector('#viewer-status').disabled);
+ assert.equal(await viewerStatus.inputValue(),'approved','The viewer mirrors the saved state verdict');
+ assert.match(await viewerNote.inputValue(),/Foco, contraste/);
+ await viewerStatus.selectOption('rejected');
+ assert.equal(await status.inputValue(),'rejected','Rejecting inside the viewer updates the state');
+ await viewerStatus.selectOption('approved');
+ await viewerNote.fill('Foco, contraste, clipping e teclado verificados no visualizador.');
+ assert.match(await note.inputValue(),/teclado verificados/,'Viewer notes persist in the state');
+ await viewerNote.press('ArrowRight');
+ assert.match(await page.locator('#viewer-label').innerText(),/1\/6/,
+  'Arrow keys editing notes must not navigate screenshots');
+ await viewer.locator('#viewer-next-state').click();
+ assert.match(await page.locator('#viewer-label').innerText(),/toolbar/,
+  'Next state navigation must load a different six-image matrix');
+ await page.waitForFunction(()=>!document.querySelector('#viewer-status').disabled);
+ assert.equal(await viewerStatus.inputValue(),'pending','Next state starts pending, never auto-approved');
+ await viewerStatus.selectOption('rejected');
+ assert.equal(await page.locator('.review-status').nth(1).inputValue(),'rejected');
+ await viewerStatus.selectOption('pending');
+ await viewer.locator('#viewer-close').click();
+ assert.equal(await viewer.isVisible(),false);
+ const secondImage=page.locator('.state').nth(1).locator('figure a').first();
+ assert.equal(await secondImage.evaluate(el=>document.activeElement===el),true,
+  'Closing after state navigation restores focus to the current image');
+ await firstImage.click();
  await page.keyboard.press('ArrowRight');
  assert.match(await page.locator('#viewer-label').innerText(),/2\/6/);
  await page.keyboard.press('Escape');
