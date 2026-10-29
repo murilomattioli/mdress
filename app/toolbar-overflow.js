@@ -32,19 +32,29 @@ export function attachToolbarOverflow(toolbar){
  // the nearest usable toolbar action without stealing focus after a real click.
  let lastFocusedAction=null;
  const actionSelector='button,select,input,[tabindex]';
- const focusable=el=>el.isConnected&&!el.disabled&&el.tabIndex>=0&&
-  !el.closest('[hidden],[inert],[aria-hidden="true"]')&&el.getClientRects().length&&
-  getComputedStyle(el).visibility!=='hidden';
+ // Conditional modes can hide groups, remove nodes or mark actions aria-disabled.
+ // These are unavailable for keyboard users even when disabled=false.
+ const focusable=el=>Boolean(el?.isConnected&&!el.matches(':disabled,[aria-disabled="true"]')&&
+  el.tabIndex>=0&&!el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')&&
+  el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');
  const recoverActionFocus=()=>{
   const origin=lastFocusedAction;
-  if(!origin||origin.isConnected&&!origin.disabled||
+  if(!origin||focusable(origin)||
    (document.activeElement!==document.body&&document.activeElement!==origin))return;
   const actions=[...toolbar.querySelectorAll(actionSelector)];
   const index=actions.indexOf(origin);
-  const next=actions.slice(index+1).find(focusable)||
+  const next=actions.slice(Math.max(index+1,0)).find(focusable)||
    actions.slice(0,Math.max(index,0)).reverse().find(focusable);
   if(next){next.focus({preventScroll:true});lastFocusedAction=next;}
-  else{toolbar.tabIndex=-1;toolbar.focus({preventScroll:true});lastFocusedAction=null;}
+  else{
+   // A workspace-mode change can hide the whole toolbar. Do not focus it.
+   const editor=document.querySelector('#source');
+   if(focusable(editor))editor.focus({preventScroll:true});
+   else if(toolbar.getClientRects().length&&!toolbar.closest('[hidden],[inert],[aria-hidden="true"]')){
+    toolbar.tabIndex=-1;toolbar.focus({preventScroll:true});
+   }
+   lastFocusedAction=null;
+  }
  };
  const update=()=>{
   recoverActionFocus();
@@ -72,7 +82,9 @@ export function attachToolbarOverflow(toolbar){
  };
  toolbar.addEventListener('scroll',schedule,{passive:true});
  toolbar.addEventListener('focusout',event=>{
-  if(event.target===lastFocusedAction&&!event.target.disabled&&event.target.isConnected)
+  // Hiding a focused group can blur it before the observer runs. Retain
+  // its origin until the focus handoff is completed.
+  if(event.target===lastFocusedAction&&focusable(event.target))
    lastFocusedAction=null;
  });
  toolbar.addEventListener('focusin',event=>{
