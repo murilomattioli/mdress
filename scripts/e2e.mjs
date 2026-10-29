@@ -33,6 +33,15 @@ async function assertInspectorTextFocus(control,description){
 try {
  await page.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
  await page.locator('#source').waitFor();
+ // A4 print media must not inherit the narrow-screen inspector overlay hiding.
+ const printPage=await browser.newPage({viewport:{width:794,height:1123}});
+ try{
+  await printPage.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await reveal(printPage,'bgKind');
+  await printPage.emulateMedia({media:'print'});
+  assert.equal(await printPage.locator('#rendered').evaluate(el=>getComputedStyle(el).visibility),'visible','Open inspector must not hide printed document');
+  assert.ok(await printPage.locator('#rendered').isVisible(),'Print canvas must remain visible at A4 width');
+ }finally{await printPage.close();}
  // Entity grouping must preserve original controls and their scope.
  assert.equal(await page.locator('#sectionComposerView #sectionStyleReset').count(),1);
  assert.equal(await page.locator('#inspector-page .ds-accordion').count(),2);

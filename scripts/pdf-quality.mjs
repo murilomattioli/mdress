@@ -157,8 +157,7 @@ async function testExperienceSectionFlow(){
   const pages=Number((info.match(/^Pages:\s*(\d+)/m)||[])[1]||0);
   assert.equal(pages,previewPages,'Preview/PDF pages diverged');
   for(let i=1;i<=pages;i++){
-
-  const extracted=extractPDFText(['-enc','UTF-8','-f',String(i),'-l',String(i),path,'-']);
+   const extracted=extractPDFText(['-enc','UTF-8','-f',String(i),'-l',String(i),path,'-']);
    assert.ok(extracted.trim().length>20,'Blank PDF page '+i);
   }
   const allText=extractPDFText(['-enc','UTF-8',path,'-']);
