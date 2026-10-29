@@ -215,11 +215,19 @@ try{
  assert.ok(exported.sessionId);
  // A session-bound exported draft can recover decisions after storage loss,
  // but foreign sessions and malformed state maps must never overwrite them.
- const uploadReview=async data=>{
+ const uploadReview=async (data,decision=null)=>{
   await page.locator('#import-review').setInputFiles({
    name:'mdress-ux023-review.json',mimeType:'application/json',
    buffer:Buffer.from(JSON.stringify(data))
   });
+  if(decision){
+   const dialog=page.getByRole('dialog',{name:'Confirmar revisão'});
+   await dialog.waitFor({state:'visible'});
+   assert.equal(await dialog.locator('[data-confirm-cancel]').evaluate(el=>document.activeElement===el),true,
+    'Review confirmation must start on the safe cancellation action');
+   await dialog.locator(decision==='confirm'?'[data-confirm-accept]':'[data-confirm-cancel]').click();
+   await dialog.waitFor({state:'hidden'});
+  }
   // setInputFiles dispatches a change event, but the handler awaits file.text()
   // and may still be validating when the Playwright call resolves. The gallery
   // clears the input only in finally; wait for that completion signal.
@@ -230,8 +238,10 @@ try{
  };
  await status.selectOption('rejected');
  await note.fill('Rascunho que será substituído pela importação.');
- page.once('dialog',dialog=>dialog.accept());
- await uploadReview(exported);
+ await uploadReview(exported,'cancel');
+ assert.equal(await status.inputValue(),'rejected','Cancelling replacement must preserve current verdict');
+ assert.match(await note.inputValue(),/Rascunho que será substituído/);
+ await uploadReview(exported,'confirm');
  await page.waitForFunction(()=>document.querySelector('#review-import-status')?.textContent.includes('Revisão recuperada'));
  assert.equal(await status.inputValue(),'approved','Valid same-session import restores verdict');
  assert.match(await note.inputValue(),/Foco, contraste/,'Valid import restores notes');
@@ -242,8 +252,7 @@ try{
  assert.match(await page.locator('#review-import-status').innerText(),/Importação recusada/);
  assert.equal(await status.inputValue(),'approved','Unexpected states must not overwrite verdicts');
  breakFreshReview=true;
- page.once('dialog',dialog=>dialog.accept());
- await uploadReview(exported);
+ await uploadReview(exported,'confirm');
  await page.waitForFunction(()=>document.querySelector('#review-import-status')?.textContent.includes('Capturas inválidas'));
  assert.equal(await status.inputValue(),'pending','Invalid PNG must revoke even a previously approved imported state');
  breakFreshReview=false;
@@ -341,8 +350,19 @@ try{
  assert.equal(raceRecovered,true);
  assert.equal(await status.isDisabled(),false);
  assert.equal(await status.inputValue(),'pending');
- page.once('dialog',dialog=>dialog.accept());
+ await status.selectOption('approved');
  await page.locator('#reset-review').click();
+ const resetDialog=page.getByRole('dialog',{name:'Confirmar revisão'});
+ await resetDialog.waitFor({state:'visible'});
+ assert.equal(await resetDialog.locator('[data-confirm-cancel]').evaluate(el=>document.activeElement===el),true);
+ await page.keyboard.press('Escape');
+ await resetDialog.waitFor({state:'hidden'});
+ assert.equal(await status.inputValue(),'approved','Escape must preserve existing review decisions');
+ assert.equal(await page.locator('#reset-review').evaluate(el=>document.activeElement===el),true,
+  'Cancel must restore keyboard focus to the review reset action');
+ await page.locator('#reset-review').click();
+ await resetDialog.locator('[data-confirm-accept]').click();
+ await resetDialog.waitFor({state:'hidden'});
  assert.equal(await status.inputValue(),'pending');
  assert.match(await page.locator('#review-progress').innerText(),new RegExp('0/'+stateCount+' estados aprovados'));
  // An absent image must block a previously approved state from being signed
