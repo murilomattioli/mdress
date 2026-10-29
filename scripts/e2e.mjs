@@ -182,6 +182,33 @@ try {
  assert.match(await qaNumber.locator('..').locator('..').locator('..').locator('.ds-prop-error').textContent(),/maior ou igual a -3/,'One-sided numeric bounds must not display Infinity');
  await qaStepper.scrollIntoViewIfNeeded();
  await qaStepper.screenshot({path:'test-results/ux-audit/inspector-number-unbounded-step.png',animations:'disabled'});
+ // Invalid numeric drafts must not escape the enhanced control via bubbled
+ // input/change events: app-level listeners would otherwise persist bad data.
+ await qaNumber.evaluate(el=>{el.min='0';el.max='10';el.step='2';});
+ await qaNumber.fill('4');await qaNumber.dispatchEvent('change');
+ await qaNumber.evaluate(el=>{
+  const label=el.closest('label');
+  label.dataset.inputBubbles='0';label.dataset.changeBubbles='0';
+  label.addEventListener('input',()=>{label.dataset.inputBubbles=String(Number(label.dataset.inputBubbles)+1);});
+  label.addEventListener('change',()=>{label.dataset.changeBubbles=String(Number(label.dataset.changeBubbles)+1);});
+ });
+ const bubbled=()=>qaNumber.evaluate(el=>({
+  input:Number(el.closest('label').dataset.inputBubbles),
+  change:Number(el.closest('label').dataset.changeBubbles)
+ }));
+ await qaNumber.fill('11');await qaNumber.dispatchEvent('change');
+ assert.deepEqual(await bubbled(),{input:0,change:0},'Out-of-bounds drafts cannot reach app listeners');
+ assert.equal(await qaNumber.getAttribute('aria-invalid'),'true');
+ await qaStepper.screenshot({path:'test-results/ux-audit/inspector-number-invalid-draft-isolated.png',animations:'disabled'});
+ await qaNumber.fill('');
+ assert.deepEqual(await bubbled(),{input:0,change:0},'Empty numeric drafts cannot reach app listeners');
+ await qaNumber.fill('5');await qaNumber.dispatchEvent('change');
+ assert.deepEqual(await bubbled(),{input:0,change:0},'Off-step drafts cannot reach app listeners');
+ await qaNumber.fill('6');await qaNumber.dispatchEvent('change');
+ assert.deepEqual(await bubbled(),{input:1,change:1},'Valid drafts must still update the document');
+ await qaNumber.fill('11');await qaNumber.press('Escape');
+ assert.equal(await qaNumber.inputValue(),'6','Escape restores the last valid number');
+ assert.equal(await qaNumber.evaluate(el=>document.activeElement===el),true,'Escape preserves number field focus');
  await qaNumber.evaluate(el=>el.closest('label').remove());
  // A disabled native checkbox must also disable its visible binary buttons.
  // With no target section, aligning to the page footer is not a valid action.
