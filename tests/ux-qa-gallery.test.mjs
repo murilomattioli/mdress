@@ -27,7 +27,9 @@ test('offline gallery renders the full comparison matrix and supports filtering'
  assert.match(html,/bitmap\.close\(\)/);
  assert.match(html,/actualWidth!==expectedWidth/);
  assert.match(html,/actualHeight!==expectedHeight/);
- assert.match(html,/data-viewport-width="1440" data-viewport-height="900"/);
+ assert.match(html,/data-theme="graphite" data-viewport-width="1440" data-viewport-height="900"/);
+ assert.match(html,/previousTheme=previous\?\.dataset\.theme/);
+ assert.match(html,/if\(event\.shiftKey\)moveViewerState/);
  assert.match(html,/await verifyImages\(states\[offset\],\{fresh:true\}\)/);
  assert.match(html,/source\.searchParams\.set\("mdress-verify"/);
  assert.match(html,/id="image-viewer"/);
@@ -44,7 +46,7 @@ test('offline gallery renders the full comparison matrix and supports filtering'
  assert.match(html,/binary-disabled-focus-handoff/);
  assert.match(html,/segment-live-focus-handoff/);
  assert.match(html,/graphite-1440-workspace.png/);
- assert.equal((html.match(/<figure data-viewport-width=/g)||[]).length,all.length);
+ assert.equal((html.match(/<figure data-theme=/g)||[]).length,all.length);
  assert.equal((html.match(/<details class="state"/g)||[]).length,stateCount);
 });
 
@@ -53,7 +55,7 @@ test('invalid evidence path is not inserted as HTML or a clickable link',()=>{
  const html=renderUxQaGallery(invalid,summarizeScreenshotCoverage(invalid));
  assert.doesNotMatch(html,/<script>alert/);
  assert.match(html,/Captura ausente ou inválida/);
- assert.equal((html.match(/<figure data-viewport-width=/g)||[]).length,all.length-1);
+ assert.equal((html.match(/<figure data-theme=/g)||[]).length,all.length-1);
 });
 
 test('gallery review session is isolated and JSON-safe',()=>{
