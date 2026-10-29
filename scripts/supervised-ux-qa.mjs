@@ -731,6 +731,21 @@ async function toolbarAudit(page,theme,width){
  assert.equal(await last.evaluate(el=>el===document.activeElement),true,
   'Focusing the last toolbar action must preserve keyboard focus');
  await capture(page,theme,width,'toolbar-last-focus');
+ // A command can become unavailable while it owns keyboard focus (for
+ // example, undo/redo after document history changes). The toolbar must
+ // hand focus to another enabled action rather than dropping it on body.
+ const action=toolbar.locator('button:not([disabled])').first();
+ await action.focus();
+ await action.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>{
+  const active=document.activeElement;
+  return Boolean(active?.closest('.markdown-toolbar')&&!active.disabled&&
+   active.matches('button,select,input,[tabindex]'));
+ });
+ assert.equal(await action.evaluate(el=>el===document.activeElement),false,
+  'Disabled Markdown command must relinquish focus');
+ await capture(page,theme,width,'toolbar-disabled-focus-handoff');
+ await action.evaluate(el=>{el.disabled=false;});
 }
 await mkdir(directory,{recursive:true});
 let browser;
