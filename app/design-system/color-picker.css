@@ -47,3 +47,17 @@
 .mdress-color-picker .cp-opacity input[type=range]{width:100%;min-width:0;height:14px;margin:0;border-radius:7px;accent-color:var(--ds-brand);background:linear-gradient(to right,transparent,var(--cp-opacity-color)),repeating-conic-gradient(#aaa 0% 25%,#fff 0% 50%) 0/8px 8px}
 .mdress-color-picker .cp-opacity input[type=number]{width:42px;min-width:0;height:28px;padding:2px;border:1px solid var(--ds-border);border-radius:5px;background:var(--ds-panel);color:var(--ds-text);font:500 11px var(--ds-font);text-align:center;appearance:textfield}
 .mdress-color-picker .cp-opacity input::-webkit-inner-spin-button{appearance:none}
+
+/* A 12-column palette makes each mobile swatch ~22px wide. Give touch
+   users a real 44px target, keeping the popup compact with inner scrolling. */
+@media(max-width:600px){
+ .mdress-color-picker .cp-grid{grid-template-columns:repeat(6,minmax(0,1fr));grid-template-rows:repeat(16,44px);overflow-y:auto;overscroll-behavior:contain}
+ .mdress-color-picker .cp-cell{min-height:44px}
+ .mdress-color-picker .cp-header .cp-button{min-width:44px;min-height:44px}
+ .mdress-color-picker .cp-tabs .cp-button{min-height:44px}
+ .mdress-color-picker .cp-saved-color{width:44px;height:44px;min-height:44px}
+ .mdress-color-picker .cp-swatches{gap:2px}
+ .mdress-color-picker input[type=number],.mdress-color-picker input[type=text]{height:44px}
+ .mdress-color-picker .cp-opacity{grid-template-columns:auto minmax(0,1fr) 44px auto}
+ .mdress-color-picker .cp-opacity input[type=number]{width:44px;height:44px}
+}
