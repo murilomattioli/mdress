@@ -239,6 +239,7 @@ try{
  await status.selectOption('rejected');
  await note.fill('Rascunho que será substituído pela importação.');
  await uploadReview(exported,'cancel');
+ assert.match(await page.locator('#review-import-status').innerText(),/Importação cancelada/);
  assert.equal(await status.inputValue(),'rejected','Cancelling replacement must preserve current verdict');
  assert.match(await note.inputValue(),/Rascunho que será substituído/);
  await uploadReview(exported,'confirm');
