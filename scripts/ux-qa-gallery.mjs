@@ -25,6 +25,7 @@ export function renderUxQaGallery(screenshots,coverage,sessionId='unassigned'){
 const sessionId=JSON.parse(document.querySelector("#review-session").textContent);
 const storageKey="mdress-ux023-review:"+sessionId;
 const states=[...document.querySelectorAll(".state")];
+const variantCount=${UX_QA_MATRIX.length};
 const search=document.querySelector("#filter");
 const progress=document.querySelector("#review-progress");
 const warning=document.querySelector("#review-warning");
@@ -61,7 +62,7 @@ async function verifyImages(section,{fresh=false}={}){
  const warningEl=section.querySelector(".image-warning");
  const check=(async()=>{
   const images=[...section.querySelectorAll("figure img")];
-  if(images.length!==6)throw Error("Matriz incompleta");
+  if(images.length!==variantCount)throw Error("Matriz incompleta");
   // Decode one screenshot at a time. For HTTP origins, fetch uncached bytes
   // and close ImageBitmaps explicitly: Chromium may retain a prior 404 in
   // its image decoder even after the file has been restored. Local file://
@@ -117,7 +118,7 @@ async function verifyImages(section,{fresh=false}={}){
  })().catch(error=>{
   if(!isCurrent())return false;
   select.disabled=true;
-  warningEl.textContent="Não foi possível validar as seis capturas: "+(error?.message||"erro desconhecido");
+  warningEl.textContent="Não foi possível validar as "+variantCount+" capturas: "+(error?.message||"erro desconhecido");
   warningEl.hidden=false;
   const key=section.dataset.name;
   if(saved[key]?.status==="approved"){
@@ -173,7 +174,7 @@ document.querySelector("#collapse").addEventListener("click",()=>states.forEach(
 document.querySelector("#export-review").addEventListener("click",async event=>{
  const exportButton=event.currentTarget;
  exportButton.disabled=true;
- warning.textContent="Verificando as seis capturas de cada estado antes da exportação…";
+ warning.textContent="Verificando as "+variantCount+" capturas de cada estado antes da exportação…";
  try{
   // Decode in bounded batches: 300 full-viewport PNGs at once can exhaust
   // memory on the laptops used for headed visual review.
@@ -249,7 +250,7 @@ document.querySelector("#reset-review").addEventListener("click",()=>{
  for(const s of states){s.querySelector(".review-status").value="pending";s.querySelector(".review-note").value="";}
  refresh();
 });
-// Review the six variants in one accessible dialog, without opening six tabs.
+// Review all variants in one accessible dialog, without opening six tabs.
 // Modified clicks retain the original image link for pixel-level inspection.
 const viewer=document.querySelector("#image-viewer");
 const viewerImage=document.querySelector("#viewer-image");
@@ -294,7 +295,7 @@ function setViewerSection(section,anchor,{preserveVariant=false}={}){
  showViewerImage();
  syncViewerReview();
  // A state may be shown before its lazy screenshots finish decoding.
- // Never permit approval in the viewer until all six have been verified.
+ // Never permit approval in the viewer until every variant has been verified.
  void verifyImages(section).then(()=>{if(viewerSection===section)syncViewerReview();});
 }
 function showViewerImage(){
@@ -385,5 +386,5 @@ refresh();
  return ['<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>mdress — revisão visual UX-023</title><style>'+css+'</style></head><body>',
   '<header><h1>mdress · QA visual supervisionado</h1><p>'+screenshots.length+' capturas registradas; '+coverage.expected+' obrigatórias. Falhas/ausências: '+coverage.missing.length+'. Testes verdes não aprovam a UX.</p><p id="review-progress" role="status" aria-live="polite"></p><p id="review-warning"></p><p id="review-import-status" role="status" aria-live="polite"></p>',
   '<nav><label for="filter">Filtrar estado</label><input id="filter" type="search" placeholder="Ex.: color, focus, range"><button id="only-pending" type="button" aria-pressed="false">Ocultar aprovados</button><button id="export-review" type="button">Exportar revisão JSON</button><button id="import-review-button" type="button">Importar revisão JSON</button><input id="import-review" type="file" accept="application/json,.json" hidden><button id="reset-review" type="button">Limpar revisão</button><button id="expand" type="button">Expandir</button><button id="collapse" type="button">Recolher</button></nav></header>',
-  '<main>'+sections+'</main><dialog id="image-viewer" aria-label="Inspecionar captura"><div class="viewer-toolbar"><span id="viewer-label"></span><a id="viewer-original" target="_blank" rel="noopener">Abrir original</a><button id="viewer-prev" type="button">← Anterior</button><button id="viewer-next" type="button">Próxima →</button><button id="viewer-close" type="button">Fechar</button></div><img id="viewer-image" alt=""><p>Setas ← → alternam as seis capturas; Shift + ← → compara o mesmo tema e largura entre estados; Esc fecha. A avaliação exige uma decisão humana por estado.</p><div class="viewer-review"><label>Revisão deste estado<select id="viewer-status" aria-label="Revisão no visualizador" disabled><option value="pending">Pendente</option><option value="approved">Aprovado</option><option value="rejected">Reprovado</option></select></label><label>Observações<textarea id="viewer-note" aria-label="Observações no visualizador" placeholder="Contraste, foco, clipping, ergonomia…"></textarea></label><div class="viewer-state-nav"><span id="viewer-state-position" role="status" aria-live="polite"></span><button id="viewer-prev-state" type="button">← Estado anterior</button><button id="viewer-next-state" type="button">Próximo estado →</button></div></div></dialog><script id="review-session" type="application/json">'+JSON.stringify(sessionId)+'</script><script>'+script+'</script></body></html>'].join('\n');
+  '<main>'+sections+'</main><dialog id="image-viewer" aria-label="Inspecionar captura"><div class="viewer-toolbar"><span id="viewer-label"></span><a id="viewer-original" target="_blank" rel="noopener">Abrir original</a><button id="viewer-prev" type="button">← Anterior</button><button id="viewer-next" type="button">Próxima →</button><button id="viewer-close" type="button">Fechar</button></div><img id="viewer-image" alt=""><p>Setas ← → alternam todas as capturas; Shift + ← → compara o mesmo tema e largura entre estados; Esc fecha. A avaliação exige uma decisão humana por estado.</p><div class="viewer-review"><label>Revisão deste estado<select id="viewer-status" aria-label="Revisão no visualizador" disabled><option value="pending">Pendente</option><option value="approved">Aprovado</option><option value="rejected">Reprovado</option></select></label><label>Observações<textarea id="viewer-note" aria-label="Observações no visualizador" placeholder="Contraste, foco, clipping, ergonomia…"></textarea></label><div class="viewer-state-nav"><span id="viewer-state-position" role="status" aria-live="polite"></span><button id="viewer-prev-state" type="button">← Estado anterior</button><button id="viewer-next-state" type="button">Próximo estado →</button></div></div></dialog><script id="review-session" type="application/json">'+JSON.stringify(sessionId)+'</script><script>'+script+'</script></body></html>'].join('\n');
 }
