@@ -26,6 +26,7 @@ Reference: user-supplied screenshots of Designminis Background Remover property 
 - Native controls remain the single source of truth. Values are numeric constrained and CSS is static.
 - No-op interactions (reselecting the active segment, combobox option, binary state, hex color or slider value) do not dispatch synthetic `input`/`change` events. Only actual value changes may update document history.
 - Invalid drafts never commit; Escape restores the confirmed value and focus remains available for further editing.
+- Native number, slider precision and hexadecimal text fields expose a 2px `:focus-visible` outline on the editable input itself (not only a faint row-level focus border). Chromium E2E asserts the computed focus indicator and stores contextual screenshots for human review.
 - The page-guide binary control affects only preview labels and is saved as a UI preference.
 
 ## Test matrix
