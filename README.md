@@ -6,6 +6,10 @@ Editor visual de Markdown com pré-visualização, personalização de estilos e
 
 > **v0.1.0 — migração em andamento.** Este branch é um snapshot parcial de desenvolvimento e ainda não está pronto para merge ou release.
 
+## Padrões de interface
+
+Consulte [o catálogo de componentes e regras de UX](docs/component-patterns.md) antes de alterar formulários, controles, menus ou diálogos.
+
 ## Desenvolvimento
 
 Requer Node.js 20+.
