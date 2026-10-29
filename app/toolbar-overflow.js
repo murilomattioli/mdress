@@ -115,7 +115,7 @@ export function attachToolbarOverflow(toolbar){
   schedule();
  }).observe(toolbar,{
   childList:true,subtree:true,attributes:true,
-  attributeFilter:['disabled','hidden','class','style']
+  attributeFilter:['disabled','aria-disabled','hidden','class','style']
  });
  window.addEventListener('resize',schedule);
  document.addEventListener('studio:resized',schedule);
