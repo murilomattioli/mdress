@@ -32,7 +32,12 @@ test('offline gallery renders the full comparison matrix and supports filtering'
  assert.match(html,/source\.searchParams\.set\("mdress-verify"/);
  assert.match(html,/id="image-viewer"/);
  assert.match(html,/viewer\.showModal\(\)/);
- assert.match(html,/viewerOrigin\?\.focus\(\)/);
+ assert.match(html,/viewerOrigin\.focus\(\)/);
+ assert.match(html,/id="viewer-status"/);
+ assert.match(html,/id="viewer-note"/);
+ assert.match(html,/id="viewer-next-state"/);
+ assert.match(html,/function setViewerSection/);
+ assert.match(html,/event\.target\.closest\("input,textarea,select,\[contenteditable\]"\)/);
  assert.match(html,/Verificando capturas:/);
  assert.match(html,/color-draft-sync/);
  assert.match(html,/binary-disabled-focus-handoff/);
