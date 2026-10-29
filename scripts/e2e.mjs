@@ -491,6 +491,14 @@ try {
  await nativeRule.locator('option[value="none"]').evaluate(el=>{el.disabled=false;});
  await page.waitForFunction(()=>document.querySelector('#sectionRule')?.closest('.ds-property-segment')
   ?.querySelectorAll('.ds-segment-option').length===3);
+ // Native option disabling can blur the focused button synchronously,
+ // before MutationObserver can read document.activeElement.
+ await rules.locator('[data-value="line"]').focus();
+ await nativeRule.locator('option[value="line"]').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.activeElement?.matches('.ds-property-segment [data-value="none"]'));
+ assert.equal(await rules.locator('[data-value="none"]').evaluate(el=>el===document.activeElement),true,
+  'Disabling a focused segment must preserve keyboard focus on an enabled sibling');
+ await nativeRule.locator('option[value="line"]').evaluate(el=>{el.disabled=false;});
  const guides=page.locator('.ds-property-binary').filter({has:page.locator('#showPageGuides')});
  await guides.getByRole('button',{name:'Marcações de página desligado'}).click();
  assert.equal(await page.locator('#showPageGuides').isChecked(),false);

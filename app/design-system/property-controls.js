@@ -444,6 +444,9 @@ function enhanceSegment(label,select,title){
    group.replaceChildren(...elements);
    if(focusedIndex!==-1)focusRecovery={focusedIndex,focusedOption};
   }
+  // Disabling a focused button may synchronously blur it to <body>.
+  // Capture the owner before touching the disabled property.
+  const focusedBeforeDisable=elements.indexOf(document.activeElement);
   for(const [index,btn] of elements.entries()){
    btn.setAttribute('aria-pressed',String(btn.dataset.value===select.value));
    btn.disabled=select.disabled||isSelectOptionDisabled(rendered[index].option);
@@ -458,7 +461,7 @@ function enhanceSegment(label,select,title){
    if(target)target.focus({preventScroll:true});
    else focusInspectorNeighbor(select,{visibleOnly:true});
   }
-  const focused=elements.indexOf(document.activeElement);
+  const focused=focusRecovery?elements.indexOf(document.activeElement):focusedBeforeDisable;
   if(focused!==-1&&elements[focused].disabled){
    const next=nextEnabledSegmentIndex(elements.map(item=>item.disabled),focused,'ArrowRight');
    if(next!==-1)elements[next].focus({preventScroll:true});
