@@ -38,8 +38,15 @@ const imageCheckVersions=new WeakMap();
 let verificationNonce=0;
 try{saved=JSON.parse(localStorage.getItem(storageKey)||"{}");if(!saved||typeof saved!=="object"||Array.isArray(saved))saved={};}catch{saved={};storageFailure=true;}
 function persist(){
- try{localStorage.setItem(storageKey,JSON.stringify(saved));storageFailure=false;}
- catch{storageFailure=true;}
+ try{
+  localStorage.setItem(storageKey,JSON.stringify(saved));
+  const wasUnavailable=storageFailure;
+  storageFailure=false;
+  if(wasUnavailable)refresh();
+ }catch{
+  storageFailure=true;
+  warning.textContent="Armazenamento indisponível. Exporte antes de fechar a página.";
+ }
 }
 async function verifyImages(section,{fresh=false}={}){
  if(fresh)imageChecks.delete(section);
