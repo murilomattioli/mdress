@@ -6,7 +6,7 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {resolve,dirname,basename,relative,isAbsolute} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {summarizeScreenshotCoverage,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS} from './ux-qa-coverage.mjs';
+import {summarizeUxCoverage,summarizeScreenshotCoverage,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS} from './ux-qa-coverage.mjs';
 
 const DEFAULT_REPORT='test-results/supervised-ux-qa.json';
 const SCREENSHOT_DIRECTORY=resolve('test-results/ux-audit/supervised');
@@ -21,8 +21,11 @@ export function assessResumeReview(report,review){
   problems.push('O relatório não contém um ID de sessão válido.');
  if(!Array.isArray(report?.screenshots)||!Array.isArray(report?.coverage)||!Array.isArray(report?.findings))
   problems.push('O relatório está incompleto.');
- if(report?.findings?.some(item=>item.severity==='error'))
+ if(Array.isArray(report?.findings)&&report.findings.some(item=>item.severity==='error'))
   problems.push('Existem findings críticos no relatório.');
+ if(Array.isArray(report?.coverage)&&Array.isArray(report?.findings)&&
+  summarizeUxCoverage(report.coverage,report.findings,report.stopped).status!=='passed')
+  problems.push('A cobertura funcional real não corresponde ao status informado.');
  const screenshotCoverage=summarizeScreenshotCoverage(Array.isArray(report?.screenshots)?report.screenshots:[]);
  if(screenshotCoverage.missing.length||screenshotCoverage.duplicates.length||
   screenshotCoverage.unexpected.length||screenshotCoverage.invalidPaths.length)
