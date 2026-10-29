@@ -861,6 +861,26 @@ try {
   if(await sectionControl.isVisible())await sectionControl.screenshot({path:'test-results/component-preset-picker.png',animations:'disabled'});
   await ux.locator('body').evaluate(el=>el.dataset.theme='studio');
   if(await inspector.isVisible())await inspector.screenshot({path:'test-results/component-inspector-studio.png',animations:'disabled'});
+  // Mobile is narrower than the previous 768px QA floor. Keep the
+  // inspector accessible as an overlay with touch-sized interactive targets.
+  await ux.setViewportSize({width:390,height:844});
+  if(!(await ux.locator('.design-inspector').isVisible()))await ux.locator('#railDesign').click();
+  await ux.locator('[data-inspector-tab="style"]').click();
+  const mobileTargets=await ux.locator('.design-inspector').evaluate(root=>{
+   const selectors=['.ds-prop-number','.ds-number-native','.ds-number-step',
+    '.ds-color-swatch','.ds-color-hex','.ds-select-trigger',
+    '.ds-segment-option','.ds-binary-option'];
+   return selectors.flatMap(selector=>[...root.querySelectorAll(selector)]
+    .filter(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden')
+    .map(el=>({selector,width:el.getBoundingClientRect().width,
+     height:el.getBoundingClientRect().height})));
+  });
+  assert.ok(mobileTargets.length>=3,'Mobile inspector must expose usable property controls');
+  assert.ok(mobileTargets.every(item=>item.height>=43.5),
+   'Mobile inspector targets must be at least 44px high: '+JSON.stringify(mobileTargets));
+  assert.ok(mobileTargets.filter(item=>['.ds-number-step','.ds-color-swatch'].includes(item.selector))
+   .every(item=>item.width>=43.5),'Mobile steppers and swatches need 44px touch width');
+  await ux.screenshot({path:'test-results/ux-mobile-inspector-390.png',animations:'disabled'});
   for(const [name,width,height,theme] of [
    ['desktop-graphite',1440,900,'graphite'],
    ['desktop-oled',1440,900,'oled'],
