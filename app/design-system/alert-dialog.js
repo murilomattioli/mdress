@@ -6,7 +6,9 @@ export function showAlert(options={}){
  const run=()=>new Promise(resolve=>{
   const {type='info',description='',showCancel=false,confirmLabel=showCancel?'Confirmar':'Entendi',cancelLabel='Cancelar',showCloseButton=true}=props;
   const [defaultTitle,icon]=variants[type]||variants.info;
-  const origin=document.activeElement,dialog=document.createElement('dialog');
+  const origin=document.activeElement;
+  const originScope=origin?.closest?.('.design-inspector,.editor-panel,.preview-panel')||document;
+  const dialog=document.createElement('dialog');
   dialog.className='ds-alert';dialog.dataset.variant=Object.hasOwn(variants,type)?type:'info';
   dialog.dataset.size=props.size==='sm'?'sm':'default';
   dialog.setAttribute('role','alertdialog');dialog.setAttribute('aria-labelledby','ds-alert-title');dialog.setAttribute('aria-describedby','ds-alert-description');
@@ -34,7 +36,17 @@ export function showAlert(options={}){
   dialog.addEventListener('cancel',event=>{event.preventDefault();dialog.close('cancel');});
   dialog.addEventListener('close',()=>{
    const accepted=dialog.returnValue==='confirm';dialog.remove();
-   if(origin?.isConnected&&!origin.disabled)origin.focus({preventScroll:true});
+   // A destructive action can remove its own trigger while the modal is
+   // open. Never leave keyboard focus on <body> after the dialog closes.
+   const usable=el=>Boolean(el?.isConnected&&!el.disabled&&el.tabIndex>=0&&
+    el.getClientRects().length&&!el.closest('[hidden],[inert],[aria-hidden="true"]')&&
+    getComputedStyle(el).visibility!=='hidden');
+   const firstUsable=root=>[...root.querySelectorAll('button,input,textarea,select,[tabindex]')].find(usable);
+   const fallback=(originScope!==document&&originScope.isConnected?firstUsable(originScope):null)||
+    [document.querySelector('#source'),document.querySelector('#designToggle')].find(usable)||
+    firstUsable(document);
+   const target=usable(origin)?origin:fallback;
+   target?.focus({preventScroll:true});
    resolve(input?(accepted?input.value:null):accepted);
   },{once:true});
   document.body.append(dialog);dialog.showModal();(input||(showCancel?cancel:accept)).focus();
