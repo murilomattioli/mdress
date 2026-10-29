@@ -548,6 +548,18 @@ async function exercise(page,theme,width){
  await page.waitForFunction(()=>[...document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelectorAll('.ds-number-step')||[]].every(b=>b.disabled));
  await capture(page,theme,width,'number-disabled');
  await input.evaluate(el=>{el.disabled=false;});
+ // Disabling during an invalid edit must restore the last committed value
+ // and clear stale error feedback, without publishing the invalid draft.
+ await input.fill('9999');
+ assert.equal(await input.getAttribute('aria-invalid'),'true');
+ await input.evaluate(el=>{el.dataset.qaCommittedNumber=el.value==='9999'?'':el.value;el.disabled=true;});
+ await page.waitForFunction(value=>document.querySelector('#marginMm')?.value===value,originalNumber);
+ assert.equal(await input.inputValue(),originalNumber,
+  'Disabling a numeric field must discard the uncommitted invalid draft');
+ assert.equal(await input.getAttribute('aria-invalid'),null);
+ assert.equal(await number.locator('..').locator('.ds-prop-error').isVisible(),false);
+ await capture(page,theme,width,'number-disabled-invalid-draft');
+ await input.evaluate(el=>{el.disabled=false;});
  await input.focus();
  await input.evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>[...document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelectorAll('.ds-number-step')||[]].every(b=>b.disabled));
