@@ -298,6 +298,7 @@ function enhanceNumber(label,input,title){
   track.append(slider);controls.insertBefore(track,input);
   slider.addEventListener('input',()=>nativeCommit(input,slider.value));
  }
+ const restoreSliderFocus=slider?watchDisabledNativeFocus(slider):()=>{};
  const bounds=()=>({min:input.min===''?-Infinity:Number(input.min),max:input.max===''?Infinity:Number(input.max)});
  const setError=feedbackFor(label,input);
  const restoreNativeFocus=watchDisabledNativeFocus(input);
@@ -343,13 +344,27 @@ function enhanceNumber(label,input,title){
   const ok=valid();
   if(!editing&&ok)committed=input.value;
   const {min,max}=bounds();
-  if(slider){slider.min=input.min;slider.max=input.max;slider.step=input.step||'1';slider.disabled=input.disabled;slider.value=input.value;controls.style.setProperty('--ds-range-progress',((Number(input.value)-min)/(max-min)*100)+'%');}
+  if(slider){
+   // Dynamic native constraints can invalidate a formerly bounded slider.
+   // Do not expose a misleading default 0..100 range or a NaN progress track.
+   const step=input.step===''?1:input.step==='any'?'any':Number(input.step);
+   const usable=Number.isFinite(min)&&Number.isFinite(max)&&min<max&&
+    (step==='any'||Number.isFinite(step)&&step>0);
+   slider.min=input.min;slider.max=input.max;slider.step=input.step||'1';
+   slider.disabled=input.disabled||!usable;
+   if(usable){
+    slider.value=input.value;
+    controls.style.setProperty('--ds-range-progress',
+     clamp((Number(input.value)-min)/(max-min)*100,0,100)+'%');
+   }else controls.style.setProperty('--ds-range-progress','0%');
+  }
   setError(!input.disabled&&editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
   const focusedStepper=[minus,plus].find(button=>document.activeElement===button);
   minus.disabled=stepTarget(-1)===null;
   plus.disabled=stepTarget(1)===null;
   if(focusedStepper?.disabled)focusInspectorNeighbor(focusedStepper,{visibleOnly:true});
   restoreNativeFocus();
+  restoreSliderFocus();
  };
  const increment=direction=>{
   const next=stepTarget(direction);
