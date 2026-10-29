@@ -158,6 +158,8 @@ try{
  await firstImage.click();
  await page.evaluate(()=>document.querySelector('#only-pending').click());
  assert.equal(await page.locator('.state').first().isVisible(),false);
+ assert.equal(await viewer.locator('#viewer-state-position').innerText(),'Estado filtrado',
+  'A filter change while the dialog is open must update its position immediately');
  assert.equal(await viewer.locator('#viewer-next-state').isDisabled(),false,
   'Next state must remain reachable when the current state is filtered out');
  await viewer.locator('#viewer-next-state').click();
