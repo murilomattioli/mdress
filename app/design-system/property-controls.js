@@ -742,7 +742,7 @@ function makeListbox(label,select,title){
  select.replaceWith(field);field.append(name,trigger,select);
  if(select.hasAttribute('data-choice-actions')){
   field.classList.add('ds-property-select--quick');
-  const actions=createChoiceActions({label:title,source:select,readChoices:()=>select.disabled?[]:visibleSelectOptions(select).filter(option=>!isSelectOptionDisabled(option)).map(option=>({label:option.textContent,selected:option.selected,apply:()=>nativeCommit(select,option.value)}))});
+  const actions=createChoiceActions({label:title,source:select,onUnavailableFocus:origin=>focusInspectorNeighbor(origin,{visibleOnly:true}),readChoices:()=>select.disabled?[]:visibleSelectOptions(select).filter(option=>!isSelectOptionDisabled(option)).map(option=>({label:option.textContent,selected:option.selected,apply:()=>nativeCommit(select,option.value)}))});
   field.insertBefore(actions,trigger);
  }
  const popupId='ds-select-list-'+(++nextUid);
@@ -983,7 +983,7 @@ function sectionAccordions(root){
   const gallery=body.querySelector('#themeRecipeGallery,#backgroundGallery');
   let actions;
   if(gallery){
-   actions=createChoiceActions({label:title,source:gallery,readChoices:()=>[...gallery.querySelectorAll('button')].filter(b=>!b.disabled).map(b=>({label:b.getAttribute('aria-label')||b.textContent,selected:b.getAttribute('aria-pressed')==='true',apply:()=>b.click()}))});
+   actions=createChoiceActions({label:title,source:gallery,onUnavailableFocus:origin=>focusInspectorNeighbor(origin,{visibleOnly:true}),readChoices:()=>[...gallery.querySelectorAll('button')].filter(b=>!b.disabled).map(b=>({label:b.getAttribute('aria-label')||b.textContent,selected:b.getAttribute('aria-pressed')==='true',apply:()=>b.click()}))});
   }
   const header=createInspectorHeader({toggle,actions});heading.replaceWith(header);section.append(body);
   toggle.setAttribute('aria-controls',id);
