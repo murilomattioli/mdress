@@ -597,6 +597,27 @@ async function exercise(page,theme,width){
  await assertInspectorFocusHandoff(page,'Disabling a focused number stepper must preserve inspector keyboard focus');
  await capture(page,theme,width,'number-stepper-disabled-focus-handoff');
  await input.evaluate(el=>{el.disabled=false;});
+ // The auxiliary scrub slider must never remain keyboard-operable when the
+ // native numeric source becomes disabled or its live bounds become invalid.
+ const scrubSlider=number.locator('.ds-scrub-range');
+ assert.equal(await scrubSlider.count(),1,'Bounded numeric fields must expose the scrub slider');
+ await scrubSlider.focus();
+ assert.equal(await scrubSlider.evaluate(el=>el===document.activeElement),true);
+ await input.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelector('.ds-scrub-range')?.disabled===true);
+ await assertInspectorFocusHandoff(page,'Disabling a focused numeric scrub slider must recover keyboard focus');
+ await capture(page,theme,width,'number-slider-disabled-focus-handoff');
+ await input.evaluate(el=>{el.disabled=false;});
+ const originalMax=await input.getAttribute('max');
+ await scrubSlider.focus();
+ await input.evaluate(el=>{el.max=el.min;});
+ await page.waitForFunction(()=>document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelector('.ds-scrub-range')?.disabled===true);
+ await assertInspectorFocusHandoff(page,'Invalidating live numeric bounds must recover slider focus');
+ assert.equal(await number.evaluate(el=>getComputedStyle(el.querySelector('.ds-number-actions')).getPropertyValue('--ds-range-progress').trim()),'0%',
+  'Invalid bounds must not render NaN or a fabricated slider progress');
+ await capture(page,theme,width,'number-slider-invalid-bounds');
+ await input.evaluate((el,max)=>{el.max=max;},originalMax);
+ await page.waitForFunction(()=>document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelector('.ds-scrub-range')?.disabled===false);
  const binary=page.locator('.ds-property-binary').filter({has:page.locator('#showPageGuides')});
  const native=page.locator('#showPageGuides');
  await binary.scrollIntoViewIfNeeded();
