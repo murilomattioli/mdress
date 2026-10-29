@@ -112,6 +112,9 @@ async function verifyImages(section,{fresh=false}={}){
    persist();
   }
   refresh();
+  // The dialog has a separate verdict control; never leave it enabled after
+  // evidence fails while the reviewer is inspecting this same state.
+  if(viewerSection===section)syncViewerReview();
   return false;
  });
  imageChecks.set(section,check);
