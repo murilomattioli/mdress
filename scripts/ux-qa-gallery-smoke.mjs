@@ -74,6 +74,22 @@ try{
  const viewer=page.locator('#image-viewer');
  assert.equal(await viewer.isVisible(),true);
  assert.match(await page.locator('#viewer-label').innerText(),/1\/6/);
+ // State navigation must not overflow the review dialog on narrow layouts.
+ for(const width of [768,390]){
+  await page.setViewportSize({width,height:900});
+  const geometry=await page.evaluate(()=>{
+   const dialog=document.querySelector('#image-viewer').getBoundingClientRect();
+   const nav=document.querySelector('.viewer-state-nav').getBoundingClientRect();
+   const buttons=[...document.querySelectorAll('.viewer-state-nav button')].map(el=>el.getBoundingClientRect());
+   return {dialog:{left:dialog.left,right:dialog.right},nav:{left:nav.left,right:nav.right},
+    buttons:buttons.map(rect=>({left:rect.left,right:rect.right}))};
+  });
+  assert.ok(geometry.nav.left>=geometry.dialog.left-1&&geometry.nav.right<=geometry.dialog.right+1,
+   'State navigation must fit inside the '+width+'px dialog: '+JSON.stringify(geometry));
+  assert.ok(geometry.buttons.every(rect=>rect.left>=geometry.nav.left-1&&rect.right<=geometry.nav.right+1),
+   'Navigation buttons must not clip at '+width+'px: '+JSON.stringify(geometry));
+ }
+ await page.setViewportSize({width:1280,height:720});
  const viewerStatus=page.locator('#viewer-status');
  const viewerNote=page.locator('#viewer-note');
  await page.waitForFunction(()=>!document.querySelector('#viewer-status').disabled);
