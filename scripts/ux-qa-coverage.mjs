@@ -61,7 +61,7 @@ export function validateScreenshotViewport(png,width,height=UX_QA_VIEWPORT_HEIGH
  return false;
 }
 export const UX_QA_MATRIX=[
- ...['graphite','studio'].flatMap(theme=>[1440,1024,768].map(width=>({theme,width})))
+ ...['graphite','studio'].flatMap(theme=>[1440,1024,768,390].map(width=>({theme,width})))
 ];
 // Each named state must be captured once for every theme and viewport.
 // Passing functional assertions without the corresponding visual evidence
