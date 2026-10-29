@@ -3,13 +3,16 @@
  * Progressive enhancement: native controls keep their IDs, constraints and
  * source-of-truth listeners. No duplicated theme state or external dependencies.
  */
+import {initializeColorPicker} from './color-picker.js';
+import {createChoiceActions} from './choice-actions.js';
+import {createInspectorHeader} from './inspector-header.js';
 const enhanced=new WeakSet();
 const controllers=[];
 let openSelect=null;
 let nextUid=0;
 const $=(id)=>document.getElementById(id);
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
-const unitOf=(el)=>({
+const unitOf=(el)=>el.dataset.unit??({
  fontSize:'pt',marginMm:'mm',sectionGapEm:'em',lineHeight:'×',
  titleScale:'×',bgAngle:'°',bgPatternSize:'px',bgOpacity:'',meshSoftness:'%'
 })[el.id]??'';
@@ -21,6 +24,55 @@ const labelOf=(label)=>{
 };
 function span(cls,text=''){const x=document.createElement('span');x.className=cls;x.textContent=text;if(cls==='ds-prop-name')x.title=text;return x;}
 function button(cls,title){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=title;return b;}
+function selectThumbnail(select,value){
+ if(select.dataset.preview==='font-weight'){
+  const thumb=span('ds-select-thumbnail ds-weight-thumbnail');thumb.setAttribute('aria-hidden','true');
+  if(value===''){
+   const icon=document.createElement('ds-icon');icon.setAttribute('name','undo-2');icon.setAttribute('size','16');thumb.append(icon);
+  }else{
+   thumb.textContent='Aa';thumb.style.fontWeight=String(Number(value)||400);
+  }
+  return thumb;
+ }
+ if(select.dataset.preview==='section'){
+  if(value==='all'){
+   const thumb=span('ds-select-thumbnail ds-element-thumbnail');thumb.setAttribute('aria-hidden','true');
+   thumb.innerHTML='<svg viewBox="0 0 32 30" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="5" y="4" width="22" height="9" rx="2"/><rect x="5" y="17" width="22" height="9" rx="2"/><path d="M9 8h14M9 21h14"/></svg>';
+   return thumb;
+  }
+  value=value.startsWith('level:')?'h'+value.slice(6):[...select.options].find(option=>option.value===value)?.dataset.elementKind||'p';
+ }
+ if(['element','section'].includes(select.dataset.preview)){
+  const thumb=span('ds-select-thumbnail ds-element-thumbnail');thumb.setAttribute('aria-hidden','true');
+  const shapes={
+   p:'<path d="M5 7h22M5 12h20M5 17h22M5 22h14"/>',
+   ul:'<path d="M11 8h16M11 15h16M11 22h12"/><circle cx="5" cy="8" r="1"/><circle cx="5" cy="15" r="1"/><circle cx="5" cy="22" r="1"/>',
+   ol:'<text x="3" y="10" font-size="7">1</text><text x="3" y="17" font-size="7">2</text><text x="3" y="24" font-size="7">3</text><path d="M11 8h16M11 15h16M11 22h12"/>',
+   li:'<circle cx="5" cy="14" r="1.5"/><path d="M11 14h16M11 19h11"/>',
+   blockquote:'<path d="M5 5v19" stroke-width="3"/><path d="M11 9h16M11 15h16M11 21h10"/>',
+   pre:'<rect x="3" y="4" width="26" height="22" rx="3"/><path d="m12 10-5 5 5 5m8-10 5 5-5 5"/>',
+   hr:'<path d="M4 15h24" stroke-width="2"/>',
+   img:'<rect x="3" y="4" width="26" height="22" rx="2"/><circle cx="11" cy="11" r="2"/><path d="m4 23 8-7 5 4 5-8 7 11"/>',
+   a:'<path d="m12 18 8-8m-9 3-3 3a4 4 0 0 0 6 6l3-3m-2-8 3-3a4 4 0 0 1 6 6l-3 3"/>',
+   strong:'<text x="7" y="23" font-size="22" font-weight="800">B</text>',
+   em:'<text x="11" y="23" font-size="22" font-style="italic">I</text>',
+   del:'<text x="8" y="23" font-size="21">S</text><path d="M5 15h23"/>',
+   code:'<path d="m11 9-6 6 6 6m10-12 6 6-6 6m-3-16-4 20"/>'
+  };
+  let art=shapes[value];
+  if(/^h[1-6]$/.test(value))art='<text x="4" y="21" font-size="18" font-weight="700">H'+value[1]+'</text>';
+  if(['table','thead','tbody','tr','th','td'].includes(value)){
+   const highlight={thead:'4 5 24 6',tbody:'4 11 24 14',tr:'4 12 24 6',th:'4 5 8 6',td:'12 12 8 6'}[value];
+   art=(highlight?(()=>{const [x,y,w,h]=highlight.split(' ');return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="currentColor" opacity=".25" stroke="none"/>`;})():'')+'<rect x="4" y="5" width="24" height="20" rx="1"/><path d="M4 11h24M4 18h24M12 5v20M20 5v20"/>';
+  }
+  thumb.innerHTML='<svg viewBox="0 0 32 30" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">'+(art||shapes.p)+'</svg>';
+  return thumb;
+ }
+ if(select.dataset.preview!=='background')return null;
+ const thumb=span('ds-select-thumbnail');
+ thumb.dataset.background=value;thumb.setAttribute('aria-hidden','true');
+ return thumb;
+}
 export function normalizeRange(value,min,max,step){
  if(![value,min,max].every(Number.isFinite)||min>=max)throw Error('Faixa inválida');
  if(step==='any')return clamp(value,min,max);
@@ -88,6 +140,11 @@ function nativeCommit(input,next){
  input.dispatchEvent(new Event('input',{bubbles:true}));
  input.dispatchEvent(new Event('change',{bubbles:true}));
 }
+function scrubStep(title,direction){
+ const node=button('ds-number-step ds-scrub-step','');
+ node.setAttribute('aria-label',(direction<0?'Diminuir ':'Aumentar ')+title);
+ const icon=document.createElement('ds-icon');icon.setAttribute('name',direction<0?'minus':'plus');icon.setAttribute('size','14');node.append(icon);return node;
+}
 function enhanceRange(label,input,title){
  const unit=unitOf(input);
  if(!rangeConstraints(input).valid)return;
@@ -114,7 +171,9 @@ function enhanceRange(label,input,title){
  if(!input.hasAttribute('aria-label'))input.setAttribute('aria-label',title);
  input.setAttribute('title',title);
  input.replaceWith(field);
- field.append(name,progress,valueBox);
+ const shell=document.createElement('div');shell.className='ds-scrub-control';
+ const minus=scrubStep(title,-1),plus=scrubStep(title,1);
+ field.append(name,shell);shell.append(minus,progress,valueBox,plus);
  progress.append(fill,ticks,thumb,input);valueBox.append(numeric,unitBadge);
  // The precision field is an editable draft. Never silently clamp or snap
  // invalid values: preserve them for correction without mutating the document.
@@ -127,11 +186,15 @@ function enhanceRange(label,input,title){
   field.style.setProperty('--ds-range-progress',pct+'%');
   if(input.disabled)editing=false;
   numeric.disabled=input.disabled;
+  minus.disabled=input.disabled||!boundsValid||value<=min;
+  plus.disabled=input.disabled||!boundsValid||value>=max;
   if(!editing)numeric.value=input.value;
   setError(!input.disabled&&editing?
    (!boundsValid?'Verifique os limites e o incremento da faixa.':!valid()?validationMessage(numeric,min,max,unit):''):'');
   if(!Number.isNaN(value))field.setAttribute('data-value',formatControlValue(value,unit));
  };
+ const increment=direction=>{const {min,max,step,valid}=rangeConstraints(input);if(valid){editing=false;nativeCommit(input,normalizeRange(Number(input.value)+direction*step,min,max,step));update();}};
+ minus.onclick=()=>increment(-1);plus.onclick=()=>increment(1);
  // A real slider gesture supersedes a stale numeric draft and its error.
  const nativeUpdate=()=>{editing=false;update();};
  input.addEventListener('input',nativeUpdate);
@@ -164,15 +227,23 @@ function enhanceNumber(label,input,title){
  label.classList.add('ds-property-row','ds-property-row--number');
  const field=document.createElement('div');field.className='ds-property-number';
  const name=span('ds-prop-name',title),controls=document.createElement('span');controls.className='ds-number-actions';
- const minus=button('ds-number-step','−'),plus=button('ds-number-step','+');
+ const minus=scrubStep(title,-1),plus=scrubStep(title,1);
  minus.setAttribute('aria-label','Diminuir '+title);plus.setAttribute('aria-label','Aumentar '+title);
  const unit=span('ds-prop-unit',unitOf(input));
  if(!input.hasAttribute('aria-label'))input.setAttribute('aria-label',title+' — valor'+(unitOf(input)?' em '+unitOf(input):''));
  input.classList.add('ds-number-native');
  input.replaceWith(field);field.append(name,controls);controls.append(minus,input,unit,plus);
+ let slider=null;
+ if(input.min!==''&&input.max!==''&&Number(input.max)>Number(input.min)&&!input.hasAttribute('data-inherit')){
+  controls.classList.add('ds-scrub-control');
+  const track=document.createElement('span');track.className='ds-scrub-number-track';
+  slider=document.createElement('input');slider.type='range';slider.className='ds-scrub-range';slider.setAttribute('aria-label',title+' — deslizar');
+  track.append(slider);controls.insertBefore(track,input);
+  slider.addEventListener('input',()=>nativeCommit(input,slider.value));
+ }
  const bounds=()=>({min:input.min===''?-Infinity:Number(input.min),max:input.max===''?Infinity:Number(input.max)});
  const setError=feedbackFor(label,input);
- const valid=()=>input.value.trim()!==''&&input.validity.valid&&Number.isFinite(input.valueAsNumber);
+ const valid=()=>input.validity.valid&&((input.hasAttribute('data-inherit')&&input.value==='')||(input.value.trim()!==''&&Number.isFinite(input.valueAsNumber)));
  // Let the browser enforce the native number step grid, including fractional
  // bases and absent bounds. The previous synthetic 0..999 range blocked
  // negative and large values even when the HTML input allowed them.
@@ -198,6 +269,7 @@ function enhanceNumber(label,input,title){
   const ok=valid();
   if(!editing&&ok)committed=input.value;
   const {min,max}=bounds();
+  if(slider){slider.min=input.min;slider.max=input.max;slider.step=input.step||'1';slider.disabled=input.disabled;slider.value=input.value;controls.style.setProperty('--ds-range-progress',((Number(input.value)-min)/(max-min)*100)+'%');}
   setError(editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
   minus.disabled=stepTarget(-1)===null;
   plus.disabled=stepTarget(1)===null;
@@ -234,8 +306,15 @@ function enhanceColor(label,input,title){
  hex.setAttribute('inputmode','text');
  const setError=feedbackFor(label,hex);
  input.classList.add('ds-color-native');
+ input.setAttribute('aria-haspopup','dialog');
  input.replaceWith(field);
  field.append(name,right);right.append(swatch,hex);swatch.append(input);
+ const pipette=button('ds-color-pipette',''),pipetteIcon=document.createElement('ds-icon');
+ pipetteIcon.setAttribute('name','pipette');pipetteIcon.setAttribute('size','15');pipetteIcon.setAttribute('aria-hidden','true');
+ pipette.append(pipetteIcon);pipette.setAttribute('aria-label','Capturar cor da tela — '+title);
+ const canPick=typeof window.EyeDropper==='function';
+ pipette.title=canPick?'Capturar cor da tela':'Conta-gotas indisponível neste navegador';right.append(pipette);
+ let picking=false;
  const isHex=v=>/^#[0-9a-f]{6}$/i.test(v);
  let editing=false;
  const update=()=>{
@@ -245,7 +324,20 @@ function enhanceColor(label,input,title){
   // hex draft (especially an invalid one) or clear its error announcement.
   if(!editing){hex.value=v;setError('');}
   hex.disabled=input.disabled;swatch.style.backgroundColor=v;
+  pipette.disabled=input.disabled||!canPick||picking;
  };
+ pipette.addEventListener('click',async event=>{
+  event.preventDefault();event.stopPropagation();
+  if(input.disabled||picking||!canPick)return;
+  picking=true;update();
+  try{
+   const result=await new window.EyeDropper().open();
+   if(!input.disabled&&input.isConnected&&isHex(result.sRGBHex)){
+    editing=false;nativeCommit(input,result.sRGBHex);update();
+   }
+  }catch(error){if(error.name!=='AbortError')setError('Não foi possível capturar a cor. Tente novamente.');}
+  finally{picking=false;pipette.disabled=input.disabled||!canPick;if(!pipette.disabled&&pipette.isConnected)pipette.focus({preventScroll:true});}
+ });
  hex.addEventListener('input',()=>{
   editing=true;
   setError(isHex(hex.value.trim())?'':'Use uma cor hexadecimal com seis dígitos (#RRGGBB).');
@@ -270,7 +362,8 @@ function enhanceBinary(label,input,title){
  const field=document.createElement('div');field.className='ds-property-binary';
  const name=span('ds-prop-name',title),group=document.createElement('div');group.className='ds-binary-group';
  group.setAttribute('role','group');group.setAttribute('aria-label',title);
- const off=button('ds-binary-option','Off'),on=button('ds-binary-option','On');
+ const states={bottomSectionEnabled:['No fluxo','No rodapé'],selectedSectionBreak:['Continuar','Nova página'],showPageGuides:['Ocultar','Mostrar']}[input.id]||['Off','On'];
+ const off=button('ds-binary-option',states[0]),on=button('ds-binary-option',states[1]);
  off.setAttribute('aria-label',title+' desligado');on.setAttribute('aria-label',title+' ligado');
  input.classList.add('ds-binary-native');input.setAttribute('aria-hidden','true');input.tabIndex=-1;
  input.replaceWith(field);field.append(name,group,input);group.append(off,on);
@@ -445,7 +538,7 @@ export function selectPopoverLayout(anchor,viewport,contentHeight){
 // keyboard focus, move to a real enabled inspector control. A disabled
 // combobox trigger cannot receive focus, and body is not a useful fallback.
 function focusInspectorNeighbor(trigger,{visibleOnly=false}={}){
- const root=trigger.closest('.design-inspector');
+ const root=trigger.closest('.design-inspector,dialog')||document.body;
  if(!root)return;
  const controls=[...root.querySelectorAll('button,input,select,textarea,[tabindex]')];
  const index=controls.indexOf(trigger);
@@ -489,12 +582,21 @@ function makeListbox(label,select,title){
  select.classList.add('ds-select-native');
  select.setAttribute('aria-hidden','true');select.tabIndex=-1;
  select.replaceWith(field);field.append(name,trigger,select);
+ if(select.hasAttribute('data-choice-actions')){
+  field.classList.add('ds-property-select--quick');
+  const actions=createChoiceActions({label:title,source:select,readChoices:()=>select.disabled?[]:visibleSelectOptions(select).filter(option=>!isSelectOptionDisabled(option)).map(option=>({label:option.textContent,selected:option.selected,apply:()=>nativeCommit(select,option.value)}))});
+  field.insertBefore(actions,trigger);
+ }
  const popupId='ds-select-list-'+(++nextUid);
- trigger.setAttribute('aria-controls',popupId);
+ const searchable=select.hasAttribute('data-searchable');
+ trigger.setAttribute('aria-controls',searchable?popupId+'-results':popupId);
  const update=()=>{
   const o=select.selectedOptions[0];
   const selectedLabel=o?.label||o?.textContent||'Selecionar';
   value.textContent=selectedLabel;trigger.title=selectedLabel;
+  trigger.querySelector('.ds-select-thumbnail')?.remove();
+  const thumbnail=selectThumbnail(select,select.value);
+  if(thumbnail)trigger.prepend(thumbnail);
   // Disabling a focused trigger can synchronously move focus to body.
   // Capture focus BEFORE setting disabled, including when the portal is closed.
   const triggerWasFocused=document.activeElement===trigger;
@@ -512,7 +614,7 @@ function makeListbox(label,select,title){
   if(openSelect?.trigger===trigger){
    const focusedOption=openSelect.optionItems.find(({item})=>item===document.activeElement);
    const visible=visibleSelectOptions(select);
-   if(selectPopupNeedsRefresh(openSelect.optionItems,visible)){
+   if(selectPopupNeedsRefresh(openSelect.sourceItems||openSelect.optionItems,visible)){
     // Preserve the keyboard position when options are inserted, removed,
     // hidden or renamed. Never leave focus in a detached popup button.
     closePopup({restoreFocus:false});
@@ -537,15 +639,34 @@ function makeListbox(label,select,title){
   if(select.disabled)return;
   if(openSelect?.trigger===trigger){closePopup();return;}
   closePopup({restoreFocus:false});
+  select.dispatchEvent(new Event('mdress:select-open'));
   const popup=document.createElement('div');popup.id=popupId;popup.className='ds-select-popover';
+  popup.setAttribute('popover','manual');
   popup.setAttribute('role','listbox');popup.setAttribute('aria-label',title);
+  let list=popup,search=null;
+  if(searchable){
+   popup.removeAttribute('role');popup.classList.add('ds-select-popover--searchable');
+   list=document.createElement('div');list.className='ds-select-results';
+   list.id=popupId+'-results';list.setAttribute('role','listbox');list.setAttribute('aria-label',title);
+   search=document.createElement('input');search.type='search';search.className='ds-select-search';
+   search.placeholder='Buscar fonte…';search.setAttribute('aria-label','Buscar fonte');search.setAttribute('aria-controls',list.id);
+   search.autocomplete='off';search.spellcheck=false;
+   popup.append(search,list);
+  }
   const opts=visibleSelectOptions(select),buttons=[],optionItems=[];
-  let lastGroup=null,typeahead='',lastTypedAt=0;
-  for(const [index,opt] of opts.entries()){
+  let typeahead='',lastTypedAt=0,limit=60;
+  const normalize=text=>text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase();
+  const more=button('ds-select-more','Mostrar mais');
+  const renderOptions=()=>{
+  list.replaceChildren();buttons.length=0;optionItems.length=0;let lastGroup=null;
+  const query=normalize(search?.value.trim()||'');
+  const matches=opts.filter(o=>normalize((o.label||o.textContent)+' '+(o.parentElement?.label||'')).includes(query));
+  const shown=searchable?matches.slice(0,limit):matches;
+  for(const [index,opt] of shown.entries()){
    const group=opt.parentElement?.tagName==='OPTGROUP'?opt.parentElement.label:null;
    if(group&&group!==lastGroup){
     const heading=span('ds-select-group-label',group);
-    heading.setAttribute('aria-hidden','true');popup.append(heading);
+    heading.setAttribute('aria-hidden','true');list.append(heading);
    }
    lastGroup=group;
    const item=button('ds-select-option','');
@@ -558,12 +679,14 @@ function makeListbox(label,select,title){
    checkIcon.setAttribute('size','16');
    check.setAttribute('aria-hidden','true');
    check.append(checkIcon);item.append(text,check);
+   const thumbnail=selectThumbnail(select,opt.value);
+   if(thumbnail){item.classList.add('ds-select-option--preview');item.prepend(thumbnail);}
    item.dataset.value=opt.value;
    item.addEventListener('click',()=>{if(isSelectOptionDisabled(opt))return;nativeCommit(select,opt.value);closePopup();});
    item.addEventListener('keydown',e=>{
-    const move=(dir)=>{const available=buttons.filter(b=>!b.disabled);const cur=available.indexOf(item);available[(cur+dir+available.length)%available.length]?.focus();};
+    const move=(dir)=>{const available=buttons.filter(b=>!b.disabled&&!b.hidden);const cur=available.indexOf(item);if(search&&dir===-1&&cur===0){search.focus();return;}available[(cur+dir+available.length)%available.length]?.focus();};
     if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();move(e.key==='ArrowDown'?1:-1);}
-    if(e.key==='Home'||e.key==='End'){e.preventDefault();(e.key==='Home'?buttons.find(x=>!x.disabled):[...buttons].reverse().find(x=>!x.disabled))?.focus();}
+    if(e.key==='Home'||e.key==='End'){e.preventDefault();(e.key==='Home'?buttons.find(x=>!x.disabled&&!x.hidden):[...buttons].reverse().find(x=>!x.disabled&&!x.hidden))?.focus();}
     if(e.key==='Escape'){e.preventDefault();closePopup();}
     if(e.key==='Tab'){
      // The listbox is portalled to document.body. Without restoring the
@@ -575,7 +698,7 @@ function makeListbox(label,select,title){
     if(e.key.length===1&&/[\p{L}\p{N}]/u.test(e.key)&&!e.altKey&&!e.ctrlKey&&!e.metaKey){
      // Search full labels while typing quickly; repeated initials still cycle.
      const now=Date.now(),query=now-lastTypedAt<700?typeahead+e.key:e.key;
-     const options=buttons.map(b=>({disabled:b.disabled,label:b.querySelector('.ds-option-label')?.textContent||''}));
+     const options=buttons.map(b=>({disabled:b.disabled||b.hidden,label:b.querySelector('.ds-option-label')?.textContent||''}));
      let index=findEnabledOptionIndex(options,query,buttons.indexOf(item));
      typeahead=query;
      if(index===-1){
@@ -586,11 +709,32 @@ function makeListbox(label,select,title){
      if(index!==-1){e.preventDefault();buttons[index].focus();}
     }
    });
-   popup.append(item);buttons.push(item);optionItems.push({option:opt,item,group,label:text.textContent,value:opt.value});
+   list.append(item);buttons.push(item);optionItems.push({option:opt,item,group,label:text.textContent,value:opt.value});
   }
-  document.body.append(popup);
+  more.hidden=shown.length===matches.length;
+  more.textContent='Mostrar mais · '+shown.length+' de '+matches.length;
+  if(!matches.length)list.append(span('ds-select-empty','Nenhuma fonte encontrada.'));
+  };
+  renderOptions();
+  more.addEventListener('click',()=>{const firstNew=buttons.length;limit+=60;renderOptions();buttons[firstNew]?.focus();});
+  if(searchable)popup.append(more);
+  if(search){
+   search.addEventListener('input',()=>{limit=60;renderOptions();list.scrollTop=0;});
+   search.addEventListener('keydown',event=>{
+    const available=buttons.filter(item=>!item.disabled&&!item.hidden);
+    if(['ArrowDown','ArrowUp','Enter'].includes(event.key)){
+     event.preventDefault();
+     if(event.key==='Enter')available[0]?.click();
+     else (event.key==='ArrowUp'?available.at(-1):available[0])?.focus();
+    }
+    if(event.key==='Escape'){event.preventDefault();closePopup();}
+    if(event.key==='Tab'){closePopup({restoreFocus:false});trigger.focus({preventScroll:true});}
+   });
+  }
+  (trigger.closest('dialog')||document.body).append(popup);popup.showPopover();
   const reposition=()=>{
-   const box=selectPopoverLayout(trigger.getBoundingClientRect(),
+   const anchor=trigger.getBoundingClientRect();
+   const box=selectPopoverLayout(searchable?{...anchor.toJSON(),width:320}:anchor,
     {width:window.innerWidth,height:window.innerHeight},popup.scrollHeight);
    popup.style.left=box.left+'px';
    popup.style.top=box.top+'px';
@@ -600,16 +744,17 @@ function makeListbox(label,select,title){
   };
   reposition();
   trigger.setAttribute('aria-expanded','true');
-  openSelect={popup,trigger,optionItems,reposition,onClose:()=>{}};
+  openSelect={popup,trigger,optionItems,sourceItems:opts.map(option=>({option,value:option.value,label:option.label||option.textContent,group:option.parentElement?.tagName==='OPTGROUP'?option.parentElement.label:null})),reposition,onClose:()=>{}};
   const target=buttons.find(b=>b.dataset.value===preferredValue&&!b.disabled)||
    buttons.find(b=>b.dataset.value===select.value&&!b.disabled)||
    buttons.find(b=>!b.disabled);
-  if(target)target.focus();
+  if(search&&preferredValue===null)search.focus();
+  else if(target)target.focus();
   else {closePopup({restoreFocus:false});trigger.focus({preventScroll:true});}
  };
  trigger.addEventListener('click',event=>{event.preventDefault();open();});
  trigger.addEventListener('keydown',e=>{if(['Enter',' ','ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();open();}});
- select.addEventListener('change',update);
+ select.addEventListener('change',()=>queueMicrotask(update));
  const observer=new MutationObserver(update);observer.observe(select,{childList:true,subtree:true,attributes:true,attributeFilter:['selected','label','disabled','hidden','value'],characterData:true});
  controllers.push(update);update();
 }
@@ -639,6 +784,10 @@ function sectionAccordions(root){
   const toggle=button('ds-accordion-toggle','');
   toggle.setAttribute('aria-label',title);
   const name=span('ds-accordion-title',title);
+  const sectionIcons={'Tipografia':'typography','Cores e fundo':'palette','Fundos prontos':'paintbrush','Aparência dos blocos':'layout-template','Ritmo do documento':'line-height','Página e margens':'layout-template','Paginação':'file-text','Estilos prontos':'sparkles','Meus temas':'save','Variações e travas':'lock','Criar tema com IA':'sparkles'};
+  const sectionIcon=document.createElement('ds-icon');
+  sectionIcon.className='ds-accordion-icon';sectionIcon.setAttribute('name',sectionIcons[title]||'settings-2');
+  sectionIcon.setAttribute('size','15');sectionIcon.setAttribute('aria-hidden','true');name.prepend(sectionIcon);
   const trailing=span('ds-accordion-trailing');
   // Badges convey information only. Repeated labels like "Automática",
   // "CSS" and "Documento atual" are not useful in the header.
@@ -651,10 +800,15 @@ function sectionAccordions(root){
   const body=document.createElement('div');body.className='ds-accordion-body';
   const id='ds-accordion-'+(++nextUid);body.id=id;
   while(heading.nextSibling)body.append(heading.nextSibling);
-  heading.replaceWith(toggle);section.append(body);
+  const gallery=body.querySelector('#themeRecipeGallery,#backgroundGallery');
+  let actions;
+  if(gallery){
+   actions=createChoiceActions({label:title,source:gallery,readChoices:()=>[...gallery.querySelectorAll('button')].filter(b=>!b.disabled).map(b=>({label:b.getAttribute('aria-label')||b.textContent,selected:b.getAttribute('aria-pressed')==='true',apply:()=>b.click()}))});
+  }
+  const header=createInspectorHeader({toggle,actions});heading.replaceWith(header);section.append(body);
   toggle.setAttribute('aria-controls',id);
-  let initial=false;
-  try{initial=localStorage.getItem(key)==='closed';}catch{}
+  let initial=Boolean(gallery)||section.dataset.collapsed==='true';
+  try{const stored=localStorage.getItem(key);if(stored)initial=stored==='closed';}catch{}
   const set=closed=>{
    toggle.setAttribute('aria-expanded',String(!closed));
    section.classList.toggle('ds-accordion--collapsed',closed);
@@ -680,13 +834,35 @@ export function enhancePropertyControls(root=document){
    if(input.id==='sectionRule')enhanceSegment(label,input,title);
    else makeListbox(label,input,title);
   }
+  const typographyIcon={fontChoice:'type',fontSize:'font-size',lineHeight:'line-height',titleScale:'heading',sectionStyleTarget:'layout-template',markdownElementTarget:'mouse-pointer-2',bottomSectionEnabled:'panel-bottom',selectedSectionBreak:'page-break',sectionGapEm:'line-height',sectionRule:'minus',elementFontSize:'font-size',elementLineHeight:'line-height',elementSpacing:'panel-bottom',paperSize:'file',marginMm:'maximize-2',showPageGuides:'page-break',resumeTheme:'paintbrush',savedThemePicker:'save'}[input.id]||{fontWeight:'heading',align:'list-tree'}[input.dataset.elementProperty];
+  if(typographyIcon){
+   const name=label.querySelector('.ds-prop-name');
+   if(name){
+    name.parentElement.classList.add('ds-property-icon-label');
+    const text=span('ds-prop-name-hidden',title),icon=document.createElement('ds-icon');
+    icon.setAttribute('name',typographyIcon);icon.setAttribute('size','16');icon.setAttribute('aria-hidden','true');
+    name.replaceChildren(icon,text);
+   }
+  }
  }
 }
 export function syncPropertyControls(){
  for(const update of controllers)update();
 }
+/** Upgrade native selects anywhere, retaining their IDs, options and change events. */
+export function enhanceSelects(root=document){
+ for(const select of root.querySelectorAll('select:not([hidden]):not(.ds-select-native)')){
+  if(enhanced.has(select))continue;
+  enhanced.add(select);
+  const host=document.createElement('span');host.className='ds-select-host';host.dataset.selectId=select.id;
+  const title=select.getAttribute('aria-label')||select.closest('label')?.childNodes[0]?.textContent?.trim()||'Selecionar';
+  select.before(host);host.append(select);makeListbox(host,select,title);
+ }
+}
 export function initializePropertyControls(){
+ initializeColorPicker();
  enhancePropertyControls();
+ enhanceSelects();
  const mesh=$('meshControls');
  if(mesh){
   let scheduled=false;
@@ -699,6 +875,16 @@ export function initializePropertyControls(){
   if(openSelect&&!openSelect.popup.contains(event.target)&&!openSelect.trigger.contains(event.target))closePopup({restoreFocus:false});
  });
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openSelect){event.preventDefault();closePopup();}});
+ document.addEventListener('close',event=>{
+  if(openSelect&&event.target.contains?.(openSelect.trigger))closePopup({restoreFocus:false});
+ },true);
+ document.addEventListener('scroll',event=>{
+  if(!openSelect||openSelect.trigger.closest('.design-inspector')||openSelect.popup.contains(event.target))return;
+  const {trigger,reposition}=openSelect,rect=trigger.getBoundingClientRect();
+  const dialog=trigger.closest('dialog'),bounds=dialog?.getBoundingClientRect();
+  if(rect.bottom<=0||rect.top>=innerHeight||(bounds&&(rect.bottom<=bounds.top||rect.top>=bounds.bottom)))closePopup({restoreFocus:false});
+  else reposition();
+ },true);
  window.addEventListener('resize',()=>{
   if(!openSelect)return;
   // A resize (including browser zoom/orientation changes) must not strand

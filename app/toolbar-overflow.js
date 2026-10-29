@@ -13,16 +13,18 @@ export function attachToolbarOverflow(toolbar){
  const shell=document.createElement('div');
  shell.className='markdown-toolbar-shell';
  toolbar.before(shell);shell.append(toolbar);
- const button=(direction,label,glyph)=>{
+ const button=(direction,label,icon)=>{
   const node=document.createElement('button');
   node.type='button';node.className='toolbar-scroll-button';
   node.setAttribute('aria-label',label);node.title=label;
-  node.textContent=glyph;node.hidden=true;
+  const glyph=document.createElement('ds-icon');
+  glyph.setAttribute('name',icon);glyph.setAttribute('aria-hidden','true');
+  node.append(glyph);node.hidden=true;
   node.addEventListener('click',()=>toolbar.scrollBy({left:direction*Math.max(140,Math.round(toolbar.clientWidth*.7)),behavior:'smooth'}));
   return node;
  };
- const previous=button(-1,'Rolar ferramentas para a esquerda','‹');
- const next=button(1,'Rolar ferramentas para a direita','›');
+ const previous=button(-1,'Rolar ferramentas para a esquerda','chevron-left');
+ const next=button(1,'Rolar ferramentas para a direita','chevron-right');
  shell.prepend(previous);shell.append(next);
  const update=()=>{
   const state=toolbarOverflowState(toolbar);

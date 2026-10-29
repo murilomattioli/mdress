@@ -140,9 +140,6 @@
 
 .section-lead>.section-design-tools{top:2px;right:-50px;transform:none}
 .section-design-tools:has(.section-design-action){width:26px;height:26px}
-.design-inspector .inspector-tabs{display:flex;align-items:stretch;gap:0;padding:0 4px}
-.design-inspector .inspector-tabs button{display:flex;align-items:center;justify-content:center;gap:4px;flex:1;min-width:0;padding:0 2px;font-size:10px;white-space:nowrap}
-.design-inspector .inspector-tabs button ds-icon{flex:0 0 13px}
 .theme-lock-list button{min-height:39px;padding:8px;gap:6px;transition:background-color .14s,border-color .14s,box-shadow .14s}
 .theme-lock-list button>ds-icon:first-child{flex:0 0 14px;color:var(--ds-text-secondary)}
 .theme-lock-list button .theme-lock-icon{margin-left:auto;display:grid;place-items:center;width:23px;height:23px;flex:0 0 23px;color:var(--ds-text-tertiary);border-radius:6px;background:var(--ds-panel)}

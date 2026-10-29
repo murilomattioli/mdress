@@ -71,7 +71,7 @@ export function decoratePageBreaks(root,markdown,policies){
   controller.setAttribute('aria-label',(wanted.has(anchor.id)?'Remover quebra antes de ':'Iniciar nova página antes de ')+anchor.title);
   controller.setAttribute('aria-pressed',String(wanted.has(anchor.id)));
   controller.title=wanted.has(anchor.id)?'Remover quebra antes desta seção':'Iniciar seção em uma nova página';
-  controller.textContent='↵';
+  controller.innerHTML='<ds-icon name="page-break" size="14"></ds-icon>';
   const controls=heading.ownerDocument.createElement('span');controls.className='section-break-actions';
   controls.append(controller);wrapper.append(controls);
  }

@@ -8,29 +8,35 @@
  --prop-track:var(--ds-border);--prop-active:var(--ds-text);
  --prop-selected:var(--ds-panel-hover);
  --prop-border:var(--ds-border-subtle);
+ --inspector-section-inset:8px;
+ --inspector-row-gap:8px;--inspector-body-start:4px;--inspector-body-end:12px;
 }
 .design-inspector .inspector-header{padding:20px 17px 15px}
 .design-inspector .inspector-header>strong{font-size:15px;letter-spacing:-.02em}
 .design-inspector .inspector-header p{font-size:10.5px;max-width:240px}
-.design-inspector .inspector-tabs{height:48px;min-height:48px;border-bottom:1px solid var(--prop-border)}
-.design-inspector .inspector-tabs button{font-weight:650;font-size:11px}
 /* Property section headers: compact inspector accordions.
  * No card nesting, phantom whitespace or font-dependent glyphs. */
 .design-inspector .property-section.ds-accordion{
- padding:0 16px!important;
- border-bottom:1px solid var(--ds-border-subtle);
+ padding:0 var(--inspector-section-inset)!important;
+ border-bottom:0;
  margin:0;
+}
+.design-inspector .property-section.ds-accordion:has(.ds-accordion-toggle[aria-expanded=true]){
+ background:color-mix(in srgb,var(--ds-text) 4%,transparent);
 }
 .design-inspector .property-section.ds-accordion .property-section-heading{display:none}
 .design-inspector .ds-accordion-toggle{
  display:flex!important;align-items:center;justify-content:space-between;
- width:calc(100% + 32px)!important;min-height:44px!important;height:44px!important;
- padding:0 16px!important;margin:0 -16px!important;
+ width:calc(100% + 2 * var(--inspector-section-inset))!important;min-height:44px!important;height:44px!important;
+ padding:0 var(--inspector-section-inset)!important;margin:0 calc(-1 * var(--inspector-section-inset))!important;
  border:0!important;border-radius:0!important;
  background:transparent!important;box-shadow:none!important;
  color:var(--ds-text)!important;text-align:left;cursor:pointer;
  transition:background-color 150ms ease,color 150ms ease;
 }
+/* A hover filter creates a containing block and relocates the absolute chevron
+ * from the full header to the title button, causing hover/position oscillation. */
+.design-inspector .ds-accordion-toggle,.design-inspector .ds-accordion-toggle:hover{filter:none!important}
 .design-inspector .ds-accordion-toggle:hover{background:var(--ds-panel-hover)!important}
 .design-inspector .ds-accordion-toggle:focus-visible{
  outline:2px solid var(--ds-focus)!important;outline-offset:-2px!important;
@@ -174,6 +180,13 @@
 .ds-select-option{display:flex;align-items:center;justify-content:space-between;gap:9px;border:0;border-radius:6px;min-height:34px;padding:7px 9px;background:transparent;color:var(--ds-text-secondary);font:550 11px/1.25 var(--ds-font);text-align:left}
 .ds-select-option:hover,.ds-select-option:focus-visible{background:var(--ds-panel-raised);color:var(--ds-text)}
 .ds-select-option:disabled{opacity:.48;cursor:not-allowed}
+.ds-select-popover--searchable{overflow:hidden;padding:8px;gap:6px}
+.ds-select-search{box-sizing:border-box;flex:none;width:100%;min-height:36px;padding:8px 10px;border:1px solid var(--ds-border);border-radius:6px;background:var(--ds-panel-raised);color:var(--ds-text);font:12px var(--ds-font)}
+.ds-select-search:focus-visible{outline:2px solid var(--ds-focus);outline-offset:-2px}
+.ds-select-results{display:flex;flex-direction:column;gap:2px;overflow:auto;min-height:0;scrollbar-color:var(--ds-border) transparent}
+.ds-select-popover--searchable .ds-select-option{flex-shrink:0;min-height:38px;font-size:13px}
+.ds-select-popover--searchable [hidden]{display:none!important}
+.ds-select-empty{padding:16px 10px;color:var(--ds-text-secondary);font-size:12px}
 .ds-select-option:disabled:hover{background:transparent;color:var(--ds-text-secondary)}
 .ds-select-option:focus-visible{outline:2px solid var(--ds-focus)!important;outline-offset:-2px!important}
 .ds-select-option[aria-selected=true]{background:var(--ds-brand-soft);color:var(--ds-text);font-weight:720}
@@ -347,3 +360,324 @@
 .design-inspector .inspector-panel{padding:0}
 .design-inspector .property-section:not(.ds-accordion){padding:16px}
 .design-inspector .section-style-hint{display:none}
+.design-inspector .property-row.hidden{display:none!important}
+.design-inspector .ds-property-row:has(#sectionRule) .ds-property-segment{grid-template-columns:68px minmax(0,1fr)}
+.design-inspector .ds-property-row:has(#sectionRule) .ds-segment-option{padding-inline:3px;font-size:11px}
+@media(max-width:860px){#previewStyleControl{display:none!important}}
+.design-inspector .section-placement{display:flex;flex-direction:column;gap:6px;margin-top:10px;padding-top:10px;border-top:0}
+.design-inspector .section-placement select[hidden]{display:none!important}
+.design-inspector .composer-mode-switch{margin-bottom:10px}
+.design-inspector #sectionComposerView,.design-inspector #elementComposerView{display:flex;flex-direction:column;gap:8px}
+.design-inspector #sectionComposerView[hidden],.design-inspector #elementComposerView[hidden]{display:none!important}
+.design-inspector .preview-property-panel{position:static;width:100%;min-width:0;margin:8px 0 0;padding:10px 0 0;background:transparent;border:0;border-top:0;border-radius:0;box-shadow:none;display:flex;flex-direction:column;gap:8px}
+.design-inspector .preview-property-panel label{font-size:12px}
+.design-inspector .preview-property-panel :is(input,select){max-width:150px;min-height:30px}
+.design-inspector .theme-proposal{display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:0}
+.design-inspector #meshControls{margin:4px 0 0;padding:8px;border-radius:8px}
+.design-inspector .ds-property-segment{grid-template-columns:68px minmax(0,1fr)}
+.design-inspector .theme-library-actions button{display:flex;align-items:center;justify-content:flex-start;gap:7px;padding-inline:10px;text-align:left}
+.design-inspector .theme-library-actions ds-icon{width:16px;height:16px;flex:0 0 16px}
+
+/* Compact fieldsets: controls share a baseline; galleries stay optional. */
+.design-inspector .ds-accordion-header{position:relative;display:flex;align-items:center;margin:0 calc(-1 * var(--inspector-section-inset));min-height:36px;padding-right:36px}
+.design-inspector .ds-accordion-header .ds-accordion-toggle{flex:0 1 auto;min-width:0;width:auto!important;margin:0!important;min-height:36px!important;height:36px!important;padding:0 8px 0 var(--inspector-section-inset)!important}
+.design-inspector .ds-accordion-toggle::before{content:'';position:absolute;inset:0}
+.design-inspector .ds-accordion-header .ds-accordion-trailing{position:absolute;right:4px;top:50%;transform:translateY(-50%)}
+.design-inspector .ds-accordion-header:hover{background:var(--ds-panel-hover)}
+.design-inspector .ds-accordion-title{font-size:12px}
+.design-inspector .ds-accordion-body{gap:var(--inspector-row-gap);padding:var(--inspector-body-start) 0 var(--inspector-body-end)}
+.design-inspector .ds-choice-actions{display:flex;align-items:center;gap:0;flex:none;border-left:1px solid var(--ds-border-subtle);padding-left:4px}
+.design-inspector .ds-accordion-actions{position:relative;z-index:1;border:0;padding:0;flex-shrink:0}
+.design-inspector .ds-header-menu-trigger{position:relative;z-index:1;margin-left:auto}
+.design-inspector .ds-header-menu-trigger[data-visibility=hover]{opacity:0;pointer-events:none}
+.design-inspector .ds-accordion-header:hover .ds-header-menu-trigger,.design-inspector .ds-accordion-header:focus-within .ds-header-menu-trigger,.design-inspector .ds-header-menu-trigger[aria-expanded=true]{opacity:1;pointer-events:auto}
+.ds-header-menu{position:fixed;inset:auto;margin:0;padding:4px;min-width:160px;max-width:calc(100vw - 16px);border:1px solid var(--ds-border);border-radius:8px;background:var(--ds-panel);color:var(--ds-text);box-shadow:var(--ds-shadow-pop)}
+.ds-header-menu button{display:block;width:100%;border:0;background:transparent;color:inherit;text-align:left;padding:8px;font:12px var(--ds-font)}
+.ds-header-menu button:hover,.ds-header-menu button:focus-visible{background:var(--ds-panel-hover)}
+@media(hover:none){.design-inspector .ds-header-menu-trigger[data-visibility=hover]{opacity:1;pointer-events:auto}}
+.design-inspector .ds-quick-action{display:flex;align-items:center;justify-content:center;width:28px;height:28px;min-height:28px;padding:0;border:0;border-radius:5px;background:transparent;color:var(--ds-text-secondary)}
+.design-inspector .ds-quick-action:hover{background:var(--ds-panel-hover);color:var(--ds-text)}
+.design-inspector .ds-quick-action ds-icon{width:16px;height:16px}
+.design-inspector .ds-quick-action:disabled{opacity:.4;cursor:default}
+.design-inspector .ds-quick-action[hidden]{display:none}
+.design-inspector .ds-quick-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.design-inspector .ds-property-select,.design-inspector .ds-property-number,.design-inspector .ds-property-binary,.design-inspector .ds-property-segment{grid-template-columns:minmax(72px,.65fr) minmax(0,1fr);align-items:center;gap:8px;padding:0;min-height:32px}
+.design-inspector .ds-property-range{grid-template-columns:70px minmax(24px,1fr) auto;gap:8px;padding:0;min-height:32px}
+.design-inspector .ds-property-range .ds-prop-name{grid-column:auto}
+.design-inspector .ds-property-range .ds-prop-track{min-height:28px;margin:0}
+.design-inspector .ds-prop-numberbox .ds-prop-number{height:30px!important}
+.design-inspector .ds-property-color{padding:0;min-height:32px}
+.design-inspector .ds-select-trigger{min-height:30px;height:30px;padding-inline:7px}
+.design-inspector .ds-property-select--quick{grid-template-columns:40px auto minmax(0,1fr);gap:4px}
+.design-inspector .ds-property-select--quick .ds-choice-actions{border:0;padding:0}
+.design-inspector .ds-color-swatch{height:26px;width:30px}
+.design-inspector .ds-color-hex{height:30px!important}
+.design-inspector .property-actions button{min-height:30px}
+.design-inspector .theme-lock-list{gap:4px}
+.design-inspector .property-field{gap:4px}
+.design-inspector .composer-mode-switch{margin-bottom:6px}
+@media(pointer:coarse){.design-inspector .ds-quick-action{width:32px;height:36px}.design-inspector .ds-select-trigger{min-height:36px;height:36px}}
+
+/* Compact typography labels retain their text for assistive technology. */
+.ds-prop-name-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.design-inspector .ds-property-icon-label{grid-template-columns:24px minmax(24px,1fr) auto}
+.design-inspector .ds-property-select--quick.ds-property-icon-label{grid-template-columns:24px auto minmax(0,1fr)}
+.design-inspector .ds-property-icon-label>.ds-prop-name{display:flex;align-items:center;justify-content:center;width:24px;min-height:28px}
+
+/* Type previews are illustrative and remain legible regardless of document colors. */
+.ds-select-thumbnail{display:block;flex:0 0 32px;width:32px;height:24px;border-radius:4px;border:1px solid #71809666;background-color:#edf0f8;box-shadow:inset 0 0 0 1px #ffffff33}
+.ds-element-thumbnail{height:30px;color:var(--ds-text-secondary);background:var(--ds-panel-raised);border-color:var(--ds-border)}
+.ds-element-thumbnail svg{display:block;width:100%;height:100%}
+.ds-element-thumbnail svg text{fill:currentColor;stroke:none;font-family:var(--ds-font)}
+.ds-weight-thumbnail{display:flex;align-items:center;justify-content:center;height:28px;background:var(--ds-panel-raised);border-color:var(--ds-border);color:var(--ds-text);font-family:var(--ds-font);font-size:15px;line-height:1}
+.ds-select-trigger .ds-weight-thumbnail{font-size:12px}
+.ds-select-trigger:has(.ds-select-thumbnail) .ds-select-value{flex:1}
+.ds-select-trigger .ds-select-thumbnail{flex-basis:24px;width:24px;height:18px}
+.ds-select-option--preview{min-height:42px;justify-content:flex-start}
+.ds-select-option--preview .ds-option-label{flex:1}
+.ds-select-thumbnail[data-background=solid]{background:#a6a0cb}
+.ds-select-thumbnail[data-background=gradient]{background:linear-gradient(135deg,#edf0f8,#76699c)}
+.ds-select-thumbnail[data-background=radial]{background:radial-gradient(circle at 70% 15%,#76699c,#edf0f8 80%)}
+.ds-select-thumbnail[data-background=dots]{background-image:radial-gradient(circle,#76699c 1px,transparent 1.5px);background-size:6px 6px}
+.ds-select-thumbnail[data-background=lines]{background-image:repeating-linear-gradient(135deg,transparent 0 4px,#76699c 4px 5px)}
+.ds-select-thumbnail[data-background=grid]{background-image:linear-gradient(90deg,#76699c88 1px,transparent 1px),linear-gradient(#76699c88 1px,transparent 1px);background-size:6px 6px}
+.ds-select-thumbnail[data-background=crosshatch]{background-image:repeating-linear-gradient(45deg,transparent 0 5px,#76699c88 5px 6px),repeating-linear-gradient(-45deg,transparent 0 5px,#76699c88 5px 6px)}
+.ds-select-thumbnail[data-background=checker]{background-image:conic-gradient(#76699c88 25%,transparent 0 50%,#76699c88 0 75%,transparent 0);background-size:8px 8px}
+.ds-select-thumbnail[data-background=mesh]{background:radial-gradient(ellipse at 10% 20%,#8bbbdc,transparent 65%),radial-gradient(ellipse at 90% 80%,#a982b9,transparent 70%),#e6d5ec}
+
+.design-inspector .ds-accordion-title{display:inline-flex;align-items:center;gap:7px}
+.design-inspector .ds-accordion-icon{display:inline-flex;flex:0 0 15px;color:var(--ds-text-secondary)}
+.design-inspector .ds-property-color{grid-template-columns:70px minmax(0,1fr);gap:8px}
+.design-inspector .ds-property-color .ds-color-right{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;min-height:30px;padding:3px 6px;border:1px solid var(--ds-border);border-radius:6px;background:var(--ds-panel)}
+.design-inspector .ds-property-color .ds-color-right:focus-within{border-color:var(--ds-focus)}
+.design-inspector .ds-property-color .ds-color-swatch{flex:0 0 22px;width:22px;height:22px;border-radius:4px}
+.design-inspector .ds-property-color .ds-color-hex{flex:1;width:0;height:24px!important;text-align:left;padding:0!important}
+
+/* Content context uses the same icon column and full-width controls. */
+.design-inspector #inspector-content .ds-property-icon-label{grid-template-columns:24px minmax(0,1fr);gap:8px;border:0;background:transparent}
+.design-inspector #inspector-content .ds-binary-group{box-sizing:border-box;padding:2px;border:1px solid var(--ds-border);border-radius:6px;min-height:30px}
+.design-inspector #inspector-content .ds-binary-option{height:26px;min-height:26px}
+.design-inspector #sectionComposerView,.design-inspector #elementComposerView{display:flex;flex-direction:column;gap:6px;min-width:0}
+.design-inspector #sectionComposerView[hidden],.design-inspector #elementComposerView[hidden]{display:none}
+.design-inspector .section-placement{display:flex;flex-direction:column;gap:6px}
+.design-inspector #inspector-content .composer-mode-switch{margin:0;min-height:32px;box-sizing:border-box}
+.design-inspector #inspector-content .composer-mode-switch button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:28px}
+.design-inspector #inspector-content .compact-style-control{box-sizing:border-box;width:calc(100% - 32px);margin:0 0 0 32px;display:grid;grid-template-columns:minmax(0,1fr) 28px 28px 28px;gap:2px;padding:2px;border:1px solid var(--ds-border);border-radius:6px;min-height:32px}
+.design-inspector #inspector-content .compact-style-control .style-current{grid-column:1;grid-row:1;text-align:left;padding-left:6px}
+.design-inspector #inspector-content .compact-style-control .style-prev{grid-column:1;grid-row:1}
+.design-inspector #inspector-content .compact-style-control .style-next{grid-column:2;grid-row:1}
+.design-inspector #inspector-content .compact-style-control button{width:28px;height:26px;min-height:26px;padding:0;display:flex;align-items:center;justify-content:center}
+.design-inspector #inspector-content .section-style-actions{margin-top:0}
+
+/* Shared inspector geometry: one label column, control height and value width. */
+.design-inspector{--inspector-field-height:32px;--inspector-label-width:70px;--inspector-icon-width:24px;--inspector-value-width:68px;--inspector-field-gap:8px}
+.design-inspector :is(.ds-property-select,.ds-property-color,.ds-property-number,.ds-property-binary,.ds-property-segment){grid-template-columns:var(--inspector-label-width) minmax(0,1fr);gap:var(--inspector-field-gap);min-height:var(--inspector-field-height);box-sizing:border-box;border:0;padding:0}
+.design-inspector .ds-property-range{grid-template-columns:var(--inspector-label-width) minmax(24px,1fr) var(--inspector-value-width);gap:var(--inspector-field-gap);min-height:var(--inspector-field-height);border:0;padding:0}
+.design-inspector .ds-property-icon-label{grid-template-columns:var(--inspector-icon-width) minmax(24px,1fr) var(--inspector-value-width)}
+.design-inspector .ds-property-select--quick.ds-property-icon-label{grid-template-columns:var(--inspector-icon-width) auto minmax(0,1fr);gap:4px}
+.design-inspector :is(.ds-select-trigger,.ds-property-color .ds-color-right,.ds-number-actions,.ds-segment-buttons,.ds-binary-group){box-sizing:border-box;height:var(--inspector-field-height);min-height:var(--inspector-field-height);border-radius:6px}
+.design-inspector .ds-select-trigger{padding-inline:7px}
+.design-inspector .ds-property-color .ds-color-right{padding:4px 7px}
+.design-inspector .ds-property-color .ds-color-swatch{box-sizing:border-box;flex-basis:22px;width:22px;height:22px}
+.design-inspector .ds-prop-numberbox{box-sizing:border-box;width:var(--inspector-value-width);height:var(--inspector-field-height);justify-content:flex-end}
+.design-inspector .ds-prop-numberbox .ds-prop-number{height:var(--inspector-field-height)!important;min-width:0}
+.design-inspector .ds-binary-group,.design-inspector .ds-segment-buttons{padding:2px}
+.design-inspector :is(.ds-binary-option,.ds-segment-option){height:26px;min-height:26px}
+@media(pointer:coarse){.design-inspector{--inspector-field-height:36px}.design-inspector :is(.ds-binary-option,.ds-segment-option){height:30px;min-height:30px}}
+
+.design-inspector .ds-color-pipette{flex:0 0 24px;display:flex;align-items:center;justify-content:center;width:24px;height:24px;min-height:24px;padding:0;border:0;border-radius:4px;background:transparent;color:var(--ds-text-secondary)}
+.design-inspector .ds-color-pipette:hover{background:var(--ds-panel-hover);color:var(--ds-text)}
+.design-inspector .ds-color-pipette:focus-visible{outline:2px solid var(--ds-focus);outline-offset:1px}
+.design-inspector .ds-color-pipette:disabled{opacity:.4;cursor:not-allowed}
+
+/* Preview cards must not move or recolor the visual being selected. */
+.design-inspector :is(.bg-preset,.theme-recipe-card,.section-style-preset),
+.design-inspector :is(.bg-preset,.theme-recipe-card,.section-style-preset):hover{filter:none;transform:none;transition:border-color .14s,box-shadow .14s}
+.design-inspector .bg-preset:hover{background:var(--ds-panel-raised);border-color:var(--ds-brand)}
+.design-inspector .bg-preset .bg-swatch{flex-shrink:0;border:1px solid #8090a044}
+
+/* Content: target, visual style and document rhythm have distinct rows. */
+.design-inspector .composer-style-row{display:grid;grid-template-columns:24px minmax(0,1fr);align-items:center;gap:8px}
+.design-inspector .composer-field-icon{display:flex;align-items:center;justify-content:center;color:var(--ds-text-secondary);width:24px}
+.design-inspector #inspector-content .composer-style-row .compact-style-control{width:100%;margin:0;grid-template-columns:28px 28px minmax(0,1fr);gap:4px;min-height:var(--inspector-field-height);height:var(--inspector-field-height);padding:0;border:0;background:transparent}
+.design-inspector #inspector-content .compact-style-control .style-picker{grid-column:3;grid-row:1;height:var(--inspector-field-height);border:1px solid var(--ds-border);border-radius:6px;background:var(--ds-panel);display:flex;justify-content:space-between;gap:6px;width:100%;min-width:0;padding:0 5px;color:var(--ds-text);font-size:12px}
+.design-inspector #inspector-content .compact-style-control .style-current{padding:0;font-weight:550;min-width:0}
+.design-inspector #inspector-content .compact-style-control .style-picker ds-icon{flex-shrink:0}
+.design-inspector .section-placement[hidden]{display:none}
+.design-inspector .composer-subheading{font-size:11px;font-weight:600;color:var(--ds-text-secondary);padding:2px 0}
+.design-inspector #inspector-content .ds-property-range.ds-property-icon-label{grid-template-columns:24px minmax(24px,1fr) var(--inspector-value-width)}
+.design-inspector #inspector-content .ds-property-number.ds-property-icon-label,.design-inspector #inspector-content .ds-property-segment.ds-property-icon-label{grid-template-columns:24px minmax(0,1fr)}
+.design-inspector #inspector-content .section-style-density{display:flex;gap:2px;padding:2px;min-height:32px;border:1px solid var(--ds-border);border-radius:6px}
+.design-inspector #inspector-content .section-style-density button{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:4px;padding:0 4px;height:26px;min-height:26px;font-size:11px}
+.design-inspector #inspector-content #elementComposerView{border:0;padding:0;margin:0}
+.design-inspector .ds-number-actions{display:flex;border:1px solid var(--ds-border);border-radius:6px;padding:2px;background:var(--ds-panel);gap:4px}
+.design-inspector .ds-number-native{flex:1;width:0;text-align:right;height:26px!important}
+.design-inspector .ds-number-step{flex:0 0 26px;border:0;height:26px;min-height:26px}
+.design-inspector .ds-number-actions .ds-prop-unit{padding-right:4px}
+
+/* Shared two-column icon fields, including page and theme settings. */
+.design-inspector :is(.ds-property-select,.ds-property-number,.ds-property-binary,.ds-property-segment).ds-property-icon-label:not(.ds-property-select--quick){grid-template-columns:var(--inspector-icon-width) minmax(0,1fr)}
+.design-inspector .ds-number-actions .ds-number-step{width:26px;min-width:26px;max-width:26px;flex:0 0 26px}
+.design-inspector .pagination-inspector-summary{min-height:32px;padding:6px 8px;border-radius:6px;background:transparent;font-size:11px}
+.design-inspector .ds-binary-group{box-sizing:border-box;border:1px solid var(--ds-border);border-radius:6px;background:var(--ds-panel)}
+.design-inspector #inspector-themes :is(.property-actions button,.theme-surprise-actions button,#tryWithoutAI,#copyAgentPrompt){min-height:var(--inspector-field-height);border-radius:6px;font-size:11px}
+.design-inspector #inspector-themes .theme-surprise-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.design-inspector #inspector-themes .theme-surprise-actions button{display:flex;align-items:center;justify-content:center;gap:6px;padding:4px 6px}
+.design-inspector #inspector-themes .theme-lock-list{gap:4px}
+
+/* Form hierarchy across all four tabs: heading, field/value, supporting text. */
+.design-inspector .ds-accordion-title{font-size:12px;line-height:1.35;font-weight:600}
+.design-inspector .ds-property-row .ds-prop-name{font-size:12px;line-height:1.4;font-weight:400;color:var(--ds-text-secondary)}
+.design-inspector .ds-select-trigger{font-size:12px;font-weight:500}
+.design-inspector .ds-color-hex,.design-inspector .ds-prop-number,.design-inspector .ds-number-native{font-weight:500!important}
+.design-inspector :is(.ds-binary-option,.ds-segment-option){font-weight:400}
+.design-inspector :is(.ds-binary-option,.ds-segment-option)[aria-pressed=true]{font-weight:600}
+.design-inspector :is(.composer-subheading,.property-field){font-size:11px;line-height:1.45;font-weight:500}
+.design-inspector .property-hint{font-size:11px;line-height:1.5;font-weight:400;color:var(--ds-text-secondary)}
+.design-inspector #sectionComposerView,.design-inspector #elementComposerView,.design-inspector .section-placement{gap:var(--inspector-row-gap)}
+.design-inspector .section-placement{margin-top:4px;padding-top:12px}
+.design-inspector .composer-subheading{padding:0}
+.design-inspector .property-actions{gap:6px}
+.design-inspector :is(.property-actions button,.section-style-actions button,.property-reset){font-size:11px;font-weight:500}
+.design-inspector #inspector-content .section-style-density button{font-weight:400}
+.design-inspector #inspector-content .section-style-density button[aria-pressed=true]{font-weight:600}
+.design-inspector .property-field{gap:6px}
+.design-inspector .theme-proposal{display:flex;flex-direction:column;gap:8px;padding-top:12px;margin-top:4px;border-top:0}
+.design-inspector .property-field{margin:0}
+
+/* Tabs reserve space for each label instead of squeezing equal flex items. */
+
+/* The same select primitive is used in toolbars, dialogs and inspectors. */
+.ds-select-popover{margin:0;inset:auto;max-width:calc(100vw - 16px)}
+.ds-select-host{display:inline-flex;min-width:0;vertical-align:middle;position:relative}
+.ds-select-host>.ds-property-select{display:block;min-width:0;width:100%;padding:0;border:0;background:none}
+.ds-select-host .ds-prop-name{display:none}
+.ds-select-host .ds-select-trigger{height:32px;min-height:32px;padding:0 8px;gap:6px;font:500 12px var(--ds-font);width:100%;filter:none}
+.ds-select-host .ds-select-chevron{flex:0 0 14px}
+.ds-select-host .ds-select-value{flex:1}
+.ds-select-host[data-select-id=docPicker]{width:160px;max-width:100%}
+.ds-select-host[data-select-id=headingCommand]{width:112px;flex:0 0 auto}
+.canvas-zoom-controls .ds-select-host{width:64px}
+.canvas-zoom-controls .ds-select-trigger{width:100%;height:27px;min-height:27px;background:transparent;font-size:11px;justify-content:space-between;padding:0 5px}
+.app-dialog .ds-select-host{display:flex;width:100%}
+.app-dialog label:has(>.ds-select-host){display:flex;flex-direction:column;align-items:stretch;gap:6px}
+@media(max-width:600px){.ds-select-host[data-select-id=docPicker]{width:108px}}
+.document-selector:has(.ds-select-trigger:focus-visible){outline:2px solid var(--ds-focus);outline-offset:2px}
+.editor-panel .markdown-toolbar .tool-group .ds-select-trigger{width:100%;min-width:0;height:30px;min-height:30px;flex:1;padding:0 7px;border:1px solid var(--ds-border);background:var(--ds-panel-raised);font-size:11px}
+.ds-select-host>.ds-property-select{min-height:0}
+.ds-select-host .ds-select-native{min-height:0!important;min-width:0!important;max-width:1px!important}
+.app-dialog{padding:24px;border-radius:14px}
+.app-dialog h2{font-size:16px;font-weight:600;letter-spacing:0}
+.app-dialog .ds-select-host .ds-select-trigger{height:36px;min-height:36px}
+.app-dialog .pdf-export-advanced>label{margin:12px 0;font-size:12px;font-weight:400}
+.app-dialog .pdf-profile-choices strong{font-size:12px;font-weight:600}
+.app-dialog .pdf-profile-choices small{font-size:11px;font-weight:400}
+.app-dialog .pdf-benchmark summary{cursor:pointer;font-size:12px;font-weight:500}
+.app-dialog form>.toolbar{position:sticky;bottom:-24px;z-index:1;background:var(--ds-panel);padding:12px 0;margin-top:16px}
+.app-dialog .pdf-export-advanced{display:flex;flex-direction:column;gap:12px}
+.app-dialog .pdf-export-advanced>label{margin:0}
+
+/* Block appearance: scope first, then a full-width visual choice with its own actions. */
+.design-inspector .theme-library{display:flex;flex-direction:column;gap:8px;min-width:0}
+.design-inspector .theme-library-selection{display:grid;grid-template-columns:minmax(0,1fr) 28px;gap:4px;align-items:center}
+.design-inspector .theme-library-selection .property-row{margin:0;min-width:0}
+.design-inspector .theme-library-selection #deleteThemePreset{width:28px;min-width:28px;color:var(--ds-text-secondary)}
+.design-inspector .theme-library-selection #deleteThemePreset:hover:not(:disabled){color:var(--ds-danger);background:var(--ds-panel-hover)}
+.design-inspector .theme-library-save{display:flex;align-items:center;justify-content:center;gap:8px;min-height:32px;width:100%;border:1px solid var(--ds-border);border-radius:6px;background:var(--ds-brand-soft);color:var(--ds-text);font-size:12px;font-weight:500}
+.design-inspector .theme-library-transfer{display:grid;grid-template-columns:1fr 1fr;gap:4px;border-top:0;padding-top:8px}
+.design-inspector .theme-library-transfer button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:30px;padding:4px;border:0;border-radius:5px;background:transparent;color:var(--ds-text-secondary);font-size:11px}
+.design-inspector .theme-library button:hover{filter:none;background:var(--ds-panel-hover)}
+.design-inspector .theme-library button:focus-visible{outline:2px solid var(--ds-focus);outline-offset:-2px}
+.design-inspector #inspector-content .composer-style-row{display:block;margin-top:12px}
+.design-inspector #inspector-content .composer-style-row .compact-style-control{display:grid;grid-template-columns:minmax(0,1fr) 28px 28px 28px;grid-template-rows:28px var(--inspector-field-height);height:auto;gap:4px;}
+.design-inspector #inspector-content .compact-style-control .composer-style-label{grid-column:1;grid-row:1;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:500;color:var(--ds-text-secondary)}
+.design-inspector #inspector-content .compact-style-control .style-prev{grid-column:2;grid-row:1}
+.design-inspector #inspector-content .compact-style-control .style-next{grid-column:3;grid-row:1}
+.design-inspector #inspector-content .compact-style-control .style-reset{grid-column:5;grid-row:1;border:0;background:transparent;color:var(--ds-text-secondary)}
+.design-inspector #inspector-content .compact-style-control .style-picker{grid-column:1/-1;grid-row:2;padding-inline:8px}
+.design-inspector #inspector-content .composer-mode-switch{margin:0;border:0;border-bottom:0;border-radius:0;background:transparent;padding:0 0 8px;gap:6px}
+.design-inspector #inspector-content .composer-mode-switch button{font-weight:500}
+.design-inspector #inspector-content .composer-mode-switch button[aria-pressed=true]{box-shadow:none;background:var(--ds-brand-soft);color:var(--ds-text);font-weight:600}
+.design-inspector #inspector-content .section-style-target{margin:0!important}
+
+.design-inspector #inspector-content #sectionStyleControl{grid-template-columns:minmax(0,1fr) repeat(4,28px)}
+.design-inspector #inspector-content .compact-style-control .style-random{grid-column:4;grid-row:1}
+
+
+/* Separate expanded groups with space, without stacking horizontal rules. */
+.design-inspector .property-section.ds-accordion:has(.ds-accordion-toggle[aria-expanded=true])+.property-section.ds-accordion{margin-top:6px}
+
+/* Document picker is one toolbar group, not an input nested inside another input. */
+.document-selector .ds-select-trigger{border:0;background:transparent;border-radius:5px;box-shadow:none;padding-inline:6px}
+.document-selector .ds-select-trigger:hover{background:var(--ds-panel-hover)}
+.document-selector:has(.ds-select-trigger:focus-visible){outline:none}
+.document-selector .ds-select-trigger:focus-visible{outline:2px solid var(--ds-focus);outline-offset:-2px}
+
+.design-inspector .theme-library-empty{display:flex;flex-direction:column;gap:3px;padding:4px 0 8px;font-size:11px;color:var(--ds-text-secondary)}
+.design-inspector .theme-library-empty strong{font-weight:500;color:var(--ds-text)}
+.design-inspector .theme-library-empty[hidden],.design-inspector .theme-library-selection[hidden]{display:none}
+.design-inspector .theme-library-selection .ds-prop-name{display:none}
+.design-inspector .theme-library-selection .ds-property-select.ds-property-icon-label:not(.ds-property-select--quick){grid-template-columns:minmax(0,1fr)}
+.design-inspector .theme-library-footer{display:flex;align-items:center;gap:6px}
+.design-inspector .theme-library-footer .theme-library-save{flex:1;background:var(--ds-panel-raised);justify-content:flex-start;padding-inline:10px}
+.design-inspector #themeTransferMenu{position:fixed;inset:auto;margin:0;width:190px;padding:5px;border:1px solid var(--ds-border);border-radius:8px;background:var(--ds-panel-raised);color:var(--ds-text);box-shadow:var(--ds-shadow-pop)}
+.design-inspector #themeTransferMenu:not(:popover-open){display:none}
+.design-inspector #themeTransferMenu:popover-open{display:flex;flex-direction:column;gap:2px}
+.design-inspector #themeTransferMenu button{justify-content:flex-start;padding:8px;min-height:34px}
+
+/* Inspector selects share one anatomy: label/actions above a full-width field. */
+.design-inspector :is(#inspector-document,#inspector-content,#inspector-page,#inspector-themes) .ds-property-select{
+ display:grid;grid-template-columns:minmax(0,1fr) auto!important;grid-template-rows:auto var(--inspector-field-height);gap:4px 8px;align-items:center;
+}
+.design-inspector :is(#inspector-document,#inspector-content,#inspector-page,#inspector-themes) .ds-property-select>.ds-prop-name{
+ display:flex;grid-column:1;grid-row:1;align-items:center;justify-content:flex-start;gap:6px;width:auto;min-height:24px;font-size:11px;font-weight:500;color:var(--ds-text-secondary);
+}
+.design-inspector .ds-property-select .ds-prop-name-hidden{position:static;width:auto;height:auto;padding:0;margin:0;overflow:visible;clip-path:none;white-space:normal}
+.design-inspector .ds-property-select>.ds-choice-actions{grid-column:2;grid-row:1;justify-self:end}
+.design-inspector .ds-property-select>.ds-select-trigger{grid-column:1/-1;grid-row:2}
+.design-inspector .theme-library-selection>#deleteThemePreset{align-self:end;height:var(--inspector-field-height)}
+
+/* One form anatomy for every inspector field, including dynamic mesh points. */
+.design-inspector :is(#inspector-document,#inspector-content,#inspector-page,#inspector-themes) :is(.ds-property-color,.ds-property-number,.ds-property-binary,.ds-property-segment,.ds-property-range){
+ display:grid;grid-template-columns:minmax(0,1fr) var(--inspector-value-width)!important;grid-template-rows:auto var(--inspector-field-height);gap:4px 8px;align-items:center;
+}
+.design-inspector :is(#inspector-document,#inspector-content,#inspector-page,#inspector-themes) :is(.ds-property-color,.ds-property-number,.ds-property-binary,.ds-property-segment,.ds-property-range)>.ds-prop-name{
+ display:flex;grid-column:1/-1;grid-row:1;align-items:center;justify-content:flex-start;gap:6px;width:auto;min-height:24px;font-size:11px;font-weight:500;color:var(--ds-text-secondary);
+}
+.design-inspector .ds-prop-name-hidden{position:static;width:auto;height:auto;padding:0;margin:0;overflow:visible;clip-path:none;white-space:normal}
+.design-inspector :is(.ds-color-right,.ds-number-actions,.ds-binary-group,.ds-segment-buttons){grid-column:1/-1;grid-row:2;width:100%}
+.design-inspector .ds-property-range>.ds-prop-track{grid-column:1;grid-row:2;width:100%}
+.design-inspector .ds-property-range>.ds-prop-numberbox{grid-column:2;grid-row:2}
+
+/* The mode switch already labels its immediate target selector. */
+.design-inspector #inspector-content :is(#sectionComposerView,#elementComposerView)>.property-row:first-child .ds-property-select{
+ grid-template-columns:minmax(0,1fr)!important;grid-template-rows:var(--inspector-field-height);gap:0;
+}
+.design-inspector #inspector-content :is(#sectionComposerView,#elementComposerView)>.property-row:first-child .ds-prop-name{display:none}
+.design-inspector #inspector-content :is(#sectionComposerView,#elementComposerView)>.property-row:first-child .ds-select-trigger{grid-row:1}
+.design-inspector #inspector-content .composer-mode-switch{padding-bottom:0}
+
+
+.design-inspector .background-effect-group{display:flex;flex-direction:column;gap:6px;min-width:0;padding:8px;border-radius:6px;background:color-mix(in srgb,var(--ds-text) 3%,transparent)}
+.design-inspector #inspector-document .background-effect-group :is(.ds-property-select,.ds-property-color,.ds-property-range){row-gap:2px}
+.design-inspector #inspector-document .background-effect-group .ds-prop-name{min-height:18px}
+
+.ds-select-more{display:block;width:100%;padding:8px;border:0;background:transparent;color:var(--ds-text-secondary);font-size:11px}.ds-select-more[hidden]{display:none}
+
+.design-inspector .document-color-group{display:flex;flex-direction:column;gap:8px;min-width:0}
+.design-inspector .document-color-group+.document-color-group{margin-top:6px}
+.document-color-group-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:24px;font-size:11px;font-weight:600;color:var(--ds-text-secondary)}
+.document-color-group-heading .ds-button{height:24px;min-height:24px;padding:0 4px;font-size:10px;font-weight:400}
+
+/* Scrub field: slider fill, exact value and steppers share one surface. */
+.design-inspector .ds-scrub-control{grid-column:1/-1;grid-row:2;display:flex;align-items:center;position:relative;isolation:isolate;gap:0;width:100%;height:var(--inspector-field-height,32px);min-width:0;padding:0;border:1px solid var(--ds-border);border-radius:6px;background:var(--ds-panel-raised);overflow:hidden;box-sizing:border-box}
+.design-inspector .ds-scrub-control::before{content:'';position:absolute;z-index:-1;inset:0;background:linear-gradient(to right,color-mix(in srgb,var(--ds-brand) 15%,transparent) var(--ds-range-progress,0%),transparent var(--ds-range-progress,0%));pointer-events:none}
+.design-inspector .ds-scrub-control:focus-within{outline:2px solid var(--ds-focus);outline-offset:1px}
+.design-inspector .ds-scrub-control .ds-scrub-step{flex:0 0 30px;width:30px;height:100%;min-height:0;padding:0;border:0;border-radius:0;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--ds-text-secondary)}
+.design-inspector .ds-scrub-control .ds-scrub-step:hover{background:var(--ds-panel-hover)}
+.design-inspector .ds-scrub-control .ds-prop-track,.design-inspector .ds-scrub-number-track{position:relative;flex:1;min-width:24px;height:100%;min-height:0;cursor:ew-resize}
+.design-inspector .ds-scrub-control :is(.ds-prop-fill,.ds-prop-ticks,.ds-prop-thumb),.design-inspector .ds-scrub-control .ds-prop-track::before{display:none}
+.design-inspector .ds-scrub-control :is(.ds-range-native,.ds-scrub-range){position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:ew-resize;padding:0}
+.design-inspector .ds-scrub-control .ds-prop-numberbox{flex:0 0 72px;width:72px;height:100%;min-width:0;border:0;background:transparent;padding:0 4px}
+.design-inspector .ds-scrub-control .ds-number-native{flex:0 0 48px;width:48px;min-width:0;background:transparent;border:0;padding:0 3px;text-align:right}
+.design-inspector .ds-scrub-control .ds-prop-unit{flex:none;padding-right:5px}
