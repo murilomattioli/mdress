@@ -870,17 +870,22 @@ try {
    const selectors=['.ds-prop-number','.ds-number-native','.ds-number-step',
     '.ds-color-swatch','.ds-color-hex','.ds-select-trigger',
     '.ds-segment-option','.ds-binary-option'];
+   const bounds=root.getBoundingClientRect();
    return selectors.flatMap(selector=>[...root.querySelectorAll(selector)]
     .filter(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden')
     .map(el=>({selector,width:el.getBoundingClientRect().width,
-     height:el.getBoundingClientRect().height})));
+     height:el.getBoundingClientRect().height,
+     left:el.getBoundingClientRect().left-bounds.left,
+     right:el.getBoundingClientRect().right-bounds.right})));
   });
   assert.ok(mobileTargets.length>=3,'Mobile inspector must expose usable property controls');
   assert.ok(mobileTargets.every(item=>item.height>=43.5),
    'Mobile inspector targets must be at least 44px high: '+JSON.stringify(mobileTargets));
   assert.ok(mobileTargets.filter(item=>['.ds-number-step','.ds-color-swatch'].includes(item.selector))
    .every(item=>item.width>=43.5),'Mobile steppers and swatches need 44px touch width');
-  await ux.screenshot({path:'test-results/ux-mobile-inspector-390.png',animations:'disabled'});
+  assert.ok(mobileTargets.every(item=>item.left>=-3&&item.right<=3),
+   'Mobile property controls must not clip horizontally: '+JSON.stringify(mobileTargets));
+  await ux.screenshot({path:'test-results/ux-audit/mobile-inspector-390.png',animations:'disabled'});
   for(const [name,width,height,theme] of [
    ['desktop-graphite',1440,900,'graphite'],
    ['desktop-oled',1440,900,'oled'],
