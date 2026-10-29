@@ -85,6 +85,7 @@ export function attachToolbarOverflow(toolbar){
   // A focused action can blur *before* the DOM removal/hidden mutation.
   // A null relatedTarget is not proof of deliberate keyboard navigation.
   if(event.target===lastFocusedAction&&event.relatedTarget&&
+   event.relatedTarget!==document.body&&
    !toolbar.contains(event.relatedTarget))lastFocusedAction=null;
  });
  // A pointer interaction outside the toolbar is intentional; never pull
