@@ -98,6 +98,7 @@ try{
  await viewer.locator('#viewer-close').click();
  assert.equal(await viewer.isVisible(),false);
  const secondImage=page.locator('.state').nth(1).locator('figure a').first();
+ await page.waitForFunction(()=>document.activeElement===document.querySelectorAll('.state')[1]?.querySelector('figure a'),null,{timeout:3000});
  assert.equal(await secondImage.evaluate(el=>document.activeElement===el),true,
   'Closing after state navigation restores focus to the current image');
  await firstImage.click();
