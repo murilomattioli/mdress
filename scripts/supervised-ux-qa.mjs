@@ -734,18 +734,29 @@ async function toolbarAudit(page,theme,width){
  // A command can become unavailable while it owns keyboard focus (for
  // example, undo/redo after document history changes). The toolbar must
  // hand focus to another enabled action rather than dropping it on body.
- const action=toolbar.locator('button:not([disabled])').first();
+ // Use an isolated visual fixture: application state can immediately
+ // re-enable real formatting commands, invalidating a disabled-state test.
+ await toolbar.evaluate(el=>{
+  const source=el.querySelector('[data-md-command="bold"]');
+  const fixture=source.cloneNode(true);
+  fixture.removeAttribute('data-md-command');
+  fixture.dataset.qaFocusFixture='true';
+  fixture.setAttribute('aria-label','Comando indisponível (QA)');
+  fixture.title='Comando indisponível (QA)';
+  source.after(fixture);
+ });
+ const action=toolbar.locator('[data-qa-focus-fixture]');
  await action.focus();
  await action.evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>{
   const active=document.activeElement;
   return Boolean(active?.closest('.markdown-toolbar')&&!active.disabled&&
-   active.matches('button,select,input,[tabindex]'));
+   active!==document.querySelector('[data-qa-focus-fixture]'));
  });
  assert.equal(await action.evaluate(el=>el===document.activeElement),false,
   'Disabled Markdown command must relinquish focus');
  await capture(page,theme,width,'toolbar-disabled-focus-handoff');
- await action.evaluate(el=>{el.disabled=false;});
+ await action.evaluate(el=>el.remove());
 }
 await mkdir(directory,{recursive:true});
 let browser;
