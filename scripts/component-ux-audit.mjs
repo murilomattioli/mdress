@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps} from './component-ux-findings.mjs';
+import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps, findInspectorCrossRowOverlaps, missingAriaReferenceIds} from './component-ux-findings.mjs';
 
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const findings=[],coverage=[],screenshots=[];
@@ -25,7 +25,15 @@ try{
      for(const control of controls){
       const tag=control.tagName.toLowerCase(),role=control.getAttribute('role');
       categories[role in categories?role:tag]=(categories[role in categories?role:tag]||0)+1;
-      const label=control.getAttribute('aria-label')||control.getAttribute('aria-labelledby')||control.labels?.[0]?.textContent?.trim()||control.getAttribute('title')||(tag==='button'?control.textContent.trim():'');
+      const labelledBy=control.getAttribute('aria-labelledby');
+      const brokenLabels=missingAriaReferenceIds(labelledBy,id=>Boolean(document.getElementById(id)));
+      const brokenDescriptions=missingAriaReferenceIds(control.getAttribute('aria-describedby'),id=>Boolean(document.getElementById(id)));
+      for(const id of brokenLabels)violations.push({rule:'aria-labelledby-target',severity:'error',component:tag,detail:'Referência de nome acessível inexistente: '+id,html:control.outerHTML.slice(0,190)});
+      for(const id of brokenDescriptions)violations.push({rule:'aria-describedby-target',severity:'error',component:tag,detail:'Referência de descrição acessível inexistente: '+id,html:control.outerHTML.slice(0,190)});
+      const label=control.getAttribute('aria-label')?.trim()||
+       labelledBy?.split(/\s+/).map(id=>document.getElementById(id)?.textContent||'').join(' ').trim()||
+       control.labels?.[0]?.textContent?.trim()||control.getAttribute('title')?.trim()||
+       (tag==='button'?control.textContent.trim():'');
       if(!label && !['hidden','submit'].includes(control.type)&&!control.closest('[aria-hidden="true"]')){
        violations.push({rule:'accessible-name',severity:'error',component:tag,detail:'Controle visível sem nome acessível',html:control.outerHTML.slice(0,190)});
       }
@@ -72,6 +80,12 @@ try{
       'Controles interativos se sobrepõem: '+collision.first+' / '+collision.second+
       ' ('+collision.horizontal+'×'+collision.vertical+'px)',
       {theme,width,row:collision.row,html:collision.html});
+    for(const collision of findInspectorCrossRowOverlaps(data.propertyRows))
+     emit('cross-row-overlap','error','inspector',
+      'Controles de linhas distintas se sobrepõem: '+collision.row+' / '+collision.otherRow+
+      ' — '+collision.first+' / '+collision.second+
+      ' ('+collision.horizontal+'×'+collision.vertical+'px)',
+      {theme,width,row:collision.row,otherRow:collision.otherRow,html:collision.html});
     for(const error of errors)emit('runtime-error','error','app',error,{theme,width});
     const missingCoverage=auditCoverageFinding(data.count,{theme,width});
     if(missingCoverage)findings.push(missingCoverage);
