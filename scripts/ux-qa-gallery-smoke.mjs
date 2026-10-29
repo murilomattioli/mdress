@@ -169,11 +169,23 @@ try{
  assert.equal(await secondImage.evaluate(el=>document.activeElement===el),true,
   'Closing after state navigation restores focus to the current image');
  await firstImage.click();
+ await viewer.locator('#viewer-next').click();
+ await viewer.locator('#viewer-next').click();
+ assert.match(await page.locator('#viewer-label').innerText(),/3\/6/);
+ await viewer.locator('#viewer-close').click();
+ const thirdImage=page.locator('.state').first().locator('figure a').nth(2);
+ await page.waitForFunction(()=>document.activeElement===document.querySelector('.state')?.querySelectorAll('figure a')[2],null,{timeout:3000});
+ assert.equal(await thirdImage.evaluate(el=>document.activeElement===el),true,
+  'Closing after button navigation restores focus to the displayed variant');
+ await firstImage.click();
  await page.keyboard.press('ArrowRight');
  assert.match(await page.locator('#viewer-label').innerText(),/2\/6/);
  await page.keyboard.press('Escape');
  assert.equal(await viewer.isVisible(),false);
- assert.equal(await firstImage.evaluate(el=>document.activeElement===el),true);
+ const secondVariant=page.locator('.state').first().locator('figure a').nth(1);
+ await page.waitForFunction(()=>document.activeElement===document.querySelector('.state')?.querySelectorAll('figure a')[1],null,{timeout:3000});
+ assert.equal(await secondVariant.evaluate(el=>document.activeElement===el),true,
+  'Closing after keyboard navigation restores focus to the displayed variant');
  await page.locator('#only-pending').click();
  assert.equal(await page.locator('.state').first().isVisible(),false,'Approved states can be hidden');
  await page.locator('#only-pending').click();

@@ -40,6 +40,7 @@ test('offline gallery renders the full comparison matrix and supports filtering'
  assert.match(html,/id="viewer-note"/);
  assert.match(html,/id="viewer-next-state"/);
  assert.match(html,/function setViewerSection/);
+ assert.match(html,/viewerOrigin=viewerImages\[viewerIndex\]\?\.closest\("a"\)\|\|viewerOrigin/);
  assert.match(html,/event\.target\.closest\("input,textarea,select,\[contenteditable\]"\)/);
  assert.match(html,/Verificando capturas:/);
  assert.match(html,/color-draft-sync/);

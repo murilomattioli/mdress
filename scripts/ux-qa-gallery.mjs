@@ -308,6 +308,9 @@ function showViewerImage(){
 function navigateViewer(step){
  if(!viewerImages.length)return;
  viewerIndex=(viewerIndex+step+viewerImages.length)%viewerImages.length;
+ // Focus must return to the thumbnail currently displayed, not the one
+ // that originally opened the dialog before the reviewer used the carousel.
+ viewerOrigin=viewerImages[viewerIndex]?.closest("a")||viewerOrigin;
  showViewerImage();
 }
 for(const section of states){
