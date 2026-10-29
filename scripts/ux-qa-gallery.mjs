@@ -30,13 +30,17 @@ const progress=document.querySelector("#review-progress");
 const warning=document.querySelector("#review-warning");
 let onlyPending=false;
 let saved={};
+let storageFailure=false;
 const imageChecks=new WeakMap();
 // Fresh export checks supersede any slower validation still decoding images.
 // A stale success must never re-enable approval after a newer check fails.
 const imageCheckVersions=new WeakMap();
 let verificationNonce=0;
-try{saved=JSON.parse(localStorage.getItem(storageKey)||"{}");if(!saved||typeof saved!=="object"||Array.isArray(saved))saved={};}catch{saved={};}
-function persist(){try{localStorage.setItem(storageKey,JSON.stringify(saved));}catch{warning.textContent="Armazenamento indisponível. Exporte antes de fechar a página.";}}
+try{saved=JSON.parse(localStorage.getItem(storageKey)||"{}");if(!saved||typeof saved!=="object"||Array.isArray(saved))saved={};}catch{saved={};storageFailure=true;}
+function persist(){
+ try{localStorage.setItem(storageKey,JSON.stringify(saved));storageFailure=false;}
+ catch{storageFailure=true;}
+}
 async function verifyImages(section,{fresh=false}={}){
  if(fresh)imageChecks.delete(section);
  if(imageChecks.has(section))return imageChecks.get(section);
@@ -129,13 +133,17 @@ function refresh(){
   const entry=saved[key]||{};
   const status=["approved","rejected"].includes(entry.status)?entry.status:"pending";
   section.dataset.verdict=status;
-  section.querySelector(".badge").textContent=status==="approved"?"Aprovado":status==="rejected"?"Reprovado":"Pendente";
+  const badge=section.querySelector(".badge");
+  badge.textContent=status==="approved"?"Aprovado":status==="rejected"?"Reprovado":"Pendente";
+  badge.setAttribute("aria-label",status==="approved"?"Revisão aprovada":status==="rejected"?"Revisão reprovada":"Revisão pendente");
   if(status==="approved")approved++;
   if(status==="rejected")rejected++;
   section.hidden=(onlyPending&&status==="approved")||!key.includes(search.value.trim().toLowerCase());
  }
  progress.textContent=approved+"/"+states.length+" estados aprovados · "+rejected+" reprovados · "+(states.length-approved-rejected)+" pendentes";
- warning.textContent=rejected?"Há estados reprovados: não aprove a UX.":approved===states.length?"Todos os estados revisados. Exporte o registro para homologação.":"A aprovação exige revisão explícita de todos os estados.";
+ warning.textContent=storageFailure?"Armazenamento indisponível. Exporte antes de fechar a página.":
+  rejected?"Há estados reprovados: não aprove a UX.":approved===states.length?"Todos os estados revisados. Exporte o registro para homologação.":"A aprovação exige revisão explícita de todos os estados.";
+ if(viewerSection)syncViewerReview();
 }
 for(const section of states){
  const key=section.dataset.name;
