@@ -27,3 +27,5 @@ Este índice reúne as especificações e o estado de implementação do mdress.
 - [Guia de arquivos da marca](../branding/README.md): imagens oficiais, paleta, variantes e caminhos de integração.
 
 **Regra:** SDD validada não equivale a funcionalidade implementada.
+
+- [F-013 — Peso do PDF e randomização harmônica](F-013/spec.md): integrada, aguardando homologação.

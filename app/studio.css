@@ -387,3 +387,11 @@ button,select,input,textarea{font:inherit}
 .analysis-heading:hover,.analysis-finding:hover{background:var(--ds-panel-hover);filter:none}.analysis-heading:focus-visible,.analysis-finding:focus-visible{outline:2px solid var(--ds-focus);outline-offset:-2px}
 
 @media(max-width:540px){.appbar-actions .global-history-controls{position:absolute;right:8px;top:66px;margin:0;padding:0;border:0}.appbar-center{justify-content:flex-start}.document-selector{min-width:0;flex:1}.appbar-leading{gap:8px}.document-selector .ds-select-host{flex:1;min-width:0}}
+
+/* Approximate PDF size belongs to page composition, not the document palette. */
+.pdf-weight-badge{font-size:11px!important;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:68px}
+.pdf-weight-badge[data-band=atencao],.pdf-weight-badge[data-band=pesado]{color:var(--ds-text)!important;background:var(--ds-panel-hover)!important}
+.pdf-weight-details{display:grid;gap:8px;font-size:12px}.pdf-weight-details p{margin:0;line-height:1.5}
+.pdf-weight-row{display:flex;justify-content:space-between;gap:12px;padding:4px 0;font-size:11px;font-variant-numeric:tabular-nums}
+.pdf-weight-row>span:last-child{white-space:nowrap}.pdf-weight-details summary{cursor:pointer;padding:6px 0}
+@media(max-width:540px){.pdf-weight-badge{position:absolute;right:82px;top:66px;min-width:58px;max-width:92px;padding-inline:4px!important}}

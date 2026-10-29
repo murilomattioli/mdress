@@ -41,6 +41,7 @@
    </div>
   <span class="save-state"><span class="save-indicator" aria-hidden="true"></span><span role="status" id="saveStatus">Carregando…</span></span>
   <button id="siteSettings" class="ds-button ds-button--subtle ds-button--icon" title="Configurações da interface" aria-label="Configurações da interface"><ds-icon name="settings-2" size="18"></ds-icon></button>
+  <button id="weightBadge" type="button" class="ds-button ds-button--subtle pdf-weight-badge" title="Tamanho estimado do PDF · abrir detalhes" aria-label="Abrir estimativa de tamanho do PDF">~… KiB</button>
   <button id="printPDF" class="ds-button ds-button--primary"><ds-icon name="file-down" size="16"></ds-icon><span>Exportar PDF</span><ds-icon name="chevron-down" size="13"></ds-icon></button>
  </div>
 </header>
@@ -210,6 +211,9 @@
     <label class="property-row">Marcações de página<input id="showPageGuides" type="checkbox" checked></label>
 
    </div>
+<div class="property-section" data-collapsed="true"><div class="property-section-heading"><strong>Peso do PDF</strong></div>
+<div id="weightDetails" class="pdf-weight-details"><strong id="weightTotal"></strong><p class="muted">Estimativa aproximada; o tamanho real depende da impressão e das fontes.</p><div id="weightContributors"></div><details><summary>Por página</summary><div id="weightPerPage"></div></details></div>
+</div>
 </section>
 <section class="inspector-panel hidden" id="inspector-themes" role="tabpanel" aria-labelledby="inspector-tab-themes" data-inspector-panel="themes">
 <div class="property-section"><div class="property-section-heading"><strong>Estilos prontos</strong></div>

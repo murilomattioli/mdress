@@ -921,7 +921,7 @@ function sectionAccordions(root){
   const toggle=button('ds-accordion-toggle','');
   toggle.setAttribute('aria-label',title);
   const name=span('ds-accordion-title',title);
-  const sectionIcons={'Tipografia':'typography','Cores e fundo':'palette','Fundos prontos':'paintbrush','Aparência dos blocos':'layout-template','Ritmo do documento':'line-height','Página e margens':'layout-template','Paginação':'file-text','Estilos prontos':'sparkles','Meus temas':'save','Variações e travas':'lock','Criar tema com IA':'sparkles'};
+  const sectionIcons={'Tipografia':'typography','Cores e fundo':'palette','Fundos prontos':'paintbrush','Aparência dos blocos':'layout-template','Ritmo do documento':'line-height','Página e margens':'layout-template','Paginação':'file-text','Peso do PDF':'file-down','Estilos prontos':'sparkles','Meus temas':'save','Variações e travas':'lock','Criar tema com IA':'sparkles'};
   const sectionIcon=document.createElement('ds-icon');
   sectionIcon.className='ds-accordion-icon';sectionIcon.setAttribute('name',sectionIcons[title]||'settings-2');
   sectionIcon.setAttribute('size','15');sectionIcon.setAttribute('aria-hidden','true');name.prepend(sectionIcon);

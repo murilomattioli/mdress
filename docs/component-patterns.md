@@ -167,3 +167,7 @@ Documento reúne as cores em Cores e fundo: Texto e destaque (cores do conteúdo
 ## Campo numérico com slider integrado
 
 Ranges e números com limites explícitos usam uma superfície de 32 px: menos à esquerda, área de arraste com preenchimento de fundo, valor editável/unidade e mais à direita. Compartilhar limites, incremento, eventos e estado disabled com o input original. Preservar validação da entrada numérica e navegação por setas. Números com herança/Auto ou sem limites definidos mantêm stepper sem slider, pois não há faixa finita aplicável. O preenchimento não deve cobrir o texto nem interceptar cliques.
+
+## Peso do PDF
+
+Selo compacto de tamanho aproximado próximo da exportação; em mobile fica na segunda linha para preservar o nome do documento. Clicar abre Página → Peso do PDF. Total, contribuintes e detalhe por página usam texto explícito de estimativa, sem prometer limite ou tamanho exato. Recalcular somente após a paginação, reutilizando seu debounce. Não criar quinta aba nem adicionar campos de peso à paleta.

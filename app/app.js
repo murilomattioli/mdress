@@ -1,3 +1,4 @@
+import {renderWeightEstimate} from './pdf-weight-view.js';
 import {ensureGoogleFont,ensureFontOption,initializeFontCatalog} from './google-fonts.js';
 import {syncPropertyControls} from './design-system/property-controls.js';
 import {confirmAlert,requestText} from './design-system/alert-dialog.js';
@@ -54,6 +55,7 @@ function runPaginationNow(t){
   setPageStatus(invalid?'Paginação: '+invalid+' aviso(s)':'Paginação atualizada',invalid?'needs-review':'ready');
   updateNavigation();
   inspectorPageSummary(livePagePlan.pages.length,livePagePlan.diagnostics);
+  renderWeightEstimate(stack,t);
   return livePagePlan;
  }catch(error){
   livePagePlan={pages:[{index:1}],status:'needs-review',diagnostics:[{type:'error',message:String(error)}]};
@@ -755,6 +757,7 @@ function bind(){
   note.hidden=!warn;note.textContent=warn?'Texto claro pode desaparecer no papel branco. Use texto escuro.':'';
   syncPropertyControls();
  }
+ $('weightBadge').onclick=()=>{if($('themesView').classList.contains('hidden'))$('designToggle').click();revealInspectorControl('weightDetails');$('weightDetails').scrollIntoView({block:'nearest'});};
  $('printPDF').onclick=()=>{
   const name='full';document.querySelector('input[name="pdfPreset"][value="'+name+'"]').checked=true;
   $('pdfBackgroundMode').value=PDF_PRESETS[name].backgroundMode;
@@ -837,7 +840,7 @@ function bind(){
    themeControls();render();status('Alterações pendentes…');
    clearTimeout(saveTimer);
    saveTimer=setTimeout(()=>persist(d).then(()=>{if(r===revision)status('Salvo localmente');}).catch(()=>status('Falha ao salvar')),350);
-   toast('Novo visual: tipografia, composição, espaçamentos e fundo, respeitando as travas.');
+   toast('Novo visual harmônico, respeitando as travas. Confira a estimativa de PDF em Página.');
   }catch(error){toast(error.message);}
  }
  $('shuffleTheme').onclick=randomizeFullDesign;

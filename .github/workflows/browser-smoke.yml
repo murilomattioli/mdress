@@ -36,6 +36,8 @@ jobs:
       - run: node scripts/e2e.mjs
       - name: Alert dialogs — keyboard, cancellation and focus restoration
         run: node scripts/alert-dialog-qa.mjs
+      - name: PDF weight interactions
+        run: node scripts/pdf-weight-qa.mjs
       - name: Component UX Audit
         run: node scripts/component-ux-audit.mjs
       - name: Inspector and toolbar interaction matrix

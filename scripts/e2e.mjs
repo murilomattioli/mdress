@@ -44,7 +44,7 @@ try {
  }finally{await printPage.close();}
  // Entity grouping must preserve original controls and their scope.
  assert.equal(await page.locator('#sectionComposerView #sectionStyleReset').count(),1);
- assert.equal(await page.locator('#inspector-page .ds-accordion').count(),2);
+ assert.equal(await page.locator('#inspector-page .ds-accordion').count(),3);
  assert.equal(await page.locator('#inspector-themes .ds-accordion').count(),4);
  assert.equal(await page.locator('#inspector-document .property-section').first().locator('#fontChoice').count(),1);
  await page.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent!=='Carregando…');
