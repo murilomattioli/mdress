@@ -346,6 +346,8 @@ button,select,input,textarea{font:inherit}
 
 /* Overflow affordances stay outside the scrolling toolbar so they remain visible. */
 .editor-panel .markdown-toolbar-shell{display:flex;align-items:stretch;min-width:0;flex:0 0 auto;background:var(--ds-panel);border-bottom:1px solid var(--ds-border-subtle)}
+/* Author-level flex/button rules must not override native hidden semantics. */
+.editor-panel .markdown-toolbar [hidden]{display:none!important}
 .editor-panel .markdown-toolbar-shell .markdown-toolbar{flex:1 1 auto;min-width:0;border-bottom:0}
 .editor-panel .toolbar-scroll-button{display:grid;place-items:center;flex:0 0 28px;width:28px;min-width:28px;padding:0;border:0;border-radius:0;background:var(--ds-panel-raised);color:var(--ds-text);font-size:23px;cursor:pointer}
 .editor-panel .toolbar-scroll-button:hover:not(:disabled){background:var(--ds-panel-hover)}
