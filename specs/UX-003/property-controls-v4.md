@@ -45,7 +45,7 @@ Reference: user-supplied screenshots of Designminis Background Remover property 
 
 ## Automated accessibility and geometry gates
 
-The Chromium component audit runs in Graphite and Studio at 390, 768, 1024 and 1440px. It rejects interactive hit-target collisions both **inside one property row** and **across different rows** when the rendered intersection exceeds 4px on each axis. Adjacent borders and intentionally scrollable toolbar actions are not treated as collisions. It also rejects missing `aria-labelledby` / `aria-describedby` ID references and unnamed visible controls. Unit regressions cover row boundaries, collision thresholds and multi-ID references.
+The Chromium component audit runs in Graphite and Studio at 390, 768, 1024 and 1440px. It rejects interactive hit-target collisions both **inside one property row** and **across different rows** when the rendered intersection exceeds 4px on each axis. Adjacent borders and intentionally scrollable toolbar actions are not treated as collisions. It also rejects missing or duplicated `aria-labelledby` / `aria-describedby` ID references, `aria-labelledby` chains whose existing targets provide no accessible text, visible controls with no accessible name, and keyboard-focusable controls inside `aria-hidden="true"` subtrees. For name computation, `aria-labelledby` takes precedence over a fallback `aria-label` or `title`; a broken/empty reference must not be silently treated as valid. Unit regressions cover row boundaries, collision thresholds, missing, duplicate and empty multi-ID references.
 
 These checks are necessary but not a visual sign-off: the 544 supervised screenshots and interactive focus, contrast and ergonomics still require explicit human approval.
 
