@@ -64,8 +64,8 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-disabled-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-hidden-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-detached-focus-handoff'));
- assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,70,'70 distinct states are mandatory');
- assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,70,'State names must be unique');
+ assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,72,'72 distinct states are mandatory');
+ assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,72,'State names must be unique');
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-any-stepper'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-grid-edge'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('number-disabled-invalid-draft'));
@@ -79,7 +79,8 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-removed-disabled-neighbor'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-disabled-focus-handoff'));
  for(const state of ['range-disabled-focus-handoff','color-disabled-focus-handoff','color-swatch-focus','color-swatch-disabled-focus-handoff',
-  'number-disabled-focus-handoff','number-stepper-disabled-focus-handoff'])
+  'number-disabled-focus-handoff','number-stepper-disabled-focus-handoff',
+  'number-slider-disabled-focus-handoff','number-slider-invalid-bounds'])
   assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes(state),state+' must be captured');
  const unexpected=summarizeScreenshotCoverage([...all,{theme:'graphite',width:1440,state:'not-in-contract',path:'graphite-1440-not-in-contract.png'}]);
  assert.deepEqual(unexpected.unexpected,['graphite:1440:not-in-contract']);
