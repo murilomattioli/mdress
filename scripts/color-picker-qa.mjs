@@ -26,7 +26,16 @@ try{
   await page.screenshot({path:`test-results/color-picker/spectrum-${width}.png`});
   await dialog.getByRole('tab',{name:'RGB',exact:true}).click();
   assert.equal(await dialog.getByRole('tab',{name:'RGB',exact:true}).getAttribute('aria-selected'),'true');
-  await dialog.getByRole('spinbutton',{name:'Vermelho — valor',exact:true}).fill('255');
+  const redChannel=dialog.getByRole('spinbutton',{name:'Vermelho — valor',exact:true});
+   await redChannel.fill('999');await redChannel.dispatchEvent('change');
+   assert.equal(await redChannel.getAttribute('aria-invalid'),'true');
+   assert.match(await dialog.locator('.cp-status').textContent(),/0 e 255/);
+   await redChannel.press('Escape');
+   assert.equal(await redChannel.getAttribute('aria-invalid'),null);
+   assert.equal(await dialog.locator('.cp-status').textContent(),'',
+    'Cancelling an invalid RGB draft must clear stale error feedback');
+   assert.equal(await dialog.isVisible(),true);
+   await dialog.getByRole('spinbutton',{name:'Vermelho — valor',exact:true}).fill('255');
   await dialog.getByRole('spinbutton',{name:'Vermelho — valor',exact:true}).press('Tab');
   assert.equal((await input.inputValue()).slice(1,3),'ff');
   const hex=dialog.getByRole('textbox',{name:'Cor hexadecimal',exact:true});

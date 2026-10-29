@@ -62,7 +62,7 @@ export function openColorPicker(input){
   const row=node('label','cp-channel'),name=node('span','',label),range=node('input'),number=node('input');range.type='range';number.type='number';
   for(const el of [range,number]){el.min='0';el.max='255';el.step='1';el.setAttribute('aria-label',label+(el===range?' — controle':' — valor'));}
   function apply(el){const value=el.valueAsNumber;if(!Number.isFinite(value)||value<0||value>255||!Number.isInteger(value)){el.setAttribute('aria-invalid','true');status.textContent='Use um valor inteiro entre 0 e 255.';return;}el.removeAttribute('aria-invalid');const rgb=hexToRgb(hex);rgb[index]=value;commit(rgbToHex(rgb));}
-  range.oninput=()=>apply(range);number.onchange=()=>apply(number);number.onkeydown=e=>{if(e.key==='Enter')apply(number);if(e.key==='Escape'){e.stopPropagation();number.value=hexToRgb(hex)[index];number.removeAttribute('aria-invalid');}};
+  range.oninput=()=>apply(range);number.onchange=()=>apply(number);number.onkeydown=e=>{if(e.key==='Enter')apply(number);if(e.key==='Escape'){e.stopPropagation();number.value=hexToRgb(hex)[index];number.removeAttribute('aria-invalid');status.textContent='';}};
   row.append(name,range,number);panels[2].append(row);return {range,number};
  });
  const valueRow=node('div','cp-value'),preview=node('span','cp-preview'),hexLabel=node('label','','Hexadecimal'),hexInput=node('input','cp-hex');hexInput.type='text';hexInput.maxLength=7;hexInput.spellcheck=false;hexInput.setAttribute('aria-label','Cor hexadecimal');hexLabel.append(hexInput);valueRow.append(preview,hexLabel);
