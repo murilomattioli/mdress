@@ -258,8 +258,14 @@ viewer.addEventListener("keydown",event=>{
 viewer.addEventListener("close",()=>{
  viewerImage.removeAttribute("src");
  viewerSection=null;
- if(viewerOrigin?.isConnected&&viewerOrigin.getClientRects().length)viewerOrigin.focus();
- else search.focus();
+ const origin=viewerOrigin;
+ // Native <dialog> restores focus to its original opener when it closes.
+ // Defer our handoff until after that restoration, because navigation inside
+ // the dialog may have changed the currently reviewed state.
+ requestAnimationFrame(()=>{
+  if(origin?.isConnected&&origin.getClientRects().length)origin.focus();
+  else search.focus();
+ });
 });
 refresh();
 `; 
