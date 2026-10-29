@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
-import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps, findInspectorCrossRowOverlaps} from './component-ux-findings.mjs';
+import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps, findInspectorCrossRowOverlaps, findUndersizedTouchTargets} from './component-ux-findings.mjs';
 
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const findings=[],coverage=[],screenshots=[];
@@ -88,6 +88,9 @@ try{
         .map(el=>({
          name:el.getAttribute('aria-label')||el.id||el.textContent?.trim().slice(0,45)||el.tagName,
          rect:(()=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};})(),
+         // Audit only actual mobile touch surfaces, not decorative labels,
+         // hidden native select sources or passive visual affordances.
+         touchTarget:el.matches('.ds-number-step,.ds-number-native,.ds-prop-number,.ds-range-native,.ds-color-native,.ds-color-hex,.ds-select-trigger,.ds-segment-option,.ds-binary-option'),
          html:el.outerHTML.slice(0,160)
         }))
       }));
@@ -114,6 +117,13 @@ try{
       ' — '+collision.first+' / '+collision.second+
       ' ('+collision.horizontal+'×'+collision.vertical+'px)',
       {theme,width,row:collision.row,otherRow:collision.otherRow,html:collision.html});
+    // Desktop inspectors can remain compact. The mobile breakpoint promises
+    // at least 44x44px for each enhanced interactive hit area.
+    if(width<=540)for(const target of findUndersizedTouchTargets(data.propertyRows))
+     emit('mobile-touch-target','error','inspector',
+      'Alvo interativo menor que 44×44px: '+target.name+
+      ' ('+target.width+'×'+target.height+'px)',
+      {theme,width,row:target.row,html:target.html});
     for(const error of errors)emit('runtime-error','error','app',error,{theme,width});
     const missingCoverage=auditCoverageFinding(data.count,{theme,width});
     if(missingCoverage)findings.push(missingCoverage);
