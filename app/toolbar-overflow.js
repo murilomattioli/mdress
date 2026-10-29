@@ -27,7 +27,27 @@ export function attachToolbarOverflow(toolbar){
  const previous=button(-1,'Rolar ferramentas para a esquerda','‹');
  const next=button(1,'Rolar ferramentas para a direita','›');
  shell.prepend(previous);shell.append(next);
+ // App-level state updates may disable the currently focused Markdown action.
+ // Remember its origin before the browser drops focus to <body>, then recover
+ // the nearest usable toolbar action without stealing focus after a real click.
+ let lastFocusedAction=null;
+ const actionSelector='button,select,input,[tabindex]';
+ const focusable=el=>el.isConnected&&!el.disabled&&el.tabIndex>=0&&
+  !el.closest('[hidden],[inert],[aria-hidden="true"]')&&el.getClientRects().length&&
+  getComputedStyle(el).visibility!=='hidden';
+ const recoverActionFocus=()=>{
+  const origin=lastFocusedAction;
+  if(!origin||origin.isConnected&&!origin.disabled||
+   (document.activeElement!==document.body&&document.activeElement!==origin))return;
+  const actions=[...toolbar.querySelectorAll(actionSelector)];
+  const index=actions.indexOf(origin);
+  const next=actions.slice(index+1).find(focusable)||
+   actions.slice(0,Math.max(index,0)).reverse().find(focusable);
+  if(next){next.focus({preventScroll:true});lastFocusedAction=next;}
+  else{toolbar.tabIndex=-1;toolbar.focus({preventScroll:true});lastFocusedAction=null;}
+ };
  const update=()=>{
+  recoverActionFocus();
   const state=toolbarOverflowState(toolbar);
   // Disabling a focused scroll button at the end of its track can dump
   // keyboard users onto <body>. Capture focus before toggling disabled.
@@ -51,18 +71,34 @@ export function attachToolbarOverflow(toolbar){
   frame=requestAnimationFrame(()=>{frame=0;update();});
  };
  toolbar.addEventListener('scroll',schedule,{passive:true});
+ toolbar.addEventListener('focusout',event=>{
+  if(event.target===lastFocusedAction&&!event.target.disabled&&event.target.isConnected)
+   lastFocusedAction=null;
+ });
  toolbar.addEventListener('focusin',event=>{
   const target=event.target;
+  if(target.matches?.(actionSelector))lastFocusedAction=target;
   if(!toolbar.contains(target)||typeof target.getBoundingClientRect!=='function')return;
   const delta=focusedToolbarDelta(target.getBoundingClientRect(),toolbar.getBoundingClientRect());
   if(delta)toolbar.scrollBy({left:delta,behavior:'auto'});
   schedule();
  });
+ let resize=null;
  if(typeof ResizeObserver==='function'){
-  const resize=new ResizeObserver(schedule);
+  resize=new ResizeObserver(schedule);
   resize.observe(toolbar);
   for(const group of toolbar.children)resize.observe(group);
  }
+ // ResizeObserver only tracks the groups present during setup. Watch live
+ // actions and newly inserted groups as editor modes/permissions change.
+ new MutationObserver(records=>{
+  if(resize&&records.some(record=>record.type==='childList'))
+   for(const group of toolbar.children)resize.observe(group);
+  schedule();
+ }).observe(toolbar,{
+  childList:true,subtree:true,attributes:true,
+  attributeFilter:['disabled','hidden','class','style']
+ });
  window.addEventListener('resize',schedule);
  document.addEventListener('studio:resized',schedule);
  schedule();
