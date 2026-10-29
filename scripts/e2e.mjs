@@ -390,8 +390,14 @@ try {
  await titleSection.click();assert.equal(await titleSection.getAttribute('aria-expanded'),'false');
  await titleSection.click();assert.equal(await titleSection.getAttribute('aria-expanded'),'true');
  const themePicker=page.locator('#inspector-style .ds-property-select').filter({has:page.locator('#resumeTheme')}).locator('.ds-select-trigger');
+ assert.equal(await themePicker.getAttribute('aria-controls'),null,
+  'Closed combobox must not reference an unmounted listbox');
  await themePicker.click();
  assert.equal(await themePicker.getAttribute('aria-expanded'),'true');
+ const controlledListbox=await themePicker.getAttribute('aria-controls');
+ assert.ok(controlledListbox,'Expanded combobox must identify its live listbox');
+ assert.equal(await page.locator('[role="listbox"]').filter({has:page.locator('[role="option"]')}).getAttribute('id'),controlledListbox,
+  'aria-controls must reference the mounted listbox, not a stale ID');
  assert.ok(await page.locator('.ds-select-popover [role="option"]').count()>=7);
  // Arrow navigation must expose a visible focus indicator inside the portaled listbox.
  await page.keyboard.press('ArrowDown');
@@ -405,6 +411,8 @@ try {
  assert.equal(optionFocus.style,'solid','Inspector option focus ring must not be suppressed');
  await page.locator('.ds-select-popover').screenshot({path:'test-results/ux-audit/inspector-select-option-focused.png',animations:'disabled'});
  await page.locator('.ds-select-option').filter({hasText:'Swiss'}).click();
+ assert.equal(await themePicker.getAttribute('aria-controls'),null,
+  'Selecting an option must remove the now-invalid listbox reference');
  assert.equal(await page.locator('#resumeTheme').inputValue(),'swiss');
  await assertNoRedundantNativeEvents(page.locator('#resumeTheme'),async()=>{
   await themePicker.click();
@@ -417,6 +425,8 @@ try {
  assert.equal(await themePicker.isDisabled(),true,'Disabled native select must disable custom trigger');
  await themePicker.evaluate(el=>el.click());
  assert.equal(await themePicker.getAttribute('aria-expanded'),'false','Disabled select must not open a listbox');
+ assert.equal(await themePicker.getAttribute('aria-controls'),null,
+  'Disabled combobox must not retain an unmounted listbox reference');
  assert.equal(await page.locator('.ds-select-popover').count(),0);
  await themePicker.locator('..').screenshot({path:'test-results/ux-audit/inspector-select-disabled.png',animations:'disabled'});
  await themeNative.evaluate(el=>{el.disabled=false;});
@@ -425,6 +435,8 @@ try {
  assert.equal(await themePicker.getAttribute('aria-expanded'),'true','Re-enabled select must open normally');
  await page.keyboard.press('Escape');
  assert.equal(await themePicker.getAttribute('aria-expanded'),'false');
+ assert.equal(await themePicker.getAttribute('aria-controls'),null,
+  'Escape must remove aria-controls along with the portalled listbox');
  const colorControl=page.locator('.ds-property-color').filter({has:page.locator('#accentColor')});
  const colorHex=colorControl.locator('.ds-color-hex');
  await assertInspectorTextFocus(colorHex,'Hex color input must expose its own focus ring');
