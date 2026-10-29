@@ -915,6 +915,41 @@ try {
   assert.ok(mobileTargets.every(item=>item.left>=-3&&item.right<=3),
    'Mobile property controls must not clip horizontally: '+JSON.stringify(mobileTargets));
   await ux.screenshot({path:'test-results/ux-audit/mobile-inspector-390.png',animations:'disabled'});
+  // A portalled listbox must fit the mobile viewport and must not stay
+  // expanded when focus leaves via keyboard or assistive technology.
+  const mobileThemeTrigger=ux.locator('#inspector-style .ds-property-select')
+   .filter({has:ux.locator('#resumeTheme')}).locator('.ds-select-trigger');
+  await mobileThemeTrigger.click();
+  const mobilePopup=ux.locator('.ds-select-popover');
+  const popupBounds=await mobilePopup.evaluate(el=>{
+   const rect=el.getBoundingClientRect();
+   return {left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom,
+    viewportWidth:window.innerWidth,viewportHeight:window.innerHeight};
+  });
+  assert.ok(popupBounds.left>=7&&popupBounds.right<=popupBounds.viewportWidth-7&&
+   popupBounds.top>=7&&popupBounds.bottom<=popupBounds.viewportHeight-7,
+   'Mobile listbox must remain inside the viewport: '+JSON.stringify(popupBounds));
+  assert.equal(await mobileThemeTrigger.getAttribute('aria-controls'),await mobilePopup.getAttribute('id'),
+   'Mobile combobox must reference its mounted listbox');
+  await ux.keyboard.press('ArrowDown');
+  assert.equal(await mobilePopup.locator('[role="option"]:focus-visible').count(),1,
+   'Mobile listbox keyboard focus must remain visible');
+  await ux.screenshot({path:'test-results/ux-audit/mobile-inspector-combobox-390.png',animations:'disabled'});
+  const otherInspectorTab=ux.locator('[data-inspector-tab="page"]');
+  await otherInspectorTab.focus();
+  assert.equal(await mobilePopup.count(),0,
+   'Moving focus outside the portalled listbox must dismiss it');
+  assert.equal(await mobileThemeTrigger.getAttribute('aria-expanded'),'false');
+  assert.equal(await mobileThemeTrigger.getAttribute('aria-controls'),null,
+   'Focus-out must clear the now-dangling listbox ID reference');
+  assert.equal(await otherInspectorTab.evaluate(el=>document.activeElement===el),true,
+   'Closing the listbox must preserve the new keyboard focus target');
+  await mobileThemeTrigger.click();
+  await ux.keyboard.press('Tab');
+  assert.equal(await mobilePopup.count(),0,'Tab must dismiss the portalled listbox');
+  assert.equal(await mobileThemeTrigger.getAttribute('aria-expanded'),'false');
+  assert.equal(await ux.evaluate(()=>document.activeElement===document.body),false,
+   'Tab from a listbox option must not lose keyboard focus to body');
   for(const [name,width,height,theme] of [
    ['desktop-graphite',1440,900,'graphite'],
    ['desktop-oled',1440,900,'oled'],
