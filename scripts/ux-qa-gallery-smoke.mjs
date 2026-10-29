@@ -3,7 +3,7 @@ import {strict as assert} from 'node:assert';
 import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
 import {deflateSync} from 'node:zlib';
-import {UX_QA_REQUIRED_SCREENSHOTS} from './ux-qa-coverage.mjs';
+import {UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS} from './ux-qa-coverage.mjs';
 
 const html=await readFile('test-results/ux-audit/supervised/index.html','utf8');
 const stateCount=UX_QA_REQUIRED_SCREENSHOTS.length;
@@ -37,7 +37,7 @@ try{
    pngChunk('IEND',Buffer.alloc(0))
   ]);
  };
- const fixtures=new Map([1440,1024,768].map(width=>[width,viewportPng(width)]));
+ const fixtures=new Map([1440,1024,768,390].map(width=>[width,viewportPng(width)]));
  let breakFreshReview=false,wrongViewport=false;
  const workspaceRequests=[];
  await page.route('http://mdress-qa.test/**',route=>{
@@ -48,7 +48,7 @@ try{
    if(address.pathname.includes('graphite-1440-workspace.png')&&
       (address.pathname.startsWith('/broken/')||(breakFreshReview&&address.searchParams.has('mdress-verify'))))
     return route.fulfill({status:404,headers:{'cache-control':'no-store'},body:'Missing screenshot'});
-   const width=Number(address.pathname.match(/-(1440|1024|768)-/)?.[1]);
+   const width=Number(address.pathname.match(/-(1440|1024|768|390)-/)?.[1]);
    const wrongSize=wrongViewport&&address.pathname.includes('graphite-1440-workspace.png')&&
     address.searchParams.has('mdress-verify');
    return route.fulfill({status:200,headers:{'cache-control':'no-store'},contentType:'image/png',body:wrongSize?pixel:fixtures.get(width)});
@@ -131,7 +131,7 @@ try{
  // when using the keyboard shortcut, instead of silently returning to 1/6.
  await viewer.locator('#viewer-next').click();
  await viewer.locator('#viewer-next').click();
- assert.match(await page.locator('#viewer-label').innerText(),/3\/6/);
+ assert.match(await page.locator('#viewer-label').innerText(),new RegExp('3/'+UX_QA_MATRIX.length));
  await viewer.locator('#viewer-next-state').click();
  assert.match(await page.locator('#viewer-label').innerText(),/3\/6.*toolbar/,
   'Next state preserves the selected screenshot variant');
@@ -171,7 +171,7 @@ try{
  await firstImage.click();
  await viewer.locator('#viewer-next').click();
  await viewer.locator('#viewer-next').click();
- assert.match(await page.locator('#viewer-label').innerText(),/3\/6/);
+ assert.match(await page.locator('#viewer-label').innerText(),new RegExp('3/'+UX_QA_MATRIX.length));
  await viewer.locator('#viewer-close').click();
  const thirdImage=page.locator('.state').first().locator('figure a').nth(2);
  await page.waitForFunction(()=>document.activeElement===document.querySelector('.state')?.querySelectorAll('figure a')[2],null,{timeout:3000});
@@ -179,7 +179,7 @@ try{
   'Closing after button navigation restores focus to the displayed variant');
  await firstImage.click();
  await page.keyboard.press('ArrowRight');
- assert.match(await page.locator('#viewer-label').innerText(),/2\/6/);
+ assert.match(await page.locator('#viewer-label').innerText(),new RegExp('2/'+UX_QA_MATRIX.length));
  await page.keyboard.press('Escape');
  assert.equal(await viewer.isVisible(),false);
  const secondVariant=page.locator('.state').first().locator('figure a').nth(1);
