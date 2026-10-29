@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps} from '../scripts/component-ux-findings.mjs';
+import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps, findInspectorCrossRowOverlaps, missingAriaReferenceIds} from '../scripts/component-ux-findings.mjs';
 
 const finding = (theme, width, severity = 'warning') => ({
   rule: 'scrollable-toolbar',
@@ -94,4 +94,39 @@ test('inspector geometry audit ignores separate rows and near-zero overlap',()=>
   {name:'B',controls:[control('b',0,0,44,44)]},
   {name:'C',controls:[control('c',0,0,44,44),control('d',41,0,85,44)]}
  ]),[]);
+});
+
+test('cross-row audit catches overlapping hit targets even when each row is internally valid',()=>{
+ const control=(name,left,top,right,bottom)=>({name,rect:{left,top,right,bottom},html:name});
+ const rows=[
+  {name:'Font size',controls:[control('minus',0,0,44,44),control('plus',50,0,94,44)]},
+  {name:'Spacing',controls:[control('input',80,30,160,74)]},
+  {name:'Color',controls:[control('swatch',0,74,44,118)]}
+ ];
+ assert.deepEqual(findInspectorControlOverlaps(rows),[]);
+ const overlaps=findInspectorCrossRowOverlaps(rows);
+ assert.equal(overlaps.length,1);
+ assert.deepEqual({row:overlaps[0].row,otherRow:overlaps[0].otherRow,
+  first:overlaps[0].first,second:overlaps[0].second,
+  horizontal:overlaps[0].horizontal,vertical:overlaps[0].vertical},
+  {row:'Font size',otherRow:'Spacing',first:'plus',second:'input',horizontal:14,vertical:14});
+ assert.equal(findInspectorCrossRowOverlaps(rows,14).length,0);
+});
+
+test('cross-row audit ignores shared borders and only compares distinct rows',()=>{
+ const control=(name,left,top,right,bottom)=>({name,rect:{left,top,right,bottom},html:name});
+ assert.deepEqual(findInspectorCrossRowOverlaps([
+  {name:'A',controls:[control('a',0,0,50,44),control('b',20,0,70,44)]},
+  {name:'B',controls:[control('c',0,42,50,86)]}
+ ]),[]);
+});
+
+test('ARIA IDREF audit rejects missing references, not valid multi-label chains',()=>{
+ const known=new Set(['property-name','property-help','error-text']);
+ const exists=id=>known.has(id);
+ assert.deepEqual(missingAriaReferenceIds('property-name property-help',exists),[]);
+ assert.deepEqual(missingAriaReferenceIds('property-name missing missing',exists),['missing']);
+ assert.deepEqual(missingAriaReferenceIds('  ',exists),[]);
+ assert.deepEqual(missingAriaReferenceIds(null,exists),[]);
+ assert.deepEqual(missingAriaReferenceIds('error-text other',exists),['other']);
 });
