@@ -28,6 +28,9 @@ const states=[...document.querySelectorAll(".state")];
 const search=document.querySelector("#filter");
 const progress=document.querySelector("#review-progress");
 const warning=document.querySelector("#review-warning");
+const importStatus=document.querySelector("#review-import-status");
+const importButton=document.querySelector("#import-review-button");
+const importInput=document.querySelector("#import-review");
 let onlyPending=false;
 let saved={};
 let storageFailure=false;
@@ -188,6 +191,58 @@ document.querySelector("#export-review").addEventListener("click",async event=>{
  setTimeout(()=>URL.revokeObjectURL(url),1000);
  refresh();
 });
+// A reviewer can recover an exported draft after storage eviction or move it
+// to another browser. Import is strictly session-bound: a verdict from a
+// different screenshot run can never silently approve the current evidence.
+async function importReview(file){
+ if(!file)return;
+ importButton.disabled=true;
+ importStatus.textContent="Validando revisão importada…";
+ try{
+  if(file.size>1_000_000)throw Error("Arquivo maior que 1 MB.");
+  const review=JSON.parse(await file.text());
+  if(review?.schema!==1||review.sessionId!==sessionId||
+   !review.states||typeof review.states!=="object"||Array.isArray(review.states))
+   throw Error("Arquivo incompatível ou pertencente a outra sessão.");
+  const expected=new Set(states.map(section=>section.dataset.name));
+  const keys=Object.keys(review.states);
+  if(keys.length!==states.length||keys.some(key=>!expected.has(key)))
+   throw Error("O arquivo não contém exatamente os estados desta sessão.");
+  const imported={};
+  for(const key of keys){
+   const entry=review.states[key];
+   if(!entry||!["pending","approved","rejected"].includes(entry.status)||
+    typeof entry.note!=="string"||entry.note.length>4000)
+    throw Error("Veredito ou observação inválida: "+key);
+   imported[key]={status:entry.status,note:entry.note};
+  }
+  if(Object.values(saved).some(entry=>entry?.status!=="pending"||entry?.note)&&
+   !confirm("Substituir as avaliações atuais pelo arquivo importado?"))return;
+  // Recheck approved states against the actual local image files before
+  // restoring their verdicts. An imported JSON is not visual evidence.
+  for(const section of states){
+   if(imported[section.dataset.name].status!=="approved")continue;
+   importStatus.textContent="Verificando capturas de "+section.dataset.name+"…";
+   if(!await verifyImages(section,{fresh:true}))
+    throw Error("Capturas inválidas para "+section.dataset.name+". Nenhuma aprovação importada.");
+  }
+  saved=imported;
+  for(const section of states){
+   const entry=imported[section.dataset.name];
+   section.querySelector(".review-status").value=entry.status;
+   section.querySelector(".review-note").value=entry.note;
+  }
+  persist();refresh();
+  importStatus.textContent="Revisão recuperada para esta sessão. Confira os vereditos antes de exportar.";
+ }catch(error){
+  importStatus.textContent="Importação recusada: "+(error?.message||"arquivo inválido");
+ }finally{
+  importInput.value="";
+  importButton.disabled=false;
+ }
+}
+importButton.addEventListener("click",()=>importInput.click());
+importInput.addEventListener("change",event=>{void importReview(event.target.files?.[0]);});
 document.querySelector("#reset-review").addEventListener("click",()=>{
  if(!confirm("Apagar avaliações deste conjunto de capturas?"))return;
  saved={};persist();
@@ -315,7 +370,7 @@ viewer.addEventListener("close",()=>{
 refresh();
 `; 
  return ['<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>mdress — revisão visual UX-023</title><style>'+css+'</style></head><body>',
-  '<header><h1>mdress · QA visual supervisionado</h1><p>'+screenshots.length+' capturas registradas; '+coverage.expected+' obrigatórias. Falhas/ausências: '+coverage.missing.length+'. Testes verdes não aprovam a UX.</p><p id="review-progress" role="status" aria-live="polite"></p><p id="review-warning"></p>',
-  '<nav><label for="filter">Filtrar estado</label><input id="filter" type="search" placeholder="Ex.: color, focus, range"><button id="only-pending" type="button" aria-pressed="false">Ocultar aprovados</button><button id="export-review" type="button">Exportar revisão JSON</button><button id="reset-review" type="button">Limpar revisão</button><button id="expand" type="button">Expandir</button><button id="collapse" type="button">Recolher</button></nav></header>',
+  '<header><h1>mdress · QA visual supervisionado</h1><p>'+screenshots.length+' capturas registradas; '+coverage.expected+' obrigatórias. Falhas/ausências: '+coverage.missing.length+'. Testes verdes não aprovam a UX.</p><p id="review-progress" role="status" aria-live="polite"></p><p id="review-warning"></p><p id="review-import-status" role="status" aria-live="polite"></p>',
+  '<nav><label for="filter">Filtrar estado</label><input id="filter" type="search" placeholder="Ex.: color, focus, range"><button id="only-pending" type="button" aria-pressed="false">Ocultar aprovados</button><button id="export-review" type="button">Exportar revisão JSON</button><button id="import-review-button" type="button">Importar revisão JSON</button><input id="import-review" type="file" accept="application/json,.json" hidden><button id="reset-review" type="button">Limpar revisão</button><button id="expand" type="button">Expandir</button><button id="collapse" type="button">Recolher</button></nav></header>',
   '<main>'+sections+'</main><dialog id="image-viewer" aria-label="Inspecionar captura"><div class="viewer-toolbar"><span id="viewer-label"></span><a id="viewer-original" target="_blank" rel="noopener">Abrir original</a><button id="viewer-prev" type="button">← Anterior</button><button id="viewer-next" type="button">Próxima →</button><button id="viewer-close" type="button">Fechar</button></div><img id="viewer-image" alt=""><p>Setas ← → alternam entre as seis capturas; Esc fecha. A avaliação exige uma decisão humana por estado.</p><div class="viewer-review"><label>Revisão deste estado<select id="viewer-status" aria-label="Revisão no visualizador" disabled><option value="pending">Pendente</option><option value="approved">Aprovado</option><option value="rejected">Reprovado</option></select></label><label>Observações<textarea id="viewer-note" aria-label="Observações no visualizador" placeholder="Contraste, foco, clipping, ergonomia…"></textarea></label><div class="viewer-state-nav"><span id="viewer-state-position" role="status" aria-live="polite"></span><button id="viewer-prev-state" type="button">← Estado anterior</button><button id="viewer-next-state" type="button">Próximo estado →</button></div></div></dialog><script id="review-session" type="application/json">'+JSON.stringify(sessionId)+'</script><script>'+script+'</script></body></html>'].join('\n');
 }
