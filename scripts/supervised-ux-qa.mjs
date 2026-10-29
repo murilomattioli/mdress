@@ -8,11 +8,12 @@
 import {chromium} from 'playwright';
 import {strict as assert} from 'node:assert';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
 import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT} from './ux-qa-coverage.mjs';
 import {renderUxQaGallery} from './ux-qa-gallery.mjs';
+import {verifyScreenshotEvidence} from './resume-ux-review.mjs';
 
 const args=new Set(process.argv.slice(2));
 const automated=args.has('--auto');
@@ -49,7 +50,7 @@ async function capture(page,theme,width,name){
  // Evidence must be an actual nonempty PNG, not only a reached checkpoint.
  assert.ok(validateScreenshotViewport(png,width),
   'PNG evidence must match the full '+width+'×'+UX_QA_VIEWPORT_HEIGHT+' viewport: '+path);
- screenshots.push({theme,width,state:name,path});
+ screenshots.push({theme,width,state:name,path,sha256:createHash('sha256').update(png).digest('hex')});
  // Interactive review pauses once per viewport, not once per PNG.
 }
 async function assertInspectorFocusHandoff(page,description){
@@ -849,7 +850,8 @@ finally{
    // Validate bytes again after capture: files may be truncated, replaced
    // or corrupted before the final report and human review are generated.
    const png=await readFile(entry.path);
-   if(!validateScreenshotViewport(png,entry.width))missingFiles.push(entry.path);
+   if(!validateScreenshotViewport(png,entry.width)||
+    createHash('sha256').update(png).digest('hex')!==entry.sha256)missingFiles.push(entry.path);
   }catch{missingFiles.push(entry.path);}
  }
  if(missingFiles.length)findings.push({severity:'error',phase:'screenshot-files',theme:'all',width:0,
@@ -889,6 +891,18 @@ finally{
       if(!validation.valid){
        humanReview='not-reviewed';
        console.error('[UX QA] Aprovação recusada: sessão incorreta ou estados pendentes/reprovados. '+JSON.stringify(validation));
+      }else{
+       // The reviewer may spend hours inspecting the gallery. Revalidate
+       // immutable evidence at sign-off, not just before opening the gallery.
+       try{
+        humanReviewEvidence.verifiedScreenshots=await verifyScreenshotEvidence(screenshots);
+        humanReviewEvidence.verifiedAt=new Date().toISOString();
+       }catch(error){
+        humanReview='not-reviewed';
+        humanReviewEvidence.valid=false;
+        humanReviewEvidence.error=error.message;
+        console.error('[UX QA] Aprovação recusada: '+error.message);
+       }
       }
      }catch(e){
       humanReview='not-reviewed';
@@ -901,7 +915,7 @@ finally{
  }
  io?.close();
  const summary=summarizeUxCoverage(coverage,findings,stopped);
- const report={schema:5,reviewSessionId,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,screenshotCoverage,
+ const report={schema:6,reviewSessionId,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,screenshotCoverage,
   humanReview:{status:automated?'not-applicable':humanReview,requiresExplicitApproval:true,evidence:humanReviewEvidence},
   gallery:galleryPath,coverage,screenshots,traces,findings};
  await writeFile('test-results/supervised-ux-qa.json',JSON.stringify(report,null,2)+'\n');
