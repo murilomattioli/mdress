@@ -69,9 +69,18 @@ export function attachToolbarOverflow(toolbar){
    const opposite=focusedArrow===next?previous:next;
    if(!opposite.disabled&&!opposite.hidden)opposite.focus({preventScroll:true});
    else{
-    const action=toolbar.querySelector('button:not(:disabled):not([hidden]),[href],[tabindex="0"]');
+    // A mode switch may hide every toolbar action while a scroll arrow owns
+    // focus. Never hand focus to an invisible/aria-disabled descendant.
+    const action=[...toolbar.querySelectorAll(actionSelector)].find(focusable);
     if(action)action.focus({preventScroll:true});
-    else {toolbar.tabIndex=-1;toolbar.focus({preventScroll:true});}
+    else{
+     const editor=document.querySelector('#source');
+     if(focusable(editor))editor.focus({preventScroll:true});
+     else if(toolbar.getClientRects().length&&
+      !toolbar.closest('[hidden],[inert],[aria-hidden="true"]')){
+      toolbar.tabIndex=-1;toolbar.focus({preventScroll:true});
+     }
+    }
    }
   }
  };
