@@ -14,6 +14,14 @@ try{
   const toggle=group.locator('.ds-accordion-toggle');if(await toggle.getAttribute('aria-expanded')==='false')await toggle.click();
   await input.click();
   const dialog=page.getByRole('dialog',{name:/Cores/});await dialog.waitFor();
+  async function assertDescribedError(control){
+   const id=await control.getAttribute('aria-errormessage');
+   assert.ok(id,'Invalid fields must reference their visible error');
+   const message=dialog.locator('[id="'+id+'"]');
+   assert.equal(await message.count(),1,'Error reference must resolve uniquely');
+   assert.equal(await message.getAttribute('data-error'),'true');
+   assert.ok((await message.textContent()).trim());
+  }
   // Regression: native Enter/change can both fire, but a semantic no-op
   // must not create a second document edit or history entry.
   await input.evaluate(el=>{
@@ -49,9 +57,11 @@ try{
   const redChannel=dialog.getByRole('spinbutton',{name:'Vermelho — valor',exact:true});
    await redChannel.fill('999');await redChannel.dispatchEvent('change');
    assert.equal(await redChannel.getAttribute('aria-invalid'),'true');
+   await assertDescribedError(redChannel);
    assert.match(await dialog.locator('.cp-status').textContent(),/0 e 255/);
    await redChannel.press('Escape');
    assert.equal(await redChannel.getAttribute('aria-invalid'),null);
+   assert.equal(await redChannel.getAttribute('aria-errormessage'),null);
    assert.equal(await dialog.locator('.cp-status').textContent(),'',
     'Cancelling an invalid RGB draft must clear stale error feedback');
    assert.equal(await dialog.isVisible(),true);
@@ -59,8 +69,9 @@ try{
   await dialog.getByRole('spinbutton',{name:'Vermelho — valor',exact:true}).press('Tab');
   assert.equal((await input.inputValue()).slice(1,3),'ff');
   const hex=dialog.getByRole('textbox',{name:'Cor hexadecimal',exact:true});
-  await hex.fill('bad');await hex.press('Enter');assert.equal(await hex.getAttribute('aria-invalid'),'true');
+  await hex.fill('bad');await hex.press('Enter');assert.equal(await hex.getAttribute('aria-invalid'),'true');await assertDescribedError(hex);
   await hex.fill('#123456');await hex.press('Enter');assert.equal(await input.inputValue(),'#123456');
+  assert.equal(await hex.getAttribute('aria-errormessage'),null,'Valid HEX must clear stale error references');
   await page.screenshot({path:`test-results/color-picker/rgb-${width}.png`});
   assert.equal(await dialog.evaluate(el=>el.scrollWidth>el.clientWidth),false);
   const bounds=await dialog.boundingBox();assert.ok(bounds.x>=0&&bounds.x+bounds.width<=width);
@@ -68,14 +79,17 @@ try{
    const originalOpacity=await opacity.inputValue();
    await opacity.fill('120');await opacity.dispatchEvent('change');
    assert.equal(await opacity.getAttribute('aria-invalid'),'true');
+   await assertDescribedError(opacity);
    assert.match(await dialog.locator('.cp-status').textContent(),/0% e 100%/);
    await opacity.press('Escape');
    assert.equal(await opacity.inputValue(),originalOpacity);
    await opacity.fill('42.5');await opacity.dispatchEvent('change');
    assert.equal(await opacity.getAttribute('aria-invalid'),'true',
     'Fractional opacity is invalid when the native step is one percent');
+   await assertDescribedError(opacity);
    await opacity.press('Escape');
    assert.equal(await opacity.getAttribute('aria-invalid'),null);
+   assert.equal(await opacity.getAttribute('aria-errormessage'),null);
    assert.equal(await dialog.isVisible(),true,'Escape on invalid opacity should not close the picker');
    await opacity.fill('42');await opacity.dispatchEvent('change');
    assert.equal(await input.getAttribute('data-opacity'),'0.42');
