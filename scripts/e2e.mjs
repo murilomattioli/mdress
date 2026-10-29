@@ -5,6 +5,19 @@ const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const page=await browser.newPage({viewport:{width:1600,height:950}});
 const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
+// No-op interactions must not create duplicate document edits or history entries.
+async function assertNoRedundantNativeEvents(control,action,description){
+ await control.evaluate(el=>{
+  if(!el.__qaNativeEvents){
+   el.__qaNativeEvents={input:0,change:0};
+   el.addEventListener('input',()=>el.__qaNativeEvents.input++);
+   el.addEventListener('change',()=>el.__qaNativeEvents.change++);
+  }
+  el.__qaNativeEvents.input=0;el.__qaNativeEvents.change=0;
+ });
+ await action();
+ assert.deepEqual(await control.evaluate(el=>el.__qaNativeEvents),{input:0,change:0},description);
+}
 try {
  await page.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
  await page.locator('#source').waitFor();
@@ -346,7 +359,9 @@ try {
  await precise.fill('11.5');await precise.dispatchEvent('change');
  assert.equal(await precise.getAttribute('aria-invalid'),null,'Valid slider precision must clear the error');
  assert.equal(await page.locator('#fontSize').inputValue(),'11.5');
-
+ await assertNoRedundantNativeEvents(page.locator('#fontSize'),async()=>{
+  await precise.fill('11.5');await precise.dispatchEvent('change');
+ },'Recommitting the current slider value must not change the document');
 
  // Real DS components: select popover, color hex, segmented choices and accordion.
  assert.ok(await page.locator('.ds-property-range').count()>=3);
@@ -376,6 +391,10 @@ try {
  await page.locator('.ds-select-popover').screenshot({path:'test-results/ux-audit/inspector-select-option-focused.png',animations:'disabled'});
  await page.locator('.ds-select-option').filter({hasText:'Swiss'}).click();
  assert.equal(await page.locator('#resumeTheme').inputValue(),'swiss');
+ await assertNoRedundantNativeEvents(page.locator('#resumeTheme'),async()=>{
+  await themePicker.click();
+  await page.locator('.ds-select-popover .ds-select-option').filter({hasText:'Swiss'}).click();
+ },'Selecting the active combobox option must not dispatch document events');
  // A disabled native select must also disable the visible combobox and prevent opening.
  const themeNative=page.locator('#resumeTheme');
  await themeNative.evaluate(el=>{el.disabled=true;});
@@ -403,6 +422,9 @@ try {
  await colorHex.fill('#A1744B');await colorHex.dispatchEvent('change');
  assert.equal(await colorHex.getAttribute('aria-invalid'),null,'Valid color must clear the error state');
  assert.equal((await page.locator('#accentColor').inputValue()).toLowerCase(),'#a1744b');
+ await assertNoRedundantNativeEvents(page.locator('#accentColor'),async()=>{
+  await colorHex.fill('#a1744b');await colorHex.dispatchEvent('change');
+ },'Re-entering the same hex color, including different casing, must not create a document edit');
  await colorHex.fill('invalid');await colorHex.dispatchEvent('change');
  await colorHex.press('Escape');
  assert.equal(await colorHex.getAttribute('aria-invalid'),null,'Escape must clear the error state');
@@ -450,12 +472,21 @@ try {
  const rules=page.locator('.ds-property-segment').filter({has:page.locator('#sectionRule')});
  await rules.getByRole('button',{name:'Bloco'}).click();
  assert.equal(await page.locator('#sectionRule').inputValue(),'block');
+ await assertNoRedundantNativeEvents(page.locator('#sectionRule'),async()=>{
+  await rules.getByRole('button',{name:'Bloco'}).click();
+ },'Pressing an already selected segment must not create a document edit');
  const guides=page.locator('.ds-property-binary').filter({has:page.locator('#showPageGuides')});
  await guides.getByRole('button',{name:'Marcações de página desligado'}).click();
  assert.equal(await page.locator('#showPageGuides').isChecked(),false);
  assert.ok(await page.locator('#pageStack').evaluate(el=>el.classList.contains('hide-page-guides')));
  await guides.getByRole('button',{name:'Marcações de página ligado'}).click();
  assert.equal(await page.locator('#showPageGuides').isChecked(),true);
+ assert.equal(await guides.getByRole('button',{name:'Marcações de página desligado'}).textContent(),'Não');
+ assert.equal(await guides.getByRole('button',{name:'Marcações de página ligado'}).textContent(),'Sim');
+ await assertNoRedundantNativeEvents(page.locator('#showPageGuides'),async()=>{
+  await guides.getByRole('button',{name:'Marcações de página ligado'}).click();
+ },'Pressing an already selected binary option must not create a document edit');
+ await guides.screenshot({path:'test-results/ux-audit/inspector-binary-localized.png',animations:'disabled'});
 
  await page.locator('[data-inspector-tab="style"]').click();
  await page.locator('[data-inspector-tab="style"]').focus();
