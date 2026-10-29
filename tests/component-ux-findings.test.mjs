@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps, findInspectorCrossRowOverlaps, missingAriaReferenceIds, duplicateAriaReferenceIds, emptyAriaLabelReferenceIds} from '../scripts/component-ux-findings.mjs';
+import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps, findInspectorCrossRowOverlaps, missingAriaReferenceIds, duplicateAriaReferenceIds, emptyAriaLabelReferenceIds, findUndersizedTouchTargets} from '../scripts/component-ux-findings.mjs';
 
 const finding = (theme, width, severity = 'warning') => ({
   rule: 'scrollable-toolbar',
@@ -142,4 +142,28 @@ test('ARIA IDREF audit rejects duplicate and empty label targets without double-
  assert.deepEqual(emptyAriaLabelReferenceIds('name description description missing',resolveText),['description']);
  assert.deepEqual(emptyAriaLabelReferenceIds('name',resolveText),[]);
  assert.deepEqual(emptyAriaLabelReferenceIds(null,resolveText),[]);
+});
+
+test('mobile hit-target audit checks both axes without flagging decoration or fractional rounding',()=>{
+ const target=(name,left,top,right,bottom,touchTarget=true)=>({
+  name,touchTarget,rect:{left,top,right,bottom},html:'<button>'+name+'</button>'
+ });
+ const rows=[
+  {name:'Range',controls:[
+   target('slider',0,0,43,44),
+   target('precision',50,0,94,43),
+   target('decorative thumb',100,0,105,5,false)
+  ]},
+  {name:'Stepper',controls:[
+   target('minus',0,50,44,94),
+   target('plus',50,50,93.6,94)
+  ]}
+ ];
+ const findings=findUndersizedTouchTargets(rows);
+ assert.deepEqual(findings.map(({row,name,width,height})=>({row,name,width,height})),[
+  {row:'Range',name:'slider',width:43,height:44},
+  {row:'Range',name:'precision',width:44,height:43}
+ ]);
+ assert.equal(findUndersizedTouchTargets(rows,42).length,0);
+ assert.deepEqual(findUndersizedTouchTargets([{name:'Empty',controls:[]}]),[]);
 });
