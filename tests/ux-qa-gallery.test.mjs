@@ -48,6 +48,7 @@ test('offline gallery renders the full comparison matrix and supports filtering'
  assert.match(html,/segment-live-focus-handoff/);
  assert.match(html,/graphite-1440-workspace.png/);
  assert.equal((html.match(/<figure data-theme=/g)||[]).length,all.length);
+ assert.equal(UX_QA_MATRIX.length,8,'Mobile 390px is a required QA viewport for both themes');
  assert.equal((html.match(/<details class="state"/g)||[]).length,stateCount);
 });
 
