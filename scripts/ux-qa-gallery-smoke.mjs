@@ -355,7 +355,7 @@ try{
  await page.locator('#export-review').click();
  const broken=JSON.parse(await readFile(await (await brokenDownload).path(),'utf8'));
  assert.equal(broken.states.workspace.status,'pending');
- assert.match(await missing.locator('.image-warning').innerText(),/seis capturas/);
+ assert.match(await missing.locator('.image-warning').innerText(),new RegExp(UX_QA_MATRIX.length+' capturas'));
  console.log('Gallery smoke passed: review, bidirectional state navigation, modal keyboard, persistence, concurrent fresh checks, missing/wrong-size PNG guards.');
  await context.close();
 }finally{await browser.close();}
