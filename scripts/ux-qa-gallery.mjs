@@ -16,7 +16,7 @@ export function renderUxQaGallery(screenshots,coverage,sessionId='unassigned'){
    const actual=typeof entry?.path==='string'?entry.path.split(/[\\/]/).pop():'';
    const label=escapeHtml(theme+' · '+width+'px');
    if(actual!==filename)return '<figure class="missing"><figcaption>'+label+'</figcaption><p>Captura ausente ou inválida</p></figure>';
-   return '<figure data-viewport-width="'+width+'" data-viewport-height="'+UX_QA_VIEWPORT_HEIGHT+'"><figcaption>'+label+'</figcaption><a href="'+escapeHtml(filename)+'" target="_blank" rel="noopener"><img loading="lazy" src="'+escapeHtml(filename)+'" alt="'+escapeHtml(state+' — '+theme+' '+width)+'"></a></figure>';
+   return '<figure data-theme="'+escapeHtml(theme)+'" data-viewport-width="'+width+'" data-viewport-height="'+UX_QA_VIEWPORT_HEIGHT+'"><figcaption>'+label+'</figcaption><a href="'+escapeHtml(filename)+'" target="_blank" rel="noopener"><img loading="lazy" src="'+escapeHtml(filename)+'" alt="'+escapeHtml(state+' — '+theme+' '+width)+'"></a></figure>';
   }).join('\n');
   return '<details class="state" data-name="'+escapeHtml(state)+'"'+(number===0?' open':'')+'><summary>'+escapeHtml(state)+' <span class="badge" aria-label="Revisão pendente">Pendente</span></summary><div class="grid">'+images+'</div><p class="image-warning" role="alert" hidden>Não foi possível validar as seis capturas (ausentes, ilegíveis ou com dimensões incorretas). Corrija os arquivos antes de aprovar este estado.</p><div class="review-controls"><label>Revisão do estado <select class="review-status" disabled aria-label="Revisão '+escapeHtml(state)+'"><option value="pending">Pendente</option><option value="approved">Aprovado</option><option value="rejected">Reprovado</option></select></label><label>Observações <textarea class="review-note" aria-label="Observações '+escapeHtml(state)+'" placeholder="Contraste, clipping, foco, hierarquia, ergonomia…"></textarea></label></div></details>';
  }).join('\n');
@@ -277,13 +277,19 @@ function syncViewerReview(){
  viewerPrevState.disabled=!hasDestination;
 }
 function setViewerSection(section,anchor,{preserveVariant=false}={}){
- // All states share the same six theme/viewport variants. Preserve the
- // variant when comparing states, instead of jumping back to screenshot 1.
- const previousVariant=viewerIndex;
+ // Match by theme + viewport identity, not array index: if one capture
+ // is missing, the remaining images shift positions in the DOM.
+ const previous=viewerImages[viewerIndex]?.closest("figure");
+ const previousTheme=previous?.dataset.theme;
+ const previousWidth=previous?.dataset.viewportWidth;
  viewerSection=section;
  section.open=true;
  viewerImages=[...section.querySelectorAll("figure img")];
- viewerIndex=preserveVariant?Math.min(previousVariant,Math.max(0,viewerImages.length-1)):0;
+ const matching=preserveVariant?viewerImages.findIndex(img=>{
+  const figure=img.closest("figure");
+  return figure?.dataset.theme===previousTheme&&figure?.dataset.viewportWidth===previousWidth;
+ }):-1;
+ viewerIndex=matching>=0?matching:0;
  viewerOrigin=preserveVariant?viewerImages[viewerIndex]?.closest("a")||anchor:anchor;
  showViewerImage();
  syncViewerReview();
