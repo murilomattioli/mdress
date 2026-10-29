@@ -260,6 +260,15 @@
 }
 .ds-property-range:has(.ds-range-native:focus-visible) .ds-prop-track{outline:2px solid var(--ds-focus);outline-offset:2px}
 .ds-property-color:has(.ds-color-native:focus-visible) .ds-color-swatch{outline:2px solid var(--ds-focus);outline-offset:2px}
+/* Native text inputs previously removed their own outline and relied only
+ * on the large row border. Show a 2px keyboard-focus indicator on the exact
+ * editable field without consuming the tight mobile layout's outer space. */
+.design-inspector .ds-prop-numberbox .ds-prop-number:focus-visible,
+.design-inspector .ds-number-actions .ds-number-native:focus-visible,
+.design-inspector .ds-color-right .ds-color-hex:focus-visible{
+ outline:2px solid var(--ds-focus)!important;
+ outline-offset:-2px!important;
+}
 @container(max-width:245px){
  .ds-property-range{grid-template-columns:minmax(52px,1fr) minmax(40px,1fr) minmax(60px,75px);gap:4px;padding-inline:6px}
  .ds-property-number{grid-template-columns:minmax(45px,1fr) auto;gap:4px;padding-inline:6px}
