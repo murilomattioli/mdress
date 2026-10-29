@@ -8,7 +8,7 @@ await mkdir('test-results/ux-audit',{recursive:true});
 const emit=(rule,severity,component,detail,context)=>findings.push({rule,severity,component,detail,context});
 try{
  for(const theme of ['graphite','studio']){
-  for(const width of [1440,1024,768]){
+  for(const width of [1440,1024,768,390]){
    const page=await browser.newPage({viewport:{width,height:900}});
    const errors=[];
    page.on('pageerror',error=>errors.push(error.message));
