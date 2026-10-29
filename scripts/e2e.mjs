@@ -475,6 +475,22 @@ try {
  await assertNoRedundantNativeEvents(page.locator('#sectionRule'),async()=>{
   await rules.getByRole('button',{name:'Bloco'}).click();
  },'Pressing an already selected segment must not create a document edit');
+ // A focused segment can disappear while its nearest remaining option is disabled.
+ const nativeRule=page.locator('#sectionRule');
+ await nativeRule.locator('option[value="none"]').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelector('[data-value="none"]')?.disabled===true);
+ await rules.getByRole('button',{name:'Bloco'}).focus();
+ await nativeRule.locator('option[value="block"]').evaluate(el=>{el.hidden=true;});
+ await page.waitForFunction(()=>!document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelector('[data-value="block"]'));
+ assert.equal(await rules.locator('[data-value="line"]').evaluate(el=>el===document.activeElement),true,
+  'Removing a focused segment must skip its disabled neighbor');
+ await rules.screenshot({path:'test-results/ux-audit/inspector-segment-removed-disabled-neighbor.png',animations:'disabled'});
+ await nativeRule.locator('option[value="block"]').evaluate(el=>{el.hidden=false;});
+ await nativeRule.locator('option[value="none"]').evaluate(el=>{el.disabled=false;});
+ await page.waitForFunction(()=>document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelectorAll('.ds-segment-option').length===3);
  const guides=page.locator('.ds-property-binary').filter({has:page.locator('#showPageGuides')});
  await guides.getByRole('button',{name:'Marcações de página desligado'}).click();
  assert.equal(await page.locator('#showPageGuides').isChecked(),false);

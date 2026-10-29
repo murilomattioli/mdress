@@ -427,6 +427,9 @@ function enhanceSegment(label,select,title){
    const item=rendered[index];
    return item.option!==option||item.value!==option.value||item.label!==labelFor(option);
   });
+  // Apply disabled states before restoring focus after live option changes.
+  // The nearest replacement can itself be disabled or removed.
+  let focusRecovery=null;
   if(changed){
    const focusedIndex=rendered.findIndex(item=>item.button===document.activeElement);
    const focusedOption=rendered[focusedIndex]?.option;
@@ -439,20 +442,23 @@ function enhanceSegment(label,select,title){
    });
    elements=rendered.map(item=>item.button);
    group.replaceChildren(...elements);
-   // Reordering/removing an option must not strand focus on a detached
-   // button. Preserve the native option identity when possible.
-   if(focusedIndex!==-1){
-    const next=rendered.find(item=>item.option===focusedOption)?.button||
-     elements[Math.min(focusedIndex,elements.length-1)];
-    if(next)next.focus({preventScroll:true});
-    else {group.tabIndex=-1;group.focus({preventScroll:true});}
-   }
+   if(focusedIndex!==-1)focusRecovery={focusedIndex,focusedOption};
   }
-  const focused=elements.indexOf(document.activeElement);
   for(const [index,btn] of elements.entries()){
    btn.setAttribute('aria-pressed',String(btn.dataset.value===select.value));
    btn.disabled=select.disabled||isSelectOptionDisabled(rendered[index].option);
   }
+  if(focusRecovery){
+   const {focusedIndex,focusedOption}=focusRecovery;
+   const preserved=rendered.find(item=>item.option===focusedOption&&!item.button.disabled);
+   const start=Math.min(focusedIndex,rendered.length);
+   const nearest=[...rendered.slice(start),...rendered.slice(0,start).reverse()]
+    .find(item=>!item.button.disabled);
+   const target=preserved?.button||nearest?.button;
+   if(target)target.focus({preventScroll:true});
+   else focusInspectorNeighbor(select,{visibleOnly:true});
+  }
+  const focused=elements.indexOf(document.activeElement);
   if(focused!==-1&&elements[focused].disabled){
    const next=nextEnabledSegmentIndex(elements.map(item=>item.disabled),focused,'ArrowRight');
    if(next!==-1)elements[next].focus({preventScroll:true});

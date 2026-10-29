@@ -64,8 +64,8 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-disabled-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-hidden-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-detached-focus-handoff'));
- assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,67,'67 distinct states are mandatory');
- assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,67,'State names must be unique');
+ assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,68,'68 distinct states are mandatory');
+ assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,68,'State names must be unique');
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('number-disabled-invalid-draft'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('number-rollback-valid-draft'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('color-draft-sync'));
@@ -74,6 +74,7 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-disabled-trigger-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-live-options'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-live-focus-handoff'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-removed-disabled-neighbor'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-disabled-focus-handoff'));
  for(const state of ['range-disabled-focus-handoff','color-disabled-focus-handoff','color-swatch-focus','color-swatch-disabled-focus-handoff',
   'number-disabled-focus-handoff','number-stepper-disabled-focus-handoff'])

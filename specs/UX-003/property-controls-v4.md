@@ -39,7 +39,7 @@ Reference: user-supplied screenshots of Designminis Background Remover property 
 7. Mesh gallery, editor and theme persistence unchanged.
 8. Canvas responsive views at 1366, 1600 and mobile; PDF remains text-extractable.
 9. Playwright regression verifies unchanged values produce zero native `input`/`change` events for range, color, select, segment and binary; screenshot of localized binary control is retained as visual evidence.
-10. Supervised UX-023 matrix: 67 states × two themes × three widths = 402 screenshots; all must be reviewed by a human before merge.
+10. Supervised UX-023 matrix: 68 states × two themes × three widths = 408 screenshots; all must be reviewed by a human before merge.
 
 ## Limitations
 

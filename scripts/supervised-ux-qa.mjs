@@ -689,7 +689,19 @@ async function exercise(page,theme,width){
  assert.ok(segmentFocus.inside&&segmentFocus.enabled&&segmentFocus.attached&&!segmentFocus.isBody,
   'Removing a focused segment must transfer focus to an existing enabled option: '+JSON.stringify(segmentFocus));
  await capture(page,theme,width,'segment-live-focus-handoff');
- await nativeSegment.locator('option[value="none"]').evaluate(el=>{el.hidden=false;});
+ // A disabled nearest neighbor must be skipped when the focused option disappears.
+ await nativeSegment.locator('option[value="none"]').evaluate(el=>{el.hidden=false;el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelector('[data-value="none"]')?.disabled===true);
+ await block.focus();
+ await blockOption.evaluate(el=>{el.hidden=true;});
+ await page.waitForFunction(()=>!document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelector('[data-value="block"]'));
+ assert.equal(await line.evaluate(el=>el===document.activeElement),true,
+  'Removing a focused segment must skip disabled neighboring options');
+ await capture(page,theme,width,'segment-removed-disabled-neighbor');
+ await blockOption.evaluate(el=>{el.hidden=false;});
+ await nativeSegment.locator('option[value="none"]').evaluate(el=>{el.disabled=false;});
  await blockOption.evaluate((el,text)=>{el.textContent=text;},originalBlockText);
  await page.waitForFunction(()=>document.querySelector('#sectionRule')?.closest('.ds-property-segment')
   ?.querySelectorAll('.ds-segment-option').length===3);
