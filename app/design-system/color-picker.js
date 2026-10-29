@@ -16,6 +16,12 @@ export function hsvToRgb([h,s,v]){
  const c=v*s,x=c*(1-Math.abs(h%2-1)),m=v-c;
  return [[c,x,0],[x,c,0],[0,c,x],[0,x,c],[x,0,c],[c,0,x]][Math.floor(h)].map(n=>Math.round((n+m)*255));
 }
+// Invalid persisted opacity must not poison native range inputs or CSS alpha.
+export function opacityPercent(value){
+ if(value===undefined||value===null||value==='')return 100;
+ const numeric=Number(value);
+ return Number.isFinite(numeric)?Math.round(clamp(numeric,1)*100):100;
+}
 const STORE='mdress.saved-colors.v1';
 const DEFAULTS=['#000000','#FFFFFF','#FF3B30','#FF9500','#FFCC00','#34C759','#5AC8FA','#007AFF','#5856D6','#FF2D55'];
 function savedColors(){try{const list=JSON.parse(localStorage.getItem(STORE));return Array.isArray(list)?[...new Set(list.filter(v=>typeof v==='string').map(parseHex).filter(Boolean))].slice(0,12):DEFAULTS;}catch{return DEFAULTS;}}
@@ -27,7 +33,7 @@ export function openColorPicker(input){
  active?.close();
  let hex=parseHex(input.value)||'#000000',hsv=rgbToHsv(hexToRgb(hex)),saved=savedColors();
  const dialog=node('dialog','mdress-color-picker');active=dialog;
- let restoreFocus=true,opacity=Math.round(Number(input.dataset.opacity??1)*100);
+ let restoreFocus=true,handoffOnClose=false,opacity=opacityPercent(input.dataset.opacity);
  const events=new AbortController();
  const anchor=()=>input.isConnected?input:[...document.querySelectorAll('input[type="color"]')].find(el=>input.id?el.id===input.id:el.getAttribute('aria-label')===input.getAttribute('aria-label'));
  dialog.setAttribute('aria-label','Cores — '+(input.getAttribute('aria-label')||input.closest('label')?.querySelector('.ds-prop-name')?.textContent||'Documento'));
@@ -64,8 +70,27 @@ export function openColorPicker(input){
  opacityRange.type='range';opacityValue.type='number';
  for(const control of [opacityRange,opacityValue]){control.min='0';control.max='100';control.step='1';control.setAttribute('aria-label',control===opacityRange?'Opacidade':'Opacidade em porcentagem');}
  const opacitySuffix=node('span','','%');opacityRow.append(opacityLabel,opacityRange,opacityValue,opacitySuffix);
- function applyOpacity(control){const value=control.valueAsNumber;if(!Number.isFinite(value)||value<0||value>100){control.setAttribute('aria-invalid','true');return;}control.removeAttribute('aria-invalid');opacity=value;sync();const target=anchor();if(target){target.dataset.opacity=opacity/100;target.dispatchEvent(new CustomEvent('coloropacitychange',{bubbles:true,detail:opacity/100}));}}
+ function applyOpacity(control){
+  const value=control.valueAsNumber;
+  if(!Number.isFinite(value)||value<0||value>100){
+   control.setAttribute('aria-invalid','true');
+   status.textContent='Use uma opacidade entre 0% e 100%.';
+   return;
+  }
+  control.removeAttribute('aria-invalid');
+  status.textContent='';
+  opacity=value;sync();
+  const target=anchor();
+  if(target){target.dataset.opacity=opacity/100;target.dispatchEvent(new CustomEvent('coloropacitychange',{bubbles:true,detail:opacity/100}));}
+ }
  opacityRange.oninput=()=>applyOpacity(opacityRange);opacityValue.onchange=()=>applyOpacity(opacityValue);
+ opacityValue.onkeydown=e=>{
+  if(e.key!=='Escape')return;
+  e.stopPropagation();
+  opacityValue.value=opacity;
+  opacityValue.removeAttribute('aria-invalid');
+  status.textContent='';
+ };
  const status=node('p','cp-status');status.setAttribute('role','status');
  function applyHex(){const value=parseHex(hexInput.value.trim());if(!value){hexInput.setAttribute('aria-invalid','true');status.textContent='Use seis dígitos: #RRGGBB.';return;}commit(value);}
  hexInput.onchange=applyHex;hexInput.onkeydown=e=>{if(e.key==='Enter')applyHex();if(e.key==='Escape'){e.stopPropagation();hexInput.value=hex;hexInput.removeAttribute('aria-invalid');status.textContent='';}};
@@ -73,7 +98,7 @@ export function openColorPicker(input){
  function renderSaved(){swatches.replaceChildren();saved.forEach(color=>{const b=button('Usar '+color);b.className='cp-saved-color';b.textContent='';b.style.background=color;b.onclick=()=>commit(color);swatches.append(b);});}
  add.onclick=()=>{saved=[hex,...saved.filter(c=>c!==hex)].slice(0,12);renderSaved();try{localStorage.setItem(STORE,JSON.stringify(saved));status.textContent='Cor salva.';}catch{status.textContent='Cor disponível nesta sessão; armazenamento indisponível.';}};
  function sync(){
-  opacityRange.value=opacityValue.value=opacity;opacityRange.style.setProperty('--cp-opacity-color',hex);
+  opacityRange.value=opacityValue.value=opacity;opacityRange.removeAttribute('aria-invalid');opacityValue.removeAttribute('aria-invalid');opacityRange.style.setProperty('--cp-opacity-color',hex);
   preview.style.background=hex+Math.round(opacity/100*255).toString(16).padStart(2,'0');hexInput.value=hex;hexInput.removeAttribute('aria-invalid');
   cells.forEach(b=>b.setAttribute('aria-pressed',String(b.title===hex)));
   spectrum.style.backgroundColor=rgbToHex(hsvToRgb([hsv[0],100,100]));cursor.style.left=hsv[1]+'%';cursor.style.top=(100-hsv[2])+'%';
@@ -116,12 +141,25 @@ export function openColorPicker(input){
  window.addEventListener('resize',reposition,{signal:events.signal});
  document.addEventListener('scroll',reposition,{capture:true,signal:events.signal});
  const observer=new ResizeObserver(reposition);observer.observe(dialog);
+ // A disabled source can no longer accept edits: dismiss its popover and
+ // transfer keyboard focus instead of stranding focus inside a dead editor.
+ const disabledObserver=new MutationObserver(()=>{
+  if(!input.disabled||!dialog.open)return;
+  restoreFocus=false;handoffOnClose=true;dialog.close();
+ });
+ disabledObserver.observe(input,{attributes:true,attributeFilter:['disabled']});
  dialog.addEventListener('close',()=>{
-  events.abort();observer.disconnect();
+  events.abort();observer.disconnect();disabledObserver.disconnect();
   dialog.remove();if(active===dialog)active=null;
   // Mesh updates rebuild their native inputs; restore focus to the replacement.
   const target=anchor();
   if(restoreFocus&&target&&!target.disabled)target.focus();
+   else if(handoffOnClose){
+    const scope=input.closest('.design-inspector')||document;
+    const usable=el=>el!==input&&!el.disabled&&el.tabIndex>=0&&el.getClientRects().length&&
+     !el.closest('[hidden],[inert],[aria-hidden="true"]')&&getComputedStyle(el).visibility!=='hidden';
+    [...scope.querySelectorAll('button,input,select,textarea,[tabindex]')].find(usable)?.focus({preventScroll:true});
+   }
  },{once:true});
  selectTab(0);renderSaved();sync();dialog.show();reposition();tabButtons[0].focus({preventScroll:true});
 }

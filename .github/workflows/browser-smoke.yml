@@ -38,6 +38,8 @@ jobs:
         run: node scripts/choice-actions-qa.mjs
       - name: Alert dialogs — keyboard, cancellation and focus restoration
         run: node scripts/alert-dialog-qa.mjs
+      - name: Color picker — opacity validation and disabled-source focus handoff
+        run: node scripts/color-picker-qa.mjs
       - name: PDF weight interactions
         run: node scripts/pdf-weight-qa.mjs
       - name: Component UX Audit
@@ -56,6 +58,7 @@ jobs:
           name: ux-audit-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             test-results/ux-audit/*.png
+            test-results/color-picker/*.png
             test-results/ux-audit/supervised/*.png
             test-results/ux-audit/supervised/index.html
             test-results/ux-audit/supervised/*-trace.zip

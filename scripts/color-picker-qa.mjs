@@ -35,7 +35,20 @@ try{
   await page.screenshot({path:`test-results/color-picker/rgb-${width}.png`});
   assert.equal(await dialog.evaluate(el=>el.scrollWidth>el.clientWidth),false);
   const bounds=await dialog.boundingBox();assert.ok(bounds.x>=0&&bounds.x+bounds.width<=width);
-  await dialog.getByRole('button',{name:'Fechar seletor de cores',exact:true}).click();
+  const opacity=dialog.getByRole('spinbutton',{name:'Opacidade em porcentagem',exact:true});
+   const originalOpacity=await opacity.inputValue();
+   await opacity.fill('120');await opacity.dispatchEvent('change');
+   assert.equal(await opacity.getAttribute('aria-invalid'),'true');
+   assert.match(await dialog.locator('.cp-status').textContent(),/0% e 100%/);
+   await opacity.press('Escape');
+   assert.equal(await opacity.inputValue(),originalOpacity);
+   assert.equal(await opacity.getAttribute('aria-invalid'),null);
+   assert.equal(await dialog.isVisible(),true,'Escape on invalid opacity should not close the picker');
+   await opacity.fill('42');await opacity.dispatchEvent('change');
+   assert.equal(await input.getAttribute('data-opacity'),'0.42');
+   assert.equal(await opacity.getAttribute('aria-invalid'),null);
+   await page.screenshot({path:`test-results/color-picker/opacity-${width}.png`});
+   await dialog.getByRole('button',{name:'Fechar seletor de cores',exact:true}).click();
   assert.equal(await input.evaluate(el=>el===document.activeElement),true);
   await input.press('Enter');await dialog.waitFor();await dialog.press('Escape');await dialog.waitFor({state:'hidden'});
   await page.waitForFunction(()=>document.getElementById('saveStatus').textContent==='Salvo localmente');
@@ -52,7 +65,12 @@ try{
   await input.evaluate(el=>el.click());await dialog.waitFor();
   await dialog.locator('.cp-saved-color').last().focus();await page.keyboard.press('Tab');
   await page.locator('.mdress-color-picker').waitFor({state:'detached'});
-  await input.evaluate(el=>{el.disabled=true;el.click();});assert.equal(await page.locator('.mdress-color-picker').count(),0);
+  await input.evaluate(el=>el.click());await dialog.waitFor();
+   await input.evaluate(el=>{el.disabled=true;});
+   await page.locator('.mdress-color-picker').waitFor({state:'detached'});
+   assert.equal(await page.evaluate(()=>document.activeElement!==document.body&&document.activeElement?.getClientRects().length>0),true,
+    'Disabling the source while its picker is open must restore usable keyboard focus');
+   await input.evaluate(el=>el.click());assert.equal(await page.locator('.mdress-color-picker').count(),0);
   await input.evaluate(el=>{el.disabled=false;});
   assert.deepEqual(errors,[]);await page.close();
  }
