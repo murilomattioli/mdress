@@ -1,6 +1,6 @@
 # UX-003 — Professional Property Controls / DS v4
 
-Status: implemented first pass; browser interaction and PDF regression covered by CI.
+Status: UX-023 implementation under supervised QA; automated browser checks do not replace human visual approval.
 
 Reference: user-supplied screenshots of Designminis Background Remover property panel (2026-10-23). Interaction principles and density are the references; no source, assets, or branding copied.
 
@@ -13,7 +13,7 @@ Reference: user-supplied screenshots of Designminis Background Remover property 
 | DSColorField | label, color swatch and editable hex | OS color picker or six-digit hex; invalid input rejected |
 | DSSegmentedField | label + fixed set of pressed buttons | Arrow/Home/End and click, selected state synced with underlying select |
 | DSSelectField | value button + viewport-positioned listbox | Enter, Escape, arrows, selected state, outside click, dynamic saved options |
-| DSBinaryField | label + Off / On | Pressed and keyboard states, synced checkbox |
+| DSBinaryField | label + Não / Sim | Pressed and keyboard states, synced checkbox; reselecting the active value does not emit document events |
 | DSAccordionSection | header + metadata + optional body | Expanded/collapsed by keyboard; persists app UI preference |
 
 ## Implementation and invariants
@@ -24,6 +24,8 @@ Reference: user-supplied screenshots of Designminis Background Remover property 
 - New first-run app appearance Studio Light, preserving old Graphite/OLED/Sand/Neon preferences.
 - Component decoration does not alter Markdown, page geometry or PDF export.
 - Native controls remain the single source of truth. Values are numeric constrained and CSS is static.
+- No-op interactions (reselecting the active segment, combobox option, binary state, hex color or slider value) do not dispatch synthetic `input`/`change` events. Only actual value changes may update document history.
+- Invalid drafts never commit; Escape restores the confirmed value and focus remains available for further editing.
 - The page-guide binary control affects only preview labels and is saved as a UI preference.
 
 ## Test matrix
@@ -33,9 +35,11 @@ Reference: user-supplied screenshots of Designminis Background Remover property 
 3. Segmented font and section separator, original select synchronized.
 4. Dropdown with accessible option selection and accurate current value.
 5. Accordion toggle and restoration, no data loss.
-6. Off/On page guide toggles preview labels, not PDF.
+6. Não/Sim page guide toggles preview labels, not PDF; repeated selection is a no-op.
 7. Mesh gallery, editor and theme persistence unchanged.
 8. Canvas responsive views at 1366, 1600 and mobile; PDF remains text-extractable.
+9. Playwright regression verifies unchanged values produce zero native `input`/`change` events for range, color, select, segment and binary; screenshot of localized binary control is retained as visual evidence.
+10. Supervised UX-023 matrix: 67 states × two themes × three widths = 402 screenshots; all must be reviewed by a human before merge.
 
 ## Limitations
 
