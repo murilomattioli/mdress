@@ -32,7 +32,8 @@ test('offline gallery renders the full comparison matrix and supports filtering'
  assert.match(html,/source\.searchParams\.set\("mdress-verify"/);
  assert.match(html,/id="image-viewer"/);
  assert.match(html,/viewer\.showModal\(\)/);
- assert.match(html,/viewerOrigin\.focus\(\)/);
+ assert.match(html,/origin\.focus\(\)/);
+ assert.match(html,/requestAnimationFrame/);
  assert.match(html,/id="viewer-status"/);
  assert.match(html,/id="viewer-note"/);
  assert.match(html,/id="viewer-next-state"/);
