@@ -552,7 +552,7 @@ async function exercise(page,theme,width){
  // and clear stale error feedback, without publishing the invalid draft.
  await input.fill('9999');
  assert.equal(await input.getAttribute('aria-invalid'),'true');
- await input.evaluate(el=>{el.dataset.qaCommittedNumber=el.value==='9999'?'':el.value;el.disabled=true;});
+ await input.evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(value=>document.querySelector('#marginMm')?.value===value,originalNumber);
  assert.equal(await input.inputValue(),originalNumber,
   'Disabling a numeric field must discard the uncommitted invalid draft');
