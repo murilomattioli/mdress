@@ -64,8 +64,8 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-disabled-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-hidden-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-detached-focus-handoff'));
- assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,72,'72 distinct states are mandatory');
- assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,72,'State names must be unique');
+ assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,74,'74 distinct states are mandatory');
+ assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,74,'State names must be unique');
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-any-stepper'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-grid-edge'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('number-disabled-invalid-draft'));
