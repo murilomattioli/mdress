@@ -43,6 +43,12 @@ Reference: user-supplied screenshots of Designminis Background Remover property 
 
 11. At 390px, numeric steppers, color swatches, dropdowns, segmented/binary buttons and precision inputs expose 44px mobile targets; Playwright asserts the geometry and captures the inspector overlay.
 
+## Automated accessibility and geometry gates
+
+The Chromium component audit runs in Graphite and Studio at 390, 768, 1024 and 1440px. It rejects interactive hit-target collisions both **inside one property row** and **across different rows** when the rendered intersection exceeds 4px on each axis. Adjacent borders and intentionally scrollable toolbar actions are not treated as collisions. It also rejects missing `aria-labelledby` / `aria-describedby` ID references and unnamed visible controls. Unit regressions cover row boundaries, collision thresholds and multi-ID references.
+
+These checks are necessary but not a visual sign-off: the 544 supervised screenshots and interactive focus, contrast and ergonomics still require explicit human approval.
+
 ## Limitations
 
 This ships the core family, not a complete Figma-grade DS. Future items: pointer numeric scrubbing, stepper press-and-hold, unit conversion, richer color popover (HSL/HSV/alpha), dynamic Mesh-point controls migrated to the same primitives, screenshot visual regression and removal of old style overrides.
