@@ -4,8 +4,8 @@ import {mkdir} from 'node:fs/promises';
 await mkdir('test-results/color-picker',{recursive:true});
 const browser=await chromium.launch();
 try{
- for(const width of [1440,768,390]){
-  const page=await browser.newPage({viewport:{width,height:900},reducedMotion:'reduce',hasTouch:width===390});
+ for(const width of [1440,768,390,320]){
+  const page=await browser.newPage({viewport:{width,height:900},reducedMotion:'reduce',hasTouch:width<=390});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173');
   await page.locator(await page.locator('#designToggle').isVisible()?'#designToggle':'#railDesign').click();
@@ -65,12 +65,29 @@ try{
   await page.keyboard.press('Home');
   assert.equal(await dialog.locator('.cp-cell').first().getAttribute('tabindex'),'0',
    'Home moves the palette Tab stop to its first color');
+  if(width<=390){
+   await page.keyboard.press('ArrowDown');
+   const columns=width<=360?5:6;
+   assert.equal(await dialog.locator('.cp-cell').nth(columns).getAttribute('tabindex'),'0',
+    'Down arrow follows the responsive palette column count');
+   await page.keyboard.press('Home');
+   for(const selector of ['.cp-cell','.cp-header .cp-button','.cp-tabs .cp-button']){
+    const box=await dialog.locator(selector).first().boundingBox();
+    assert.ok(box&&box.width>=43.5&&box.height>=43.5,
+     'Mobile picker touch target must be at least 44px: '+selector+' '+JSON.stringify(box));
+   }
+  }
   await dialog.getByRole('button',{name:'Salvar cor atual',exact:true}).click();
+  if(width<=390){
+   const box=await dialog.locator('.cp-saved-color').first().boundingBox();
+   assert.ok(box&&box.width>=43.5&&box.height>=43.5,
+    'Saved colors need mobile touch targets: '+JSON.stringify(box));
+  }
   const saved=await input.inputValue();
   await dialog.getByRole('tab',{name:'Espectro',exact:true}).click();
   await dialog.locator('.cp-spectrum').click({position:{x:80,y:80}});
   const before=await input.inputValue();await dialog.locator('.cp-spectrum').press('ArrowRight');assert.notEqual(await input.inputValue(),before);
-  if(width===390){const rect=await dialog.locator('.cp-spectrum').boundingBox();await page.touchscreen.tap(rect.x+120,rect.y+120);assert.notEqual(await input.inputValue(),before);}
+  if(width<=390){const rect=await dialog.locator('.cp-spectrum').boundingBox();await page.touchscreen.tap(rect.x+120,rect.y+120);assert.notEqual(await input.inputValue(),before);}
   await page.screenshot({path:`test-results/color-picker/spectrum-${width}.png`});
   await dialog.getByRole('tab',{name:'RGB',exact:true}).click();
   assert.equal(await dialog.getByRole('tab',{name:'RGB',exact:true}).getAttribute('aria-selected'),'true');
@@ -157,5 +174,5 @@ try{
  dialog=page.getByRole('dialog',{name:/Cores/});const hex=dialog.getByRole('textbox',{name:'Cor hexadecimal',exact:true});await hex.fill('#13579B');await hex.press('Enter');
  assert.equal(await mesh.inputValue(),'#13579b');await hex.fill('#ABC123');await hex.press('Enter');assert.equal(await mesh.inputValue(),'#abc123');
  await dialog.getByRole('button',{name:'Fechar seletor de cores',exact:true}).click();await page.close();
- console.log('Color picker: palette, spectrum pointer/keyboard, RGB, invalid HEX, persistence, saved colors, Escape/focus and overflow passed at 1440/768/390.');
+ console.log('Color picker: palette, spectrum pointer/keyboard, RGB, invalid HEX, persistence, saved colors, Escape/focus and overflow passed at 1440/768/390/320.');
 }finally{await browser.close();}
