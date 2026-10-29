@@ -225,10 +225,14 @@ function enhanceNumber(label,input,title){
  };
  let committed=input.value,editing=false;
  const update=()=>{
+  // Disabling a numeric field must discard its uncommitted draft, just like
+  // the range and hex controls. Otherwise an invalid number can remain in
+  // the native source of truth after the inspector becomes read-only.
+  if(input.disabled&&editing){input.value=committed;editing=false;}
   const ok=valid();
   if(!editing&&ok)committed=input.value;
   const {min,max}=bounds();
-  setError(editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
+  setError(!input.disabled&&editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
   const focusedStepper=[minus,plus].find(button=>document.activeElement===button);
   minus.disabled=stepTarget(-1)===null;
   plus.disabled=stepTarget(1)===null;
