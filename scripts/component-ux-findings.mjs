@@ -107,3 +107,15 @@ export function missingAriaReferenceIds(value,exists){
  return [...new Set(String(value||'').trim().split(/\s+/).filter(Boolean))]
   .filter(id=>!exists(id));
 }
+
+/** A duplicated IDREF may resolve to the wrong element for assistive tech. */
+export function duplicateAriaReferenceIds(value,count){
+ return [...new Set(String(value||'').trim().split(/\s+/).filter(Boolean))]
+  .filter(id=>count(id)>1);
+}
+
+/** An existing but empty aria-labelledby target does not provide a name. */
+export function emptyAriaLabelReferenceIds(value,resolveText){
+ return [...new Set(String(value||'').trim().split(/\s+/).filter(Boolean))]
+  .filter(id=>resolveText(id)==='');
+}
