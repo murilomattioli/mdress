@@ -536,6 +536,26 @@ async function exercise(page,theme,width){
   'Disabling a focused closed combobox must hand focus to a visible enabled inspector control: '+JSON.stringify(closedDisabledFocus));
  await capture(page,theme,width,'select-disabled-trigger-focus-handoff');
  await page.locator('#fontChoice').evaluate(el=>{el.disabled=false;});
+ // Quick navigation actions must not lose keyboard focus when their
+ // native choices become unavailable. Capture both select and gallery flows.
+ const fontQuick=select.locator('.ds-choice-actions button');
+ await fontQuick.nth(1).focus();
+ await page.locator('#fontChoice').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>[...document.querySelectorAll('.ds-property-select--quick .ds-choice-actions button')].length===3&&
+  [...document.querySelectorAll('.ds-property-select--quick .ds-choice-actions button')].every(el=>el.disabled));
+ await assertInspectorFocusHandoff(page,'Disabling focused font quick navigation must preserve keyboard focus');
+ await capture(page,theme,width,'quick-select-disabled-focus-handoff');
+ await page.locator('#fontChoice').evaluate(el=>{el.disabled=false;});
+ const backgroundSection=page.locator('.ds-accordion').filter({has:page.locator('#backgroundGallery')});
+ const backgroundQuick=backgroundSection.locator('.ds-accordion-actions .ds-quick-action');
+ await page.waitForFunction(()=>document.querySelectorAll('#backgroundGallery button').length>1);
+ await backgroundQuick.first().scrollIntoViewIfNeeded();
+ await backgroundQuick.first().focus();
+ await page.locator('#backgroundGallery button').evaluateAll(items=>items.forEach(el=>{el.disabled=true;}));
+ await page.waitForFunction(()=>[...document.querySelectorAll('.ds-accordion:has(#backgroundGallery) .ds-accordion-actions button')].every(el=>el.disabled));
+ await assertInspectorFocusHandoff(page,'Disabling focused background quick navigation must preserve keyboard focus');
+ await capture(page,theme,width,'quick-gallery-disabled-focus-handoff');
+ await page.locator('#backgroundGallery button').evaluateAll(items=>items.forEach(el=>{el.disabled=false;}));
  await revealInspector(page,'page');
  const number=page.locator('.ds-property-number').filter({has:page.locator('#marginMm')});
  const input=page.locator('#marginMm');
