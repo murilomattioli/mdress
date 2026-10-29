@@ -13,7 +13,7 @@ const screenshots=UX_QA_MATRIX.flatMap(({theme,width})=>
  })));
 const report=()=>({
  schema:5,mode:'supervised',headless:false,stopped:false,reviewSessionId:sessionId,
- summary:{status:'passed'},coverage:UX_QA_MATRIX.map(({theme,width})=>({theme,width,scenario:true})),
+ summary:{status:'passed'},coverage:UX_QA_MATRIX.map(({theme,width})=>({theme,width,scenario:true,inspector:true,toolbar:true,errors:0})),
  findings:[],screenshots:structuredClone(screenshots),
  humanReview:{status:'not-reviewed',requiresExplicitApproval:true}
 });
@@ -28,6 +28,8 @@ test('resumed sign-off requires a completed interactive session and matching hum
  assert.equal(assessResumeReview(interrupted,review()).valid,false);
  const failed=report();failed.findings.push({severity:'error',message:'broken'});
  assert.equal(assessResumeReview(failed,review()).valid,false);
+ const falseGreen=report();falseGreen.coverage[0].inspector=false;
+ assert.equal(assessResumeReview(falseGreen,review()).valid,false);
  const missing=report();missing.screenshots.pop();
  assert.equal(assessResumeReview(missing,review()).valid,false);
  const duplicate=report();duplicate.screenshots[0]=duplicate.screenshots[1];
