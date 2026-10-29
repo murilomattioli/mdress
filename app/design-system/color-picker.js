@@ -48,7 +48,10 @@ export function openColorPicker(input){
  const grid=node('div','cp-grid');grid.setAttribute('aria-label','Paleta de cores');panels[0].append(grid);
  const colors=Array.from({length:12},(_,i)=>rgbToHex(Array(3).fill(255-i*255/11)));
  for(let row=0;row<7;row++)for(let col=0;col<12;col++)colors.push(rgbToHex(hsvToRgb([col*30,row<3?25+row*25:90,row<3?100:100-(row-3)*20])));
- const cells=colors.map((color,i)=>{const b=button(color);b.className='cp-cell';b.textContent='';b.style.background=color;b.tabIndex=i? -1:0;b.onclick=()=>commit(color);b.onkeydown=e=>{const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:-12,ArrowDown:12,Home:-i,End:colors.length-1-i}[e.key];if(delta===undefined)return;e.preventDefault();const next=clamp(i+delta,colors.length-1);cells.forEach((c,j)=>c.tabIndex=j===next?0:-1);cells[next].focus();};grid.append(b);return b;});
+ // Roving keyboard focus starts at the selected palette color, not at an
+ // unrelated first swatch. Keep exactly one Tab stop as users navigate.
+ let gridFocusIndex=Math.max(0,colors.indexOf(hex));
+ const cells=colors.map((color,i)=>{const b=button(color);b.className='cp-cell';b.textContent='';b.style.background=color;b.tabIndex=i===gridFocusIndex?0:-1;b.onclick=()=>{gridFocusIndex=i;commit(color);};b.onkeydown=e=>{const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:-12,ArrowDown:12,Home:-i,End:colors.length-1-i}[e.key];if(delta===undefined)return;e.preventDefault();gridFocusIndex=clamp(i+delta,colors.length-1);cells.forEach((c,j)=>c.tabIndex=j===gridFocusIndex?0:-1);cells[gridFocusIndex].focus();};grid.append(b);return b;});
  const spectrum=node('div','cp-spectrum');spectrum.tabIndex=0;spectrum.setAttribute('role','group');spectrum.setAttribute('aria-label','Saturação e luminosidade. Use as setas para ajustar.');
  const cursor=node('span','cp-cursor');spectrum.append(cursor);
  const hueLabel=node('label','cp-hue-label','Matiz'),hue=node('input','cp-hue');hue.type='range';hue.min='0';hue.max='360';hue.setAttribute('aria-label','Matiz');hueLabel.append(hue);panels[1].append(spectrum,hueLabel);
@@ -116,7 +119,11 @@ export function openColorPicker(input){
  function sync(){
   opacityRange.value=opacityValue.value=opacity;for(const control of [opacityRange,opacityValue]){control.removeAttribute('aria-invalid');control.removeAttribute('aria-errormessage');}opacityRange.style.setProperty('--cp-opacity-color',hex);
   preview.style.background=hex+Math.round(opacity/100*255).toString(16).padStart(2,'0');hexInput.value=hex;hexInput.removeAttribute('aria-invalid');hexInput.removeAttribute('aria-errormessage');
-  cells.forEach(b=>b.setAttribute('aria-pressed',String(b.title===hex)));
+  // When a different editor selects a palette color, the next Tab into the
+  // palette must reach that color. Do not move focus during arrow navigation.
+  const selectedIndex=colors.indexOf(hex);
+  if(selectedIndex>=0&&!grid.contains(document.activeElement))gridFocusIndex=selectedIndex;
+  cells.forEach((b,i)=>{b.setAttribute('aria-pressed',String(b.title===hex));b.tabIndex=i===gridFocusIndex?0:-1;});
   spectrum.style.backgroundColor=rgbToHex(hsvToRgb([hsv[0],100,100]));cursor.style.left=hsv[1]+'%';cursor.style.top=(100-hsv[2])+'%';
   spectrum.setAttribute('aria-description',`Saturação ${Math.round(hsv[1])}%, luminosidade ${Math.round(hsv[2])}%.`);hue.value=hsv[0];
   const rgb=hexToRgb(hex);channels.forEach(({range,number},i)=>{range.value=number.value=rgb[i];number.removeAttribute('aria-invalid');number.removeAttribute('aria-errormessage');const low=[...rgb],high=[...rgb];low[i]=0;high[i]=255;range.style.background=`linear-gradient(to right,${rgbToHex(low)},${rgbToHex(high)})`;});
