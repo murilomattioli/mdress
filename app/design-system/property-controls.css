@@ -368,7 +368,7 @@
  /* A narrow grid track can be only 40–42px wide despite its 44px height.
   * Keep the actual native slider hit area at least 44px in both axes. */
  .design-inspector .ds-property-range .ds-prop-track{min-width:44px;min-height:44px}
- .design-inspector .ds-property-range{grid-template-columns:minmax(0,1fr) minmax(44px,1fr) auto}
+ .design-inspector .ds-property-range{grid-template-columns:minmax(44px,1fr) auto}
  .design-inspector .ds-prop-numberbox .ds-prop-number{height:44px!important}
  .design-inspector .ds-number-actions .ds-number-native{height:44px!important}
  .design-inspector .ds-number-step{min-width:44px;width:44px;min-height:44px;height:44px}
