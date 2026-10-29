@@ -132,6 +132,18 @@ try{
  await page.locator('#only-pending').click();
  assert.equal(await page.locator('.state').first().isVisible(),false,'Approved states can be hidden');
  await page.locator('#only-pending').click();
+ // A reviewer who hides approved states can still move to the next pending
+ // state after approving the current one inside the modal.
+ await firstImage.click();
+ await page.evaluate(()=>document.querySelector('#only-pending').click());
+ assert.equal(await page.locator('.state').first().isVisible(),false);
+ assert.equal(await viewer.locator('#viewer-next-state').isDisabled(),false,
+  'Next state must remain reachable when the current state is filtered out');
+ await viewer.locator('#viewer-next-state').click();
+ assert.match(await page.locator('#viewer-label').innerText(),/toolbar/,
+  'Filtered current state must not trap the modal navigation');
+ await viewer.locator('#viewer-close').click();
+ await page.locator('#only-pending').click();
  const pendingDownload=page.waitForEvent('download');
  await page.locator('#export-review').click();
  const download=await pendingDownload;
