@@ -18,6 +18,17 @@ async function assertNoRedundantNativeEvents(control,action,description){
  await action();
  assert.deepEqual(await control.evaluate(el=>el.__qaNativeEvents),{input:0,change:0},description);
 }
+// Verify the focused *field* is visibly identified, not just its containing row.
+async function assertInspectorTextFocus(control,description){
+ await control.focus();
+ const state=await control.evaluate(el=>({
+  visible:el.matches(':focus-visible'),
+  style:getComputedStyle(el).outlineStyle,
+  width:parseFloat(getComputedStyle(el).outlineWidth),
+ }));
+ assert.ok(state.visible&&state.style==='solid'&&state.width>=1.9,
+  description+': '+JSON.stringify(state));
+}
 try {
  await page.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
  await page.locator('#source').waitFor();
@@ -178,6 +189,8 @@ try {
  const qaStepper=page.locator('.ds-property-number').filter({has:qaNumber});
  const qaMinus=qaStepper.getByRole('button',{name:/Diminuir/});
  const qaPlus=qaStepper.getByRole('button',{name:/Aumentar/});
+ await assertInspectorTextFocus(qaNumber,'Number input must expose its own focus ring');
+ await qaStepper.screenshot({path:'test-results/ux-audit/inspector-number-focus-ring.png',animations:'disabled'});
  await qaMinus.click();
  assert.equal(await qaNumber.inputValue(),'-4','Unbounded number must step below zero');
  await qaNumber.fill('1002');await qaNumber.dispatchEvent('change');
@@ -338,6 +351,8 @@ try {
  await qaRange.evaluate(el=>el.closest('label').remove());
  const precise=page.locator('.ds-property-range').filter({has:page.locator('#fontSize')}).locator('.ds-prop-number');
  assert.ok(await precise.count());
+ await assertInspectorTextFocus(precise,'Range precision input must expose its own focus ring');
+ await precise.locator('xpath=ancestor::*[contains(@class,"ds-property-range")]').screenshot({path:'test-results/ux-audit/inspector-range-focus-ring.png',animations:'disabled'});
  await precise.fill('11');
  await precise.dispatchEvent('change');
  assert.equal(await page.locator('#fontSize').inputValue(),'11');
@@ -412,6 +427,8 @@ try {
  assert.equal(await themePicker.getAttribute('aria-expanded'),'false');
  const colorControl=page.locator('.ds-property-color').filter({has:page.locator('#accentColor')});
  const colorHex=colorControl.locator('.ds-color-hex');
+ await assertInspectorTextFocus(colorHex,'Hex color input must expose its own focus ring');
+ await colorControl.screenshot({path:'test-results/ux-audit/inspector-color-focus-ring.png',animations:'disabled'});
  const previousAccent=await page.locator('#accentColor').inputValue();
  await colorHex.fill('#BAD');await colorHex.dispatchEvent('change');
  assert.equal(await colorHex.inputValue(),'#BAD','Invalid hex must stay editable instead of silently reverting');
