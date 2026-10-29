@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps, findInspectorCrossRowOverlaps, missingAriaReferenceIds} from '../scripts/component-ux-findings.mjs';
+import {deduplicateAuditFindings, summarizeAuditFindings, auditCoverageFinding, findInspectorControlOverlaps, findInspectorCrossRowOverlaps, missingAriaReferenceIds, duplicateAriaReferenceIds, emptyAriaLabelReferenceIds} from '../scripts/component-ux-findings.mjs';
 
 const finding = (theme, width, severity = 'warning') => ({
   rule: 'scrollable-toolbar',
@@ -129,4 +129,17 @@ test('ARIA IDREF audit rejects missing references, not valid multi-label chains'
  assert.deepEqual(missingAriaReferenceIds('  ',exists),[]);
  assert.deepEqual(missingAriaReferenceIds(null,exists),[]);
  assert.deepEqual(missingAriaReferenceIds('error-text other',exists),['other']);
+});
+
+
+test('ARIA IDREF audit rejects duplicate and empty label targets without double-counting',()=>{
+ const counts=new Map([['name',1],['duplicate',2],['description',1]]);
+ const texts=new Map([['name','Tamanho'],['duplicate','Nome'],['description','']]);
+ const count=id=>counts.get(id)||0;
+ const resolveText=id=>texts.get(id);
+ assert.deepEqual(duplicateAriaReferenceIds('name duplicate duplicate',count),['duplicate']);
+ assert.deepEqual(duplicateAriaReferenceIds('name missing',count),[]);
+ assert.deepEqual(emptyAriaLabelReferenceIds('name description description missing',resolveText),['description']);
+ assert.deepEqual(emptyAriaLabelReferenceIds('name',resolveText),[]);
+ assert.deepEqual(emptyAriaLabelReferenceIds(null,resolveText),[]);
 });
