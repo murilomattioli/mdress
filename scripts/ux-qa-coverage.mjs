@@ -77,6 +77,7 @@ export const UX_QA_REQUIRED_SCREENSHOTS=[
  'select-scroll-focus-handoff','select-tab-forward','select-tab-backward',
  'select-accordion-collapse-focus-handoff','select-tab-switch-focus-handoff','select-inspector-close-focus-handoff',
  'select-disabled-focus-handoff','select-disabled-trigger-focus-handoff','select-disabled',
+ 'quick-select-disabled-focus-handoff','quick-gallery-disabled-focus-handoff',
  'number-focus','number-invalid','number-valid','number-rollback-valid-draft','number-disabled','number-disabled-invalid-draft','number-disabled-focus-handoff','number-stepper-disabled-focus-handoff','number-slider-disabled-focus-handoff','number-slider-invalid-bounds',
  'binary-disabled','binary-disabled-focus-handoff','binary-toggled','binary-keyboard-on','binary-keyboard-off',
  'segment-disabled-focus','segment-keyboard-focus','segment-live-options','segment-live-focus-handoff','segment-removed-disabled-neighbor','segment-disabled-focus-handoff'
