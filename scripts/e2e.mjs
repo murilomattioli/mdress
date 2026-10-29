@@ -82,7 +82,26 @@ try {
   return Boolean(active?.closest('.markdown-toolbar')&&!active.disabled&&
    active!==document.querySelector('[data-qa-dynamic-action]'));
  });
+ // Hiding a group must recover focus even when the action remains enabled.
+ await dynamicAction.evaluate(el=>{el.disabled=false;});
+ await dynamicAction.focus();
+ await toolbar.locator('[data-qa-dynamic-group]').evaluate(el=>{el.hidden=true;});
+ await page.waitForFunction(()=>{
+  const active=document.activeElement,hidden=document.querySelector('[data-qa-dynamic-action]');
+  return Boolean(active?.closest('.markdown-toolbar')&&active!==hidden&&
+   !active.matches(':disabled,[aria-disabled="true"]')&&active.getClientRects().length);
+ });
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-hidden-group-focus-handoff.png',animations:'disabled'});
+ // Removing the currently focused action must recover focus as well.
+ await toolbar.locator('[data-qa-dynamic-group]').evaluate(el=>{el.hidden=false;});
+ await dynamicAction.focus();
  await toolbar.locator('[data-qa-dynamic-group]').evaluate(el=>el.remove());
+ await page.waitForFunction(()=>{
+  const active=document.activeElement;
+  return Boolean(active?.closest('.markdown-toolbar')&&active!==document.body&&
+   !active.matches(':disabled,[aria-disabled="true"]')&&active.getClientRects().length);
+ });
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-detached-action-focus-handoff.png',animations:'disabled'});
  await toolbar.evaluate(el=>{el.parentElement.style.removeProperty('width');});
  await page.locator('#headingCommand').focus();
  for(let i=0;i<11;i++)await page.keyboard.press('Tab');
