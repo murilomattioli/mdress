@@ -119,3 +119,28 @@ export function emptyAriaLabelReferenceIds(value,resolveText){
  return [...new Set(String(value||'').trim().split(/\s+/).filter(Boolean))]
   .filter(id=>resolveText(id)==='');
 }
+
+
+/**
+ * Mobile inspector controls must provide a usable hit rectangle in both axes.
+ * Only elements explicitly marked as touch targets are checked; decorative
+ * icons and visually hidden native select sources are not interactive targets.
+ * A half-pixel tolerance avoids false positives from fractional CSS pixels.
+ */
+export function findUndersizedTouchTargets(rows,minimumSize=44){
+ const failures=[];
+ for(const row of rows){
+  for(const control of row.controls||[]){
+   if(!control.touchTarget)continue;
+   const {left,right,top,bottom}=control.rect;
+   const width=right-left,height=bottom-top;
+   if(width+0.5>=minimumSize&&height+0.5>=minimumSize)continue;
+   failures.push({
+    row:row.name,name:control.name,
+    width:Math.round(width*10)/10,height:Math.round(height*10)/10,
+    html:control.html
+   });
+  }
+ }
+ return failures;
+}
