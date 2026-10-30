@@ -10,17 +10,16 @@ import {pathToFileURL} from 'node:url';
 import {summarizeUxCoverage,summarizeScreenshotCoverage,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS} from './ux-qa-coverage.mjs';
 import {fingerprintUxQaSource} from './ux-qa-source.mjs';
 
-const DEFAULT_REPORT='test-results/supervised-ux-qa.json';
-const SCREENSHOT_DIRECTORY=resolve('test-results/ux-audit/supervised');
+const DEFAULT_REPORT=process.env.MDRESS_QA_REPORT||'test-results/supervised-ux-qa.json';
+const SCREENSHOT_DIRECTORY=resolve(process.env.MDRESS_QA_DIRECTORY||'test-results/ux-audit/supervised');
 
 export function assessResumeReview(report,review,currentSourceFingerprint=null){
  const problems=[];
- // Newer capture reports bind human approval to the exact app/QA source.
- // Legacy schema-6 reports without this optional field retain the existing
- // screenshot SHA-256 verification, but cannot claim source-bound approval.
- if(report?.sourceFingerprint!==undefined&&
-  (!/^[a-f0-9]{64}$/.test(report.sourceFingerprint)||
-   report.sourceFingerprint!==currentSourceFingerprint))
+ // Fail closed: legacy reports without a source fingerprint cannot receive
+ // human sign-off. PNG hashes alone do not identify the app revision.
+ if(!/^[a-f0-9]{64}$/.test(report?.sourceFingerprint||''))
+  problems.push('O relatório não identifica o código da captura; gere novas evidências.');
+ else if(report.sourceFingerprint!==currentSourceFingerprint)
   problems.push('O código mudou desde a captura supervisionada; gere novas evidências.');
  if(report?.schema!==6||report?.mode!=='supervised'||report?.headless!==false)
   problems.push('O relatório não pertence a uma sessão supervisionada compatível.');
@@ -78,10 +77,14 @@ export async function resumeHumanReview(reportPath,reviewPath){
  const reviewFile=resolve(reviewPath);
  const report=JSON.parse(await readFile(reportFile,'utf8'));
  const review=JSON.parse(await readFile(reviewFile,'utf8'));
- const currentSourceFingerprint=report.sourceFingerprint?await fingerprintUxQaSource():null;
+ const currentSourceFingerprint=await fingerprintUxQaSource();
  const assessment=assessResumeReview(report,review,currentSourceFingerprint);
  if(!assessment.valid)throw Error(assessment.problems.join(' '));
  await verifyScreenshotEvidence(report.screenshots);
+ // Full PNG verification may take minutes; do not approve if the source
+ // changed while the reviewer was validating those images.
+ if(await fingerprintUxQaSource()!==currentSourceFingerprint)
+  throw Error('O código mudou durante a validação das capturas; gere novas evidências.');
  report.humanReview={
   status:'approved',requiresExplicitApproval:true,
   evidence:{file:reviewFile,...assessment.validation,verifiedScreenshots:report.screenshots.length,
