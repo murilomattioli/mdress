@@ -101,6 +101,38 @@ export function summarizeScreenshotCoverage(screenshots){
   unexpected:[...counts.keys()].filter(key=>!expectedKeys.has(key)),
   invalidPaths};
 }
+/**
+ * Resume only complete, passing viewports from the same source snapshot.
+ * The runner still reopens and hashes every PNG before reusing these rows.
+ * Incomplete, duplicated, stale or failed viewports are always recaptured.
+ */
+export function resumableUxViewportRows(report,{url,directory,sourceFingerprint}){
+ if(report?.schema!==6||report.mode!=='supervised'||
+  !['stopped','failed'].includes(report?.summary?.status)||
+  report.url!==url||report.sourceFingerprint!==sourceFingerprint||
+  !/^[a-f0-9]{64}$/.test(sourceFingerprint)||
+  typeof report.reviewSessionId!=='string'||!report.reviewSessionId.trim()||
+  !Array.isArray(report.coverage)||!Array.isArray(report.screenshots)||
+  !Array.isArray(report.findings))
+  throw Error('Relatório de retomada incompatível: sessão, código, origem ou formato mudou.');
+ const required=new Set(UX_QA_REQUIRED_SCREENSHOTS);
+ return UX_QA_MATRIX.flatMap(({theme,width})=>{
+  const rows=report.coverage.filter(row=>row?.theme===theme&&row.width===width);
+  if(rows.length!==1)return [];
+  const row=rows[0];
+  if(!row.scenario||!row.inspector||!row.toolbar||row.errors!==0||
+   report.findings.some(item=>item?.severity==='error'&&
+    (item.theme===theme&&item.width===width||item.theme==='all'||item.theme==='global')))return [];
+  const images=report.screenshots.filter(item=>item?.theme===theme&&item.width===width);
+  if(images.length!==required.size||
+   new Set(images.map(item=>item.state)).size!==required.size||
+   images.some(item=>!required.has(item.state)||
+    item.path!==directory+'/'+theme+'-'+width+'-'+item.state+'.png'||
+    !/^[a-f0-9]{64}$/.test(item.sha256)))return [];
+  return [{theme,width,row,screenshots:images}];
+ });
+}
+
 export function summarizeUxCoverage(coverage,findings,stopped=false){
  const expected=new Set(UX_QA_MATRIX.map(({theme,width})=>theme+':'+width));
  const actual=coverage.map(({theme,width})=>theme+':'+width);
