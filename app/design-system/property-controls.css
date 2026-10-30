@@ -503,6 +503,8 @@
 .design-inspector .ds-color-pipette:hover{background:var(--ds-panel-hover);color:var(--ds-text)}
 .design-inspector .ds-color-pipette:focus-visible{outline:2px solid var(--ds-focus);outline-offset:1px}
 .design-inspector .ds-color-pipette:disabled{opacity:.4;cursor:not-allowed}
+/* Keep keyboard focus during native screen sampling, with a visible busy cue. */
+.design-inspector .ds-color-pipette[aria-busy="true"]{opacity:.65;cursor:progress;background:var(--ds-panel-hover)}
 
 /* Preview cards must not move or recolor the visual being selected. */
 .design-inspector :is(.bg-preset,.theme-recipe-card,.section-style-preset),
@@ -708,6 +710,7 @@
  .design-inspector .ds-number-step{min-width:44px;width:44px;min-height:44px;height:44px}
  .design-inspector .ds-color-swatch{min-width:44px;width:44px;height:44px}
  .design-inspector .ds-color-hex{height:44px!important}
+ .design-inspector .ds-color-pipette{flex:0 0 44px;width:44px;min-width:44px;height:44px;min-height:44px}
  .design-inspector .ds-select-trigger{min-height:44px;height:44px}
  .design-inspector .ds-select-option{min-height:44px}
  .design-inspector .ds-segment-option,.design-inspector .ds-binary-option{min-height:44px;height:44px}
