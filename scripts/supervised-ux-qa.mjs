@@ -422,6 +422,33 @@ async function exercise(page,theme,width){
  assert.equal(await nativeSwatch.inputValue(),'#abc123');
  assert.equal(await nativeSwatch.getAttribute('data-opacity'),'0.41');
  await capture(page,theme,width,'color-picker-eyedropper-stale-opacity');
+ // A draft is an edit from its first keystroke, not only when change/Enter
+ // fires. Capture the pending native sample's outcome for each editable field.
+ const draftScenarios=[
+  {name:'hex',control:pickerHex,draft:'#556677'},
+  {name:'rgb',control:pickerRed,draft:'999'},
+  {name:'opacity',control:popupOpacity,draft:'37'},
+  {name:'rejected-hex',control:pickerHex,draft:'#778899',reject:true}
+ ];
+ for(const scenario of draftScenarios){
+  await popupDropper.click();
+  const sourceBefore=await nativeSwatch.inputValue();
+  const alphaBefore=await nativeSwatch.getAttribute('data-opacity');
+  await scenario.control.fill(scenario.draft);
+  if(scenario.reject)
+   await page.evaluate(()=>window.__qaPopupReject(new Error('permission denied')));
+  else
+   await page.evaluate(()=>window.__qaPopupResolve({sRGBHex:'#FEDCBA'}));
+  await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+  assert.equal(await nativeSwatch.inputValue(),sourceBefore,
+   'Native EyeDropper cannot overwrite uncommitted '+scenario.name+' draft');
+  assert.equal(await nativeSwatch.getAttribute('data-opacity'),alphaBefore);
+  assert.equal(await scenario.control.inputValue(),scenario.draft);
+  assert.equal(await picker.locator('.cp-status').textContent(),'',
+   'An obsolete EyeDropper result must not interrupt an uncommitted draft');
+  await capture(page,theme,width,'color-picker-eyedropper-draft-'+scenario.name);
+  await scenario.control.press('Escape');
+ }
  // Native errors must follow the same revision contract as successful samples.
  await popupDropper.click();
  await pickerHex.fill('#2468AC');await pickerHex.press('Enter');
