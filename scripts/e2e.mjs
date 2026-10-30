@@ -744,7 +744,7 @@ try {
  await page.locator('#fontChoice').evaluate(select=>{
   const group=document.createElement('optgroup');
   group.id='qaLiveFontGroup';group.label='QA dynamic fonts';
-  group.append(new Option('UXQA Never', 'qa:live'));
+  group.append(new Option('UXQA-never', 'qa:live'));
   select.append(group);
  });
  await page.waitForFunction(()=>document.querySelector('.ds-select-option[data-value="qa:live"]'));
