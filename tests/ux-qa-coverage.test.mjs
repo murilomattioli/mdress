@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
 import {deflateSync} from 'node:zlib';
-import {summarizeUxCoverage,summarizeScreenshotCoverage,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT} from '../scripts/ux-qa-coverage.mjs';
+import {summarizeUxCoverage,summarizeScreenshotCoverage,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT,resumableUxViewportRows} from '../scripts/ux-qa-coverage.mjs';
 
 const full=()=>UX_QA_MATRIX.map(({theme,width})=>({theme,width,scenario:true,inspector:true,toolbar:true,errors:0}));
 
@@ -121,6 +121,49 @@ test('human review requires a matching session and explicit approval of every re
  assert.deepEqual(validateHumanReviewEvidence(extra,session).unexpected,['unverified-extra']);
  assert.equal(validateHumanReviewEvidence(extra,session).valid,false);
  assert.equal(validateHumanReviewEvidence(null,session).valid,false);
+});
+
+test('supervised resume reuses only complete and matching source/viewport evidence',()=>{
+ const directory='test-results/ux-audit/supervised',url='http://127.0.0.1:4173';
+ const sourceFingerprint='a'.repeat(64);
+ const shots=(theme,width)=>UX_QA_REQUIRED_SCREENSHOTS.map(state=>({
+  theme,width,state,path:directory+'/'+theme+'-'+width+'-'+state+'.png',sha256:'b'.repeat(64)
+ }));
+ const report={schema:6,mode:'supervised',summary:{status:'stopped'},url,sourceFingerprint,
+  reviewSessionId:'session-qa',findings:[],
+  coverage:[{theme:'graphite',width:1440,scenario:true,inspector:true,toolbar:true,errors:0},
+   {theme:'graphite',width:1024,scenario:false,inspector:true,toolbar:true,errors:1}],
+  screenshots:[...shots('graphite',1440),...shots('graphite',1024)]};
+ const options={url,directory,sourceFingerprint};
+ assert.deepEqual(resumableUxViewportRows(report,options).map(row=>row.width),[1440]);
+ assert.equal(resumableUxViewportRows({...report,summary:{status:'passed'}},options).length,0,
+  'A completed run must use qa:resume-review, not rerun the capture session');
+ assert.throws(()=>resumableUxViewportRows(report,{...options,sourceFingerprint:'c'.repeat(64)}),/incompatível/);
+ assert.throws(()=>resumableUxViewportRows({...report,url:'http://different'},options),/incompatível/);
+ assert.throws(()=>resumableUxViewportRows({...report,schema:5},options),/incompatível/);
+ const duplicate=structuredClone(report);
+ duplicate.coverage.push({...duplicate.coverage[0]});
+ assert.equal(resumableUxViewportRows(duplicate,options).length,0,
+  'Duplicate coverage must not be reused');
+ const missing=structuredClone(report);
+ missing.screenshots.shift();
+ assert.equal(resumableUxViewportRows(missing,options).length,0,
+  'Incomplete screenshot sets must be rerun');
+ const renamed=structuredClone(report);
+ renamed.screenshots[0].path='../stale.png';
+ assert.equal(resumableUxViewportRows(renamed,options).length,0,
+  'A screenshot outside the expected directory must not be reused');
+ const badHash=structuredClone(report);
+ badHash.screenshots[0].sha256='invalid';
+ assert.equal(resumableUxViewportRows(badHash,options).length,0);
+ const finding=structuredClone(report);
+ finding.findings.push({severity:'error',theme:'graphite',width:1440});
+ assert.equal(resumableUxViewportRows(finding,options).length,0,
+  'Failed viewport findings must force recapture');
+ const globalFinding=structuredClone(report);
+ globalFinding.findings.push({severity:'error',theme:'all',width:0});
+ assert.equal(resumableUxViewportRows(globalFinding,options).length,0,
+  'Global integrity failures must prevent reuse');
 });
 
 test('PNG evidence requires a complete, CRC-valid, full-viewport image',()=>{
