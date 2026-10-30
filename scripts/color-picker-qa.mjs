@@ -240,15 +240,51 @@ try{
  await page.waitForFunction(()=>document.getElementById('accentColor').value==='#13579b');
  assert.equal(await asyncDropper.getAttribute('aria-busy'),null,
   'The busy state must clear after native eyedropper completes');
+ // Manual HEX edits made while the native picker is open must win the race.
  await asyncDropper.click();
  assert.equal(await page.evaluate(()=>window.__qaDropperCalls),2);
+ const pendingHex=dialog.getByRole('textbox',{name:'Cor hexadecimal',exact:true});
+ await pendingHex.fill('#2468AC');await pendingHex.press('Enter');
+ assert.equal(await page.locator('#accentColor').inputValue(),'#2468ac');
+ await page.evaluate(()=>window.__qaDropperResolve({sRGBHex:'#FF00FF'}));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.equal(await page.locator('#accentColor').inputValue(),'#2468ac',
+  'An obsolete sample must not overwrite a newer manual HEX edit');
+ await dialog.screenshot({path:'test-results/color-picker/eyedropper-manual-edit-preserved.png',animations:'disabled'});
+ // Document updates may bypass the picker controls entirely. The native
+ // source value must be checked at resolution, not only the local revision.
+ await asyncDropper.click();
+ assert.equal(await page.evaluate(()=>window.__qaDropperCalls),3);
+ await page.locator('#accentColor').evaluate(el=>{
+  el.value='#ABC123';el.dispatchEvent(new Event('input',{bubbles:true}));
+  el.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+ await page.evaluate(()=>window.__qaDropperResolve({sRGBHex:'#C0FFEE'}));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.equal(await page.locator('#accentColor').inputValue(),'#abc123',
+  'An obsolete sample must not overwrite an external document edit');
+ await dialog.screenshot({path:'test-results/color-picker/eyedropper-external-edit-preserved.png',animations:'disabled'});
+ // Changing opacity is also an intentional edit and invalidates a pending
+ // sample even when the HEX color itself remains unchanged.
+ await asyncDropper.click();
+ assert.equal(await page.evaluate(()=>window.__qaDropperCalls),4);
+ const pendingOpacity=dialog.getByRole('spinbutton',{name:'Opacidade em porcentagem',exact:true});
+ await pendingOpacity.fill('41');await pendingOpacity.dispatchEvent('change');
+ await page.evaluate(()=>window.__qaDropperResolve({sRGBHex:'#FACADE'}));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.equal(await page.locator('#accentColor').inputValue(),'#abc123',
+  'A pending sample must not overwrite a newer opacity edit');
+ assert.equal(await page.locator('#accentColor').getAttribute('data-opacity'),'0.41');
+ await dialog.screenshot({path:'test-results/color-picker/eyedropper-opacity-edit-preserved.png',animations:'disabled'});
+ await asyncDropper.click();
+ assert.equal(await page.evaluate(()=>window.__qaDropperCalls),5);
  await dialog.press('Escape');
  await page.locator('.mdress-color-picker').waitFor({state:'detached'});
  await page.evaluate(()=>document.getElementById('accentColor').click());
  dialog=page.getByRole('dialog',{name:/Cores/});
  await dialog.waitFor();
  await page.evaluate(()=>window.__qaDropperResolve({sRGBHex:'#FF00FF'}));
- assert.equal(await page.locator('#accentColor').inputValue(),'#13579b',
+ assert.equal(await page.locator('#accentColor').inputValue(),'#abc123',
   'A stale eyedropper result must not mutate the document after dismissal');
  assert.equal(await dialog.isVisible(),true,
   'A stale eyedropper result must not dismiss the replacement dialog');
