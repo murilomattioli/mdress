@@ -914,7 +914,13 @@ function makeListbox(label,select,title){
    search=document.createElement('input');search.type='search';search.className='ds-select-search';
    search.placeholder='Buscar fonte…';search.setAttribute('aria-label','Buscar fonte');search.setAttribute('aria-controls',list.id);
    search.autocomplete='off';search.spellcheck=false;
-   popup.append(search,list,emptyStatus);
+   // A compact count inside the search field avoids an extra vertical row.
+   // Keep the spoken summary outside role=listbox for assistive technology.
+   const searchWrap=span('ds-select-search-wrap');
+   const searchCount=span('ds-select-search-count');
+   searchCount.setAttribute('aria-hidden','true');
+   searchWrap.append(search,searchCount);
+   popup.append(searchWrap,list,emptyStatus);
   }
   const opts=visibleSelectOptions(select),buttons=[],optionItems=[];
   let typeahead='',lastTypedAt=0,limit=restoredSearch?.limit??60;
@@ -949,7 +955,14 @@ function makeListbox(label,select,title){
    item.title=text.textContent; // Full label remains discoverable when ellipsized.
    item.addEventListener('click',()=>{if(isSelectOptionDisabled(opt))return;nativeCommit(select,opt.value);closePopup();});
    item.addEventListener('keydown',e=>{
-    const move=(dir)=>{const available=buttons.filter(b=>!b.disabled&&!b.hidden);const cur=available.indexOf(item);if(search&&dir===-1&&cur===0){search.focus();return;}available[(cur+dir+available.length)%available.length]?.focus();};
+    const move=(dir)=>{
+     const available=buttons.filter(b=>!b.disabled&&!b.hidden);
+     const cur=available.indexOf(item);
+     if(search&&dir===-1&&cur===0){search.focus();return;}
+     // Expose pagination to arrow-key users instead of wrapping past it.
+     if(search&&dir===1&&cur===available.length-1&&!more.hidden){more.focus();return;}
+     available[(cur+dir+available.length)%available.length]?.focus();
+    };
     if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();move(e.key==='ArrowDown'?1:-1);}
     if(e.key==='Home'||e.key==='End'){e.preventDefault();(e.key==='Home'?buttons.find(x=>!x.disabled&&!x.hidden):[...buttons].reverse().find(x=>!x.disabled&&!x.hidden))?.focus();}
     if(e.key==='Escape'){e.preventDefault();closePopup();}
@@ -978,10 +991,31 @@ function makeListbox(label,select,title){
   }
   more.hidden=shown.length===matches.length;
   more.textContent='Mostrar mais · '+shown.length+' de '+matches.length;
-  if(searchable)emptyStatus.textContent=matches.length?'':'Nenhuma fonte encontrada.';
+  if(searchable){
+   const count=popup.querySelector('.ds-select-search-count');
+   count.textContent=matches.length?shown.length+' / '+matches.length:'0';
+   emptyStatus.textContent=matches.length?
+    matches.length+' '+(matches.length===1?'fonte encontrada':'fontes encontradas')+
+    '. '+shown.length+' exibidas.':'Nenhuma fonte encontrada.';
+   emptyStatus.classList.toggle('ds-select-empty--sr-only',matches.length>0);
+  }
   };
   renderOptions();
-  more.addEventListener('click',()=>{const firstNew=buttons.length;limit+=60;renderOptions();buttons[firstNew]?.focus();});
+  more.addEventListener('click',()=>{
+   const firstNew=buttons.length;
+   limit+=60;renderOptions();
+   // Newly revealed disabled options must not strand focus on a hidden
+   // pagination button or on document.body.
+   (buttons.slice(firstNew).find(item=>!item.disabled)||
+    buttons.find(item=>!item.disabled)||search)?.focus();
+  });
+  more.addEventListener('keydown',event=>{
+   if(event.key==='ArrowUp'){
+    event.preventDefault();
+    (buttons.findLast(item=>!item.disabled)||search)?.focus();
+   }
+   if(event.key==='Escape'){event.preventDefault();closePopup();}
+  });
   if(searchable)popup.append(more);
   if(search){
    search.addEventListener('input',()=>{limit=60;renderOptions();list.scrollTop=0;});
