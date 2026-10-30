@@ -7,16 +7,19 @@
  */
 import {chromium} from 'playwright';
 import {strict as assert} from 'node:assert';
-import {mkdir,writeFile,readFile} from 'node:fs/promises';
+import {mkdir,writeFile,readFile,readdir} from 'node:fs/promises';
+import {join} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
-import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT} from './ux-qa-coverage.mjs';
+import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT,resumableUxViewportRows} from './ux-qa-coverage.mjs';
 import {renderUxQaGallery} from './ux-qa-gallery.mjs';
 import {verifyScreenshotEvidence} from './resume-ux-review.mjs';
 
 const args=new Set(process.argv.slice(2));
 const automated=args.has('--auto');
+const resumeRequested=args.has('--resume');
+if(resumeRequested&&automated){console.error('[UX QA] --resume é exclusivo do modo supervisionado.');process.exit(2);}
 if(!automated&&!stdin.isTTY){
  console.error('[UX QA] O modo supervisionado exige um terminal interativo. Use --auto --headless para CI.');
  process.exit(2);
@@ -27,8 +30,25 @@ const directory=process.env.MDRESS_QA_DIRECTORY||'test-results/ux-audit/supervis
 const reportPath=process.env.MDRESS_QA_REPORT||'test-results/supervised-ux-qa.json';
 const findings=[],screenshots=[],traces=[],coverage=[];
 let stopped=false,humanReview='not-reviewed',humanReviewEvidence=null;
-const reviewSessionId=randomUUID();
+let reviewSessionId=randomUUID();
 class ReviewStopped extends Error {constructor(){super('Interrompido pelo revisor');this.name='ReviewStopped';}}
+async function fingerprintSource(){
+ const hash=createHash('sha256');
+ async function walk(dir){
+  const entries=(await readdir(dir,{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name));
+  for(const entry of entries){
+   const path=join(dir,entry.name);
+   if(entry.isDirectory())await walk(path);
+   else if(entry.isFile()){
+    hash.update(path.replaceAll('\\','/'));hash.update('\\0');
+    hash.update(await readFile(path));hash.update('\\0');
+   }
+  }
+ }
+ await walk('app');await walk('scripts');
+ hash.update(await readFile('package.json'));
+ return hash.digest('hex');
+}
 const io=!automated?createInterface({input:stdin,output:stdout}):null;
 async function checkpoint(label){
  console.log('[UX QA] '+label);
@@ -1026,12 +1046,41 @@ async function toolbarAudit(page,theme,width){
  await capture(page,theme,width,'toolbar-detached-focus-handoff');
 }
 await mkdir(directory,{recursive:true});
+const sourceFingerprint=await fingerprintSource();
+const resumedViewports=new Set();
+if(resumeRequested){
+ let previous;
+ try{previous=JSON.parse(await readFile(reportPath,'utf8'));}
+ catch(e){console.error('[UX QA] Não foi possível ler o relatório para retomada: '+e.message);process.exit(2);}
+ let candidates;
+ try{candidates=resumableUxViewportRows(previous,{url,directory,sourceFingerprint});}
+ catch(e){console.error('[UX QA] Retomada recusada: '+e.message);process.exit(2);}
+ reviewSessionId=previous.reviewSessionId;
+ for(const candidate of candidates){
+  let intact=true;
+  for(const shot of candidate.screenshots){
+   try{
+    const png=await readFile(shot.path);
+    if(!validateScreenshotViewport(png,candidate.width)||
+     createHash('sha256').update(png).digest('hex')!==shot.sha256){intact=false;break;}
+   }catch{intact=false;break;}
+  }
+  if(!intact){
+   console.log('[UX QA] Evidência alterada ou ausente: '+candidate.theme+'/'+candidate.width+' — repetindo cenário.');
+   continue;
+  }
+  coverage.push(candidate.row);screenshots.push(...candidate.screenshots);
+  resumedViewports.add(candidate.theme+':'+candidate.width);
+ }
+ console.log('[UX QA] Retomada segura: '+resumedViewports.size+'/'+8+' viewports reutilizados; demais serão executados.');
+}
 let browser;
 try{
  browser=await chromium.launch({headless,slowMo:automated?0:120,args:['--no-sandbox']});
  for(const theme of ['graphite','studio']){
   for(const width of [1440,1024,768,390]){
    if(stopped)break;
+   if(resumedViewports.has(theme+':'+width))continue;
    const context=await browser.newContext({viewport:{width,height:UX_QA_VIEWPORT_HEIGHT}});
    const page=await context.newPage();
    await context.tracing.start({screenshots:true,snapshots:true,sources:true});
@@ -1071,6 +1120,11 @@ try{
 }catch(e){if(!stopped)error('browser','global',0,e);}
 finally{
  await browser?.close();
+ try{
+  if(await fingerprintSource()!==sourceFingerprint)
+   findings.push({severity:'error',phase:'source-changed',theme:'all',width:0,
+    message:'O código da aplicação ou do runner mudou durante a captura; gere novas evidências.'});
+ }catch(e){error('source-fingerprint','all',0,e);}
  // Incomplete visual evidence must block the reviewer approval prompt.
  const screenshotCoverage=summarizeScreenshotCoverage(screenshots);
  const missingFiles=[];
@@ -1144,7 +1198,7 @@ finally{
  }
  io?.close();
  const summary=summarizeUxCoverage(coverage,findings,stopped);
- const report={schema:6,reviewSessionId,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,screenshotCoverage,
+ const report={schema:6,sourceFingerprint,reviewSessionId,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,screenshotCoverage,
   humanReview:{status:automated?'not-applicable':humanReview,requiresExplicitApproval:true,evidence:humanReviewEvidence},
   gallery:galleryPath,coverage,screenshots,traces,findings};
  await writeFile(reportPath,JSON.stringify(report,null,2)+'\n');
