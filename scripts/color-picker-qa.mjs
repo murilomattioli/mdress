@@ -217,6 +217,44 @@ try{
  await page.evaluate(()=>{window.EyeDropper=class{async open(){return {sRGBHex:'#ABCDEF'};}};document.getElementById('accentColor').click();});
  let dialog=page.getByRole('dialog',{name:/Cores/});await dialog.getByRole('button',{name:'Capturar cor da tela',exact:true}).click();
  assert.equal(await page.locator('#accentColor').inputValue(),'#abcdef');await dialog.press('Escape');await page.locator('.mdress-color-picker').waitFor({state:'detached'});
+ // Deferred native eyedropper: repeated clicks must not start competing
+ // requests, and a completion after dismissal must not edit a new picker.
+ await page.evaluate(()=>{
+  window.__qaDropperCalls=0;
+  window.EyeDropper=class{open(){
+   window.__qaDropperCalls++;
+   return new Promise(resolve=>{window.__qaDropperResolve=resolve;});
+  }};
+  document.getElementById('accentColor').click();
+ });
+ dialog=page.getByRole('dialog',{name:/Cores/});
+ const asyncDropper=dialog.getByRole('button',{name:'Capturar cor da tela',exact:true});
+ await asyncDropper.click();
+ await asyncDropper.dispatchEvent('click');
+ assert.equal(await page.evaluate(()=>window.__qaDropperCalls),1,
+  'Concurrent eyedropper clicks must share one pending native request');
+ assert.equal(await asyncDropper.getAttribute('aria-busy'),'true',
+  'Pending native eyedropper must announce its busy state');
+ await dialog.screenshot({path:'test-results/color-picker/eyedropper-pending.png',animations:'disabled'});
+ await page.evaluate(()=>window.__qaDropperResolve({sRGBHex:'#13579B'}));
+ await page.waitForFunction(()=>document.getElementById('accentColor').value==='#13579b');
+ assert.equal(await asyncDropper.getAttribute('aria-busy'),null,
+  'The busy state must clear after native eyedropper completes');
+ await asyncDropper.click();
+ assert.equal(await page.evaluate(()=>window.__qaDropperCalls),2);
+ await dialog.press('Escape');
+ await page.locator('.mdress-color-picker').waitFor({state:'detached'});
+ await page.evaluate(()=>document.getElementById('accentColor').click());
+ dialog=page.getByRole('dialog',{name:/Cores/});
+ await dialog.waitFor();
+ await page.evaluate(()=>window.__qaDropperResolve({sRGBHex:'#FF00FF'}));
+ assert.equal(await page.locator('#accentColor').inputValue(),'#13579b',
+  'A stale eyedropper result must not mutate the document after dismissal');
+ assert.equal(await dialog.isVisible(),true,
+  'A stale eyedropper result must not dismiss the replacement dialog');
+ await dialog.screenshot({path:'test-results/color-picker/eyedropper-stale-ignored.png',animations:'disabled'});
+ await dialog.press('Escape');
+ await page.locator('.mdress-color-picker').waitFor({state:'detached'});
  await page.evaluate(()=>{window.EyeDropper=undefined;document.getElementById('accentColor').click();});
  assert.equal(await dialog.getByRole('button',{name:'Capturar cor da tela',exact:true}).isDisabled(),true);await dialog.press('Escape');await page.locator('.mdress-color-picker').waitFor({state:'detached'});
  await page.evaluate(()=>{const kind=document.getElementById('bgKind');kind.value='mesh';kind.dispatchEvent(new Event('change',{bubbles:true}));});
