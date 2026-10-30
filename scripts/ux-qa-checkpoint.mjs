@@ -31,3 +31,13 @@ export async function writeUxQaResumeCheckpoint(reportPath,session){
  }
  return report;
 }
+
+/** A new screenshot set must never inherit a prior human review's session ID.
+ * Preserve the ID only when every viewport is reused unchanged.
+ */
+export function reviewSessionForResume(previousId,reusedViewports,expectedViewports,createId=randomUUID){
+ if(!Number.isInteger(reusedViewports)||!Number.isInteger(expectedViewports)||
+  expectedViewports<1||reusedViewports<0||reusedViewports>expectedViewports)
+  throw Error('Contagem de viewports inválida na retomada.');
+ return reusedViewports===expectedViewports?previousId:createId();
+}

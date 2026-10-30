@@ -11,11 +11,11 @@ import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {randomUUID,createHash} from 'node:crypto';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
-import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT,resumableUxViewportRows} from './ux-qa-coverage.mjs';
+import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT,UX_QA_MATRIX,resumableUxViewportRows} from './ux-qa-coverage.mjs';
 import {renderUxQaGallery} from './ux-qa-gallery.mjs';
 import {fingerprintUxQaSource} from './ux-qa-source.mjs';
 import {verifySourceBoundEvidence} from './resume-ux-review.mjs';
-import {writeUxQaResumeCheckpoint} from './ux-qa-checkpoint.mjs';
+import {writeUxQaResumeCheckpoint,reviewSessionForResume} from './ux-qa-checkpoint.mjs';
 
 const args=new Set(process.argv.slice(2));
 const automated=args.has('--auto');
@@ -1056,7 +1056,12 @@ if(resumeRequested){
   coverage.push(candidate.row);screenshots.push(...candidate.screenshots);
   resumedViewports.add(candidate.theme+':'+candidate.width);
  }
- console.log('[UX QA] Retomada segura: '+resumedViewports.size+'/'+8+' viewports reutilizados; demais serão executados.');
+ // A recaptured viewport produces new evidence. Rotate the review session
+ // so a previous JSON/localStorage approval cannot sign off unseen screenshots.
+ reviewSessionId=reviewSessionForResume(previous.reviewSessionId,resumedViewports.size,UX_QA_MATRIX.length);
+ if(reviewSessionId!==previous.reviewSessionId)
+  console.log('[UX QA] Novas capturas exigem nova revisão humana; aprovações antigas foram invalidadas.');
+ console.log('[UX QA] Retomada segura: '+resumedViewports.size+'/'+UX_QA_MATRIX.length+' viewports reutilizados; demais serão executados.');
 }
 let browser;
 try{

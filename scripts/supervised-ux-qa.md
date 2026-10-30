@@ -143,3 +143,11 @@ intermediário sempre registra `summary.status=stopped` e
 A gravação usa arquivo temporário e rename, para evitar JSON truncado em
 interrupções durante a escrita. Uma execução completa substitui esse checkpoint
 pelo relatório final habitual.
+
+### Revisões antigas não aprovam capturas refeitas
+
+Quando `qa:resume-capture` precisa refazer **qualquer** viewport, o runner
+gera um novo ID de sessão para a revisão humana. Assim, um JSON exportado
+anteriormente ou aprovações armazenadas no navegador não podem homologar
+screenshots substituídos sem inspeção. Se os oito viewports forem reutilizados
+sem nenhuma recaptura, o ID anterior é preservado e a revisão pode continuar.

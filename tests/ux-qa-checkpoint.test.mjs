@@ -3,8 +3,8 @@ import {strict as assert} from 'node:assert';
 import {mkdtemp,readFile,readdir,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {writeUxQaResumeCheckpoint} from '../scripts/ux-qa-checkpoint.mjs';
-import {resumableUxViewportRows,UX_QA_REQUIRED_SCREENSHOTS} from '../scripts/ux-qa-coverage.mjs';
+import {writeUxQaResumeCheckpoint,reviewSessionForResume} from '../scripts/ux-qa-checkpoint.mjs';
+import {resumableUxViewportRows,UX_QA_REQUIRED_SCREENSHOTS,validateHumanReviewEvidence} from '../scripts/ux-qa-coverage.mjs';
 
 test('headed runner checkpoints complete viewports atomically without granting UX approval',async()=>{
  const directory=await mkdtemp(join(tmpdir(),'mdress-checkpoint-'));
@@ -36,4 +36,18 @@ test('headed runner checkpoints complete viewports atomically without granting U
   assert.deepEqual(await readdir(join(directory,'nested')),['report.json'],
    'Atomic checkpoint must not leave a temporary report');
  }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test('recaptured viewports invalidate previous human review IDs, fully reused ones preserve them',()=>{
+ const oldId='prior-review',newId='new-review';
+ assert.equal(reviewSessionForResume(oldId,8,8,()=>newId),oldId,
+  'A stop after the final viewport should preserve its immutable evidence session');
+ assert.equal(reviewSessionForResume(oldId,7,8,()=>newId),newId,
+  'Even one recaptured viewport must invalidate prior approvals');
+ assert.equal(reviewSessionForResume(oldId,0,8,()=>newId),newId);
+ const oldReview={schema:1,sessionId:oldId,
+  states:Object.fromEntries(UX_QA_REQUIRED_SCREENSHOTS.map(state=>[state,{status:'approved'}]))};
+ assert.equal(validateHumanReviewEvidence(oldReview,newId).valid,false,
+  'A stale exported review cannot approve new screenshots');
+ assert.throws(()=>reviewSessionForResume(oldId,9,8),/inválida/);
 });
