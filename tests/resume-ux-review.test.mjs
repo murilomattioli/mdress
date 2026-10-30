@@ -51,6 +51,31 @@ test('resumed sign-off requires a completed interactive session and matching hum
  assert.equal(assessResumeReview(report(),rejected).valid,false);
 });
 
+test('source-bound sign-off rejects changed or malformed capture revisions',()=>{
+ const sourceBound=report();
+ sourceBound.sourceFingerprint='a'.repeat(64);
+ assert.equal(assessResumeReview(sourceBound,review(),'a'.repeat(64)).valid,true);
+ assert.equal(assessResumeReview(sourceBound,review(),'b'.repeat(64)).valid,false,
+  'A different app/QA revision cannot inherit human approval');
+ assert.equal(assessResumeReview(sourceBound,review()).valid,false,
+  'Unknown current source is not sufficient for a source-bound report');
+ sourceBound.sourceFingerprint='not-a-sha256';
+ assert.equal(assessResumeReview(sourceBound,review(),'not-a-sha256').valid,false);
+});
+
+test('source mismatch refuses approval before modifying the report',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'mdress-source-bound-'));
+ const reportPath=join(directory,'report.json'),reviewPath=join(directory,'review.json');
+ try{
+  const stale={...report(),sourceFingerprint:'0'.repeat(64)};
+  const original=JSON.stringify(stale);
+  await writeFile(reportPath,original);
+  await writeFile(reviewPath,JSON.stringify(review()));
+  await assert.rejects(resumeHumanReview(reportPath,reviewPath),/código mudou/);
+  assert.equal(await readFile(reportPath,'utf8'),original);
+ }finally{await rm(directory,{recursive:true,force:true});}
+});
+
 test('resume rejects missing or mismatched live evidence and preserves original report',async()=>{
  const directory=await mkdtemp(join(tmpdir(),'mdress-resume-'));
  const reportPath=join(directory,'report.json'),reviewPath=join(directory,'review.json');
