@@ -9,13 +9,14 @@ import {chromium} from 'playwright';
 import {strict as assert} from 'node:assert';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {randomUUID,createHash} from 'node:crypto';
+import {resolve} from 'node:path';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
 import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT,UX_QA_MATRIX,resumableUxViewportRows} from './ux-qa-coverage.mjs';
 import {renderUxQaGallery} from './ux-qa-gallery.mjs';
 import {fingerprintUxQaSource} from './ux-qa-source.mjs';
-import {verifySourceBoundEvidence} from './resume-ux-review.mjs';
-import {writeUxQaResumeCheckpoint,reviewSessionForResume} from './ux-qa-checkpoint.mjs';
+import {verifySourceBoundEvidence,verifyScreenshotEvidence} from './resume-ux-review.mjs';
+import {writeUxQaResumeCheckpoint,writeUxQaReportAtomic,reviewSessionForResume} from './ux-qa-checkpoint.mjs';
 
 const args=new Set(process.argv.slice(2));
 const automated=args.has('--auto');
@@ -1041,14 +1042,11 @@ if(resumeRequested){
  catch(e){console.error('[UX QA] Retomada recusada: '+e.message);process.exit(2);}
  reviewSessionId=previous.reviewSessionId;
  for(const candidate of candidates){
+  // Resume must enforce the same path, regular-file and PNG checks as sign-off.
+  // Otherwise a symlink could be reused now only to fail during review.
   let intact=true;
-  for(const shot of candidate.screenshots){
-   try{
-    const png=await readFile(shot.path);
-    if(!validateScreenshotViewport(png,candidate.width)||
-     createHash('sha256').update(png).digest('hex')!==shot.sha256){intact=false;break;}
-   }catch{intact=false;break;}
-  }
+  try{await verifyScreenshotEvidence(candidate.screenshots,resolve(directory));}
+  catch{intact=false;}
   if(!intact){
    console.log('[UX QA] Evidência alterada ou ausente: '+candidate.theme+'/'+candidate.width+' — repetindo cenário.');
    continue;
@@ -1065,7 +1063,7 @@ if(resumeRequested){
 }
 let browser;
 try{
- browser=await chromium.launch({headless,slowMo:automated?0:120,args:['--no-sandbox']});
+ browser=await chromium.launch({headless,slowMo:automated||headless?0:120,args:['--no-sandbox']});
  for(const theme of ['graphite','studio']){
   for(const width of [1440,1024,768,390]){
    if(stopped)break;
@@ -1128,9 +1126,7 @@ finally{
   try{
    // Validate bytes again after capture: files may be truncated, replaced
    // or corrupted before the final report and human review are generated.
-   const png=await readFile(entry.path);
-   if(!validateScreenshotViewport(png,entry.width)||
-    createHash('sha256').update(png).digest('hex')!==entry.sha256)missingFiles.push(entry.path);
+   await verifyScreenshotEvidence([entry],resolve(directory));
   }catch{missingFiles.push(entry.path);}
  }
  if(missingFiles.length)findings.push({severity:'error',phase:'screenshot-files',theme:'all',width:0,
@@ -1197,7 +1193,7 @@ finally{
  const report={schema:6,sourceFingerprint,reviewSessionId,generatedAt:new Date().toISOString(),url,mode:automated?'automatic':'supervised',headless,stopped,summary,screenshotCoverage,
   humanReview:{status:automated?'not-applicable':humanReview,requiresExplicitApproval:true,evidence:humanReviewEvidence},
   gallery:galleryPath,coverage,screenshots,traces,findings};
- await writeFile(reportPath,JSON.stringify(report,null,2)+'\n');
+ await writeUxQaReportAtomic(reportPath,report);
  console.log('[UX QA] report: '+reportPath+' | status: '+summary.status+' | human review: '+report.humanReview.status+' | scenarios: '+summary.passing+'/'+summary.expected+' | screenshots: '+screenshots.length+' | findings: '+findings.length);
  if(summary.status!=='passed'||humanReview==='rejected')process.exitCode=1;
 }
