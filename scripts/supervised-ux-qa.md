@@ -116,3 +116,7 @@ Essas quatro capturas são **evidências funcionais adicionais** dos gates Chrom
 ### UX-023 — rascunhos numéricos e slider auxiliar (30/10/2026)
 
 O scrub fica indisponível enquanto o rascunho está vazio, fora dos limites ou fora da grade de passos. A régua preserva a posição do último valor confirmado, sem transformar vazio em zero nem pintar `NaN%`; Escape ou correção válida reativam o gesto. Os estados `number-slider-invalid-draft` e `number-slider-empty-draft` exigem revisão visual humana nas oito combinações. Matriz: **87 estados × 2 temas × 4 larguras = 696 capturas**.
+
+### Integridade da homologação (UX-023)
+
+`qa:resume-review` exige um relatório de captura **schema 6 com `sourceFingerprint` SHA-256 válido**. Relatórios antigos sem fingerprint não podem receber aprovação retroativa: recapture com `npm run qa:supervised`. O comando também confere novamente o fingerprint após verificar todos os PNGs, evitando aprovar evidências enquanto o código é alterado. Os caminhos personalizados `MDRESS_QA_REPORT` e `MDRESS_QA_DIRECTORY` são compartilhados entre captura e homologação. A aprovação humana continua obrigatória; nenhum CI substitui a revisão visual.
