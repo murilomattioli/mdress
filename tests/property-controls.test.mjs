@@ -1,5 +1,5 @@
 import {test} from 'node:test';import {strict as assert} from 'node:assert';
-import {normalizeRange,rangeConstraints,rangeStepTarget,numericScrubBoundsValid,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex,selectPopoverLayout,selectPopupNeedsRefresh,visibleSelectOptions} from '../app/design-system/property-controls.js';
+import {normalizeRange,rangeConstraints,rangeStepTarget,numericScrubBoundsValid,formatControlValue,validationMessage,isSelectOptionDisabled,findEnabledOptionIndex,nextEnabledSegmentIndex,rovingSegmentIndex,selectPopoverLayout,selectPopupNeedsRefresh,visibleSelectOptions} from '../app/design-system/property-controls.js';
 test('precision control rounds to native step and clamps bounds',()=>{
  assert.equal(normalizeRange(11.22,9,14,.5),11);
  assert.equal(normalizeRange(1.174,1.1,2.2,.05),1.15);
@@ -208,4 +208,12 @@ test('combobox excludes options inside hidden optgroups without mutating native 
  hiddenGroup.hidden=false;
  assert.deepEqual(visibleSelectOptions({options}).map(option=>option.value),['visible','group-hidden','ungrouped']);
  assert.equal(options[1].hidden,false,'The native select remains the source of truth');
+});
+
+test('segmented controls expose one Tab stop and skip unavailable native choices',()=>{
+ assert.equal(rovingSegmentIndex([{value:'a',disabled:false},{value:'b',disabled:false}], 'b'),1);
+ assert.equal(rovingSegmentIndex([{value:'a',disabled:false},{value:'b',disabled:true}], 'b'),0);
+ assert.equal(rovingSegmentIndex([{value:'a',disabled:true},{value:'b',disabled:false}], 'missing'),1);
+ assert.equal(rovingSegmentIndex([{value:'a',disabled:true},{value:'b',disabled:true}], 'a'),-1);
+ assert.equal(rovingSegmentIndex([], 'a'),-1);
 });

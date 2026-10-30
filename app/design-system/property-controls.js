@@ -484,7 +484,8 @@ function enhanceBinary(label,input,title){
  group.setAttribute('role','group');group.setAttribute('aria-label',title);
  const states={bottomSectionEnabled:['No fluxo','No rodapé'],selectedSectionBreak:['Continuar','Nova página'],showPageGuides:['Ocultar','Mostrar']}[input.id]||['Não','Sim'];
  const off=button('ds-binary-option',states[0]),on=button('ds-binary-option',states[1]);
- off.setAttribute('aria-label',title+' desligado');on.setAttribute('aria-label',title+' ligado');
+ // Screen readers must hear the actual layout alternatives, not generic on/off.
+ off.setAttribute('aria-label',title+' — '+states[0]);on.setAttribute('aria-label',title+' — '+states[1]);
  input.classList.add('ds-binary-native');input.setAttribute('aria-hidden','true');input.tabIndex=-1;
  input.replaceWith(field);field.append(name,group,input);group.append(off,on);
  const update=()=>{
@@ -494,6 +495,9 @@ function enhanceBinary(label,input,title){
   // The native checkbox remains the source of truth for disabled state.
   // In particular, bottomSectionEnabled is disabled when no section is selected.
   off.disabled=input.disabled;on.disabled=input.disabled;
+  // Exactly one sequential Tab stop; arrows and Home/End change selection.
+  off.tabIndex=!input.disabled&&!input.checked?0:-1;
+  on.tabIndex=!input.disabled&&input.checked?0:-1;
   // Disabling a focused button must not silently dump keyboard focus on body.
   if(focused&&input.disabled)focusInspectorNeighbor(focused,{visibleOnly:true});
  };
@@ -524,6 +528,11 @@ export function nextEnabledSegmentIndex(disabled,current,key){
   if(!disabled[index])return index;
  }
  return -1;
+}
+// Select the active enabled segment or a safe fallback after native option edits.
+export function rovingSegmentIndex(options,selectedValue){
+ const selected=options.findIndex(item=>!item.disabled&&item.value===selectedValue);
+ return selected!==-1?selected:options.findIndex(item=>!item.disabled);
 }
 function enhanceSegment(label,select,title){
  label.classList.add('ds-property-row','ds-property-row--segment');
@@ -604,6 +613,10 @@ function enhanceSegment(label,select,title){
    if(next!==-1)elements[next].focus({preventScroll:true});
    else focusInspectorNeighbor(elements[focused],{visibleOnly:true});
   }
+  const tabStop=rovingSegmentIndex(rendered.map((item,index)=>({
+   value:item.value,disabled:elements[index].disabled
+  })),select.value);
+  elements.forEach((btn,index)=>{btn.tabIndex=index===tabStop?0:-1;});
  };
  new MutationObserver(update).observe(select,{
   subtree:true,childList:true,characterData:true,attributes:true,

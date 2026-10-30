@@ -582,6 +582,9 @@ try {
  const rules=page.locator('.ds-property-segment').filter({has:page.locator('#sectionRule')});
  await rules.getByRole('button',{name:'Bloco'}).click();
  assert.equal(await page.locator('#sectionRule').inputValue(),'block');
+ assert.deepEqual(await rules.locator('.ds-segment-option').evaluateAll(buttons=>buttons.map(button=>button.tabIndex)),[-1,-1,0],
+  'Only the selected segment is tabbable');
+ await rules.screenshot({path:'test-results/ux-audit/inspector-segment-roving-tabstop.png',animations:'disabled'});
  await assertNoRedundantNativeEvents(page.locator('#sectionRule'),async()=>{
   await rules.getByRole('button',{name:'Bloco'}).click();
  },'Pressing an already selected segment must not create a document edit');
@@ -608,18 +611,31 @@ try {
  await page.waitForFunction(()=>document.activeElement?.matches('.ds-property-segment [data-value="none"]'));
  assert.equal(await rules.locator('[data-value="none"]').evaluate(el=>el===document.activeElement),true,
   'Disabling a focused segment must preserve keyboard focus on an enabled sibling');
+ assert.deepEqual(await rules.locator('.ds-segment-option').evaluateAll(buttons=>buttons.map(button=>button.tabIndex)),[-1,-1,0],
+  'Disabling an unselected segment preserves the selected Tab stop');
  await nativeRule.locator('option[value="line"]').evaluate(el=>{el.disabled=false;});
  await reveal(page,'showPageGuides');
  const guides=page.locator('.ds-property-binary').filter({has:page.locator('#showPageGuides')});
- await guides.getByRole('button',{name:'Marcações de página desligado'}).click();
+ await guides.getByRole('button',{name:'Marcações de página — Ocultar'}).click();
  assert.equal(await page.locator('#showPageGuides').isChecked(),false);
  assert.ok(await page.locator('#pageStack').evaluate(el=>el.classList.contains('hide-page-guides')));
- await guides.getByRole('button',{name:'Marcações de página ligado'}).click();
+ await guides.getByRole('button',{name:'Marcações de página — Mostrar'}).click();
  assert.equal(await page.locator('#showPageGuides').isChecked(),true);
- assert.equal(await guides.getByRole('button',{name:'Marcações de página desligado'}).textContent(),'Ocultar');
- assert.equal(await guides.getByRole('button',{name:'Marcações de página ligado'}).textContent(),'Mostrar');
+ assert.deepEqual(await guides.locator('.ds-binary-option').evaluateAll(buttons=>buttons.map(button=>button.tabIndex)),[-1,0],
+  'Only the selected binary choice is tabbable');
+ await guides.getByRole('button',{name:'Marcações de página — Mostrar'}).press('ArrowLeft');
+ assert.equal(await page.locator('#showPageGuides').isChecked(),false,'ArrowLeft selects the preceding alternative');
+ assert.deepEqual(await guides.locator('.ds-binary-option').evaluateAll(buttons=>buttons.map(button=>button.tabIndex)),[0,-1]);
+ await guides.getByRole('button',{name:'Marcações de página — Ocultar'}).press('ArrowRight');
+ assert.equal(await page.locator('#showPageGuides').isChecked(),true,'ArrowRight selects the following alternative');
+ await guides.screenshot({path:'test-results/ux-audit/inspector-binary-keyboard-roving.png',animations:'disabled'});
+ await page.keyboard.press('Tab');
+ assert.equal(await guides.locator('.ds-binary-group').evaluate(el=>el.contains(document.activeElement)),false,
+  'Tab must leave the binary group instead of visiting a second button');
+ assert.equal(await guides.getByRole('button',{name:'Marcações de página — Ocultar'}).textContent(),'Ocultar');
+ assert.equal(await guides.getByRole('button',{name:'Marcações de página — Mostrar'}).textContent(),'Mostrar');
  await assertNoRedundantNativeEvents(page.locator('#showPageGuides'),async()=>{
-  await guides.getByRole('button',{name:'Marcações de página ligado'}).click();
+  await guides.getByRole('button',{name:'Marcações de página — Mostrar'}).click();
  },'Pressing an already selected binary option must not create a document edit');
  await guides.screenshot({path:'test-results/ux-audit/inspector-binary-localized.png',animations:'disabled'});
 

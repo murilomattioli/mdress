@@ -74,7 +74,7 @@ syncPropertyControls();
 - HEX inválido permanece como rascunho e mostra feedback. Não converter texto parcial em preto.
 - Cores mantêm HEX6 e opacidade independente (0–100%). O picker usa uma linha compacta com slider e valor numérico. Persistir `colorOpacity` para as cores do documento e `opacity` em cada ponto mesh; aplicar alfa na renderização e impressão, sem alterar o HEX.
 - Sliders e steppers respeitam min/max/step, unidades e estado disabled. Branco significa herdar apenas em campos `data-inherit`.
-- Toggle deve descrever o estado quando houver significado específico: No fluxo/No rodapé, Continuar/Nova página, Ocultar/Mostrar.
+- Toggle deve descrever o estado quando houver significado específico: No fluxo/No rodapé, Continuar/Nova página, Ocultar/Mostrar. Toggle e segmento usam um único ponto de Tab (seleção atual ou primeira habilitada); setas/Home/End percorrem as opções, e os nomes acessíveis anunciam as alternativas reais.
 
 ## Accordions, tabs e cards
 
