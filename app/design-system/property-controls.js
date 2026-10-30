@@ -870,6 +870,7 @@ function makeListbox(label,select,title){
     query:openSelect.search.value,
     focused:document.activeElement===openSelect.search,
     paginationFocused:document.activeElement===openSelect.more,
+    scrollTop:openSelect.list.scrollTop,
     limit:openSelect.getLimit()
    }:null;
    const visible=visibleSelectOptions(select);
@@ -1053,8 +1054,13 @@ function makeListbox(label,select,title){
    popup.style.maxHeight=box.maxHeight+'px';
   };
   reposition();
+  // A live catalog refresh rebuilds the portalled list. Keep the user's
+  // scroll position when browsing with the mouse or the search field focused.
+  // Native scrollTop clamps automatically if the result set shrank.
+  if(search&&Number.isFinite(restoredSearch?.scrollTop))
+   list.scrollTop=restoredSearch.scrollTop;
   trigger.setAttribute('aria-expanded','true');
-  openSelect={popup,trigger,search,more,getLimit:()=>limit,optionItems,sourceItems:opts.map(option=>({option,value:option.value,label:option.label||option.textContent,group:option.parentElement?.tagName==='OPTGROUP'?option.parentElement.label:null})),reposition,onClose:()=>{}};
+  openSelect={popup,trigger,search,list,more,getLimit:()=>limit,optionItems,sourceItems:opts.map(option=>({option,value:option.value,label:option.label||option.textContent,group:option.parentElement?.tagName==='OPTGROUP'?option.parentElement.label:null})),reposition,onClose:()=>{}};
   // The listbox is portalled to body, so hiding its source accordion,
   // inspector tab or entire panel does not automatically remove it.
   // Observe only the anchor's ancestor chain while open. This also catches
