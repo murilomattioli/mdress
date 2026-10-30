@@ -1,6 +1,6 @@
 # Issue #23 — evidências duráveis
 
-> **Estado atual (30/10/2026):** a matriz UX-023 exige **109 estados × 2 temas × 4 larguras = 872 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
+> **Estado atual (30/10/2026):** a matriz UX-023 exige **111 estados × 2 temas × 4 larguras = 888 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
 
 
 Capturadas localmente em 29/10/2026, sobre a integração de `7d2688b`, `c341201`, `7e2e19f` e `0a0870c`. Documento sintético padrão; nenhum documento pessoal do usuário.
@@ -36,6 +36,10 @@ No runner headed: ENTER avança, `m` permite intervenção no navegador, ENTER r
 ## F-013 — peso e sorteio harmônico
 
 Integração de 29/10/2026: [desktop](pdf-weight-1440.png), [mobile](pdf-weight-390.png), [24 medições reais](pdf-weight-calibration.json). Capturas inspecionadas pelo agente; homologação do usuário pendente. `npm run qa:pdf-weight` valida abertura do detalhe, largura, alteração de custo ao aplicar Glass e persistência após recarregar. `node scripts/pdf-weight-calibrate.mjs` gera a calibração sob demanda. Ambos aceitam `MDRESS_AUDIT_URL`.
+
+## UX-023 — navegação da paginação do seletor de fontes (30/10/2026)
+
+O botão **Mostrar mais** pertence ao popover portalled ao `body`, não à ordem DOM do inspetor. Pressionar **Tab** ou **Shift+Tab** nesse botão agora fecha o popover e continua a navegação a partir do seletor nativo aprimorado, sem saltar para o começo/fim da página. O E2E Chromium cobre ambas as direções, com PNGs `inspector-font-pagination-tab-forward.png` e `inspector-font-pagination-tab-backward.png`. O runner supervisionado reproduz os dois estados em cada tema/largura, com 65 fontes sintéticas e verificação de foco acessível. O contrato de QA exige **888 PNGs**, mas apenas o CI pode confirmar sua execução; a aprovação visual continua reservada ao usuário.
 
 ## UX-023 — busca de fontes durante atualização assíncrona (30/10/2026)
 
