@@ -130,7 +130,7 @@ export function openColorPicker(input){
  hexInput.onchange=applyHex;hexInput.onkeydown=e=>{if(e.key==='Enter')applyHex();if(e.key==='Escape'){e.stopPropagation();hexInput.value=hex;clearFieldError(hexInput);}};
  const footer=node('section','cp-saved'),footerTitle=node('div','cp-saved-title','Cores salvas'),swatches=node('div','cp-swatches'),add=button('Salvar cor atual','plus');footerTitle.append(add);footer.append(footerTitle,swatches);
  function renderSaved(){swatches.replaceChildren();saved.forEach(color=>{const b=button('Usar '+color);b.className='cp-saved-color';b.textContent='';b.style.background=color;b.onclick=()=>commit(color);swatches.append(b);});}
- add.onclick=()=>{saved=[hex,...saved.filter(c=>c!==hex)].slice(0,12);renderSaved();try{localStorage.setItem(STORE,JSON.stringify(saved));status.textContent='Cor salva.';}catch{status.textContent='Cor disponível nesta sessão; armazenamento indisponível.';}};
+ add.onclick=()=>{saved=[hex,...saved.filter(c=>c!==hex)].slice(0,12);renderSaved();try{localStorage.setItem(STORE,JSON.stringify(saved));if(!errorOwner)status.textContent='Cor salva.';}catch{if(!errorOwner)status.textContent='Cor disponível nesta sessão; armazenamento indisponível.';}};
  function sync(){
   // Synchronizing a valid document color replaces every outstanding draft.
   // Clear both the ARIA owner and its message, never an orphaned IDREF.
@@ -167,20 +167,23 @@ export function openColorPicker(input){
   if(picking||!dialog.open||active!==dialog||input.disabled)return;
   const source=anchor(),sourceHex=parseHex(source?.value),sourceOpacity=source?.dataset.opacity,revision=editRevision;
   if(!source||source.disabled)return;
+  // A stale native rejection must not show an error for a later color edit,
+  // just as a stale successful sample must not overwrite that edit.
+  const sampleIsCurrent=()=>dialog.open&&active===dialog&&!input.disabled&&
+   revision===editRevision&&anchor()===source&&!source.disabled&&
+   parseHex(source.value)===sourceHex&&source.dataset.opacity===sourceOpacity;
   picking=true;pipette.setAttribute('aria-busy','true');pipette.setAttribute('aria-disabled','true');
   if(!errorOwner){status.textContent='';delete status.dataset.error;}
   try{
    const result=await new window.EyeDropper().open();
    // Native sampling is asynchronous. Do not overwrite an intervening HEX,
    // RGB, palette, opacity or external document edit, or a replaced source.
-   if(dialog.open&&active===dialog&&!input.disabled&&
-    revision===editRevision&&anchor()===source&&!source.disabled&&
-    parseHex(source.value)===sourceHex&&source.dataset.opacity===sourceOpacity){
+   if(sampleIsCurrent()){
     const color=parseHex(result?.sRGBHex);
     if(color)commit(color);
    }
   }catch(error){
-   if(error?.name!=='AbortError'&&dialog.open&&active===dialog)
+   if(error?.name!=='AbortError'&&sampleIsCurrent()&&!errorOwner)
     status.textContent='Não foi possível capturar a cor.';
   }finally{
    picking=false;pipette.removeAttribute('aria-busy');pipette.removeAttribute('aria-disabled');
