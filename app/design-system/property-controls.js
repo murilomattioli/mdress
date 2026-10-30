@@ -790,7 +790,7 @@ function focusInspectorNeighbor(trigger,{visibleOnly=false}={}){
  const index=controls.indexOf(trigger);
  const eligible=el=>{
   if(el===trigger||el.disabled||el.tabIndex<0||
-   el.closest('[hidden],[inert],[aria-hidden="true"]')||!el.getClientRects().length||
+   el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||!el.getClientRects().length||
    getComputedStyle(el).visibility==='hidden')return false;
   if(!visibleOnly)return true;
   const rect=el.getBoundingClientRect();
