@@ -796,10 +796,22 @@ try {
  const moreFonts=page.locator('.ds-select-more');
  assert.match((await page.locator('.ds-select-search-count').textContent()).trim(),/^60 \/ \d+$/,
   'The search field should show loaded and total font counts');
+ const searchBounds=await liveFontSearch.boundingBox();
+ const countBounds=await page.locator('.ds-select-search-count').boundingBox();
+ assert.ok(countBounds.y>=searchBounds.y&&countBounds.y+countBounds.height<=searchBounds.y+searchBounds.height,
+  'Font result counts must stay inside the existing search-field height');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-search-count.png',animations:'disabled'
+ });
  await page.locator('.ds-select-option').last().focus();
  await page.keyboard.press('ArrowDown');
  assert.equal(await moreFonts.evaluate(el=>el===document.activeElement),true,
   'ArrowDown on the last loaded option must reach the pagination action');
+ assert.notEqual(await moreFonts.evaluate(el=>getComputedStyle(el).outlineStyle),'none',
+  'Keyboard pagination must have a visible focus indicator');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-pagination-focused.png',animations:'disabled'
+ });
  await page.keyboard.press('ArrowUp');
  assert.equal(await page.locator('.ds-select-option').last().evaluate(el=>el===document.activeElement),true,
   'ArrowUp from pagination must return to the last loaded option');
