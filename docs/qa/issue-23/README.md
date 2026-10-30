@@ -1,6 +1,6 @@
 # Issue #23 — evidências duráveis
 
-> **Estado atual (30/10/2026):** a matriz UX-023 exige **111 estados × 2 temas × 4 larguras = 888 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
+> **Estado atual (30/10/2026):** a matriz UX-023 exige **113 estados × 2 temas × 4 larguras = 904 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
 
 
 Capturadas localmente em 29/10/2026, sobre a integração de `7d2688b`, `c341201`, `7e2e19f` e `0a0870c`. Documento sintético padrão; nenhum documento pessoal do usuário.
@@ -36,6 +36,12 @@ No runner headed: ENTER avança, `m` permite intervenção no navegador, ENTER r
 ## F-013 — peso e sorteio harmônico
 
 Integração de 29/10/2026: [desktop](pdf-weight-1440.png), [mobile](pdf-weight-390.png), [24 medições reais](pdf-weight-calibration.json). Capturas inspecionadas pelo agente; homologação do usuário pendente. `npm run qa:pdf-weight` valida abertura do detalhe, largura, alteração de custo ao aplicar Glass e persistência após recarregar. `node scripts/pdf-weight-calibrate.mjs` gera a calibração sob demanda. Ambos aceitam `MDRESS_AUDIT_URL`.
+
+## UX-023 — composição IME em opções e paginação (30/10/2026)
+
+O bloqueio de teclas de composição IME foi estendido para **todos os alvos do select portalled**: busca, opções, botão **Mostrar mais**, trigger e listener global. Eventos `isComposing` e teclados legados com `keyCode=229` não podem disparar navegação, typeahead, seleção, expansão ou fechamento do popover. A navegação normal por teclado continua ativa quando não há composição.
+
+O E2E Chromium verifica os dois formatos de eventos nos três tipos de botão, sem perder foco nem fechar a lista, e registra `inspector-font-ime-option.png` e `inspector-font-ime-pagination.png`. O runner supervisionado também registra os estados `select-ime-option-focus` e `select-ime-pagination-focus` em todos os temas e viewports. **Contrato: 113 estados × 8 combinações = 904 PNGs**, sujeitos a revisão humana. Eventos sintéticos verificam o tratamento do componente, mas não substituem testes manuais com um teclado IME real.
 
 ## UX-023 — navegação da paginação do seletor de fontes (30/10/2026)
 
