@@ -16,51 +16,58 @@ const screenshots=UX_QA_MATRIX.flatMap(({theme,width})=>
  })));
 const report=()=>({
  schema:6,mode:'supervised',headless:false,stopped:false,reviewSessionId:sessionId,
+ sourceFingerprint:'a'.repeat(64),
  summary:{status:'passed'},coverage:UX_QA_MATRIX.map(({theme,width})=>({theme,width,scenario:true,inspector:true,toolbar:true,errors:0})),
  findings:[],screenshots:structuredClone(screenshots),
  humanReview:{status:'not-reviewed',requiresExplicitApproval:true}
 });
 const review=()=>({schema:1,sessionId,
  states:Object.fromEntries(UX_QA_REQUIRED_SCREENSHOTS.map(state=>[state,{status:'approved',note:''}]))});
+const assess=(capture,decision,currentFingerprint='a'.repeat(64))=>
+ assessResumeReview(capture,decision,currentFingerprint);
 
 test('resumed sign-off requires a completed interactive session and matching human review',()=>{
- assert.equal(assessResumeReview(report(),review()).valid,true);
+ assert.equal(assess(report(),review()).valid,true);
  const automatic=report();automatic.mode='automatic';automatic.headless=true;
- assert.equal(assessResumeReview(automatic,review()).valid,false);
+ assert.equal(assess(automatic,review()).valid,false);
  const interrupted=report();interrupted.stopped=true;interrupted.summary.status='stopped';
- assert.equal(assessResumeReview(interrupted,review()).valid,false);
+ assert.equal(assess(interrupted,review()).valid,false);
  const failed=report();failed.findings.push({severity:'error',message:'broken'});
- assert.equal(assessResumeReview(failed,review()).valid,false);
+ assert.equal(assess(failed,review()).valid,false);
  const falseGreen=report();falseGreen.coverage[0].inspector=false;
- assert.equal(assessResumeReview(falseGreen,review()).valid,false);
+ assert.equal(assess(falseGreen,review()).valid,false);
  const unsigned=report();delete unsigned.screenshots[0].sha256;
- assert.equal(assessResumeReview(unsigned,review()).valid,false,'Unsigned evidence must not be approved');
+ assert.equal(assess(unsigned,review()).valid,false,'Unsigned evidence must not be approved');
  const malformedHash=report();malformedHash.screenshots[0].sha256='abc';
- assert.equal(assessResumeReview(malformedHash,review()).valid,false);
+ assert.equal(assess(malformedHash,review()).valid,false);
  const legacy=report();legacy.schema=5;
- assert.equal(assessResumeReview(legacy,review()).valid,false,'Old reports cannot bypass fingerprint validation');
+ assert.equal(assess(legacy,review()).valid,false,'Old reports cannot bypass fingerprint validation');
+ const unbound=report();delete unbound.sourceFingerprint;
+ assert.equal(assess(unbound,review()).valid,false,'Legacy schema-6 reports cannot bypass source binding');
+ const malformedSource=report();malformedSource.sourceFingerprint='broken';
+ assert.equal(assess(malformedSource,review()).valid,false);
  const missing=report();missing.screenshots.pop();
- assert.equal(assessResumeReview(missing,review()).valid,false);
+ assert.equal(assess(missing,review()).valid,false);
  const duplicate=report();duplicate.screenshots[0]=duplicate.screenshots[1];
- assert.equal(assessResumeReview(duplicate,review()).valid,false);
+ assert.equal(assess(duplicate,review()).valid,false);
  const foreign=review();foreign.sessionId='another-session';
- assert.equal(assessResumeReview(report(),foreign).valid,false);
+ assert.equal(assess(report(),foreign).valid,false);
  const pending=review();pending.states.workspace.status='pending';
- assert.equal(assessResumeReview(report(),pending).valid,false);
+ assert.equal(assess(report(),pending).valid,false);
  const rejected=review();rejected.states.workspace.status='rejected';
- assert.equal(assessResumeReview(report(),rejected).valid,false);
+ assert.equal(assess(report(),rejected).valid,false);
 });
 
 test('source-bound sign-off rejects changed or malformed capture revisions',()=>{
  const sourceBound=report();
  sourceBound.sourceFingerprint='a'.repeat(64);
- assert.equal(assessResumeReview(sourceBound,review(),'a'.repeat(64)).valid,true);
- assert.equal(assessResumeReview(sourceBound,review(),'b'.repeat(64)).valid,false,
+ assert.equal(assess(sourceBound,review(),'a'.repeat(64)).valid,true);
+ assert.equal(assess(sourceBound,review(),'b'.repeat(64)).valid,false,
   'A different app/QA revision cannot inherit human approval');
- assert.equal(assessResumeReview(sourceBound,review()).valid,false,
+ assert.equal(assess(sourceBound,review(),null).valid,false,
   'Unknown current source is not sufficient for a source-bound report');
  sourceBound.sourceFingerprint='not-a-sha256';
- assert.equal(assessResumeReview(sourceBound,review(),'not-a-sha256').valid,false);
+ assert.equal(assess(sourceBound,review(),'not-a-sha256').valid,false);
 });
 
 test('source mismatch refuses approval before modifying the report',async()=>{
@@ -73,6 +80,21 @@ test('source mismatch refuses approval before modifying the report',async()=>{
   await writeFile(reviewPath,JSON.stringify(review()));
   await assert.rejects(resumeHumanReview(reportPath,reviewPath),/código mudou/);
   assert.equal(await readFile(reportPath,'utf8'),original);
+ }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+
+test('legacy capture cannot receive human approval even with a valid exported review',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'mdress-unbound-review-'));
+ const reportPath=join(directory,'report.json'),reviewPath=join(directory,'review.json');
+ try{
+  const unbound=report();delete unbound.sourceFingerprint;
+  const original=JSON.stringify(unbound);
+  await writeFile(reportPath,original);
+  await writeFile(reviewPath,JSON.stringify(review()));
+  await assert.rejects(resumeHumanReview(reportPath,reviewPath),/não identifica o código/);
+  assert.equal(await readFile(reportPath,'utf8'),original,
+   'Refusing legacy sign-off must preserve the unapproved report');
  }finally{await rm(directory,{recursive:true,force:true});}
 });
 
