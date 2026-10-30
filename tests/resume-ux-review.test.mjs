@@ -7,6 +7,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {assessResumeReview,resumeHumanReview,verifyScreenshotEvidence} from '../scripts/resume-ux-review.mjs';
 import {UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS} from '../scripts/ux-qa-coverage.mjs';
+import {fingerprintUxQaSource} from '../scripts/ux-qa-source.mjs';
 
 const sessionId='resume-ux023-test';
 const screenshots=UX_QA_MATRIX.flatMap(({theme,width})=>
@@ -102,7 +103,8 @@ test('resume rejects missing or mismatched live evidence and preserves original 
  const directory=await mkdtemp(join(tmpdir(),'mdress-resume-'));
  const reportPath=join(directory,'report.json'),reviewPath=join(directory,'review.json');
  try{
-  const original=JSON.stringify(report());
+  const captured=report();captured.sourceFingerprint=await fingerprintUxQaSource();
+  const original=JSON.stringify(captured);
   await writeFile(reportPath,original);
   await writeFile(reviewPath,JSON.stringify(review()));
   await assert.rejects(resumeHumanReview(reportPath,reviewPath),/Captura ausente|Captura inválida|Captura modificada/);
