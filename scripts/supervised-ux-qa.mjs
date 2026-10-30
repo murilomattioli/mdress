@@ -359,6 +359,14 @@ async function exercise(page,theme,width){
  // A visible color error status can describe only one invalid editor at a
  // time. Capture both the handoff and the unrelated-Escape regression so the
  // reviewer can inspect the feedback in every theme and viewport.
+ // Install a deferred native sampler before opening the popover: support is
+ // detected at construction time, not when the button is clicked.
+ await page.evaluate(()=>{
+  window.__qaPopupOriginalEyeDropper=window.EyeDropper;
+  window.EyeDropper=class{open(){
+   return new Promise(resolve=>{window.__qaPopupResolve=resolve;});
+  }};
+ });
  await nativeSwatch.evaluate(el=>el.click());
  const picker=page.getByRole('dialog',{name:/Cores/});
  await picker.waitFor({state:'visible'});
@@ -380,6 +388,36 @@ async function exercise(page,theme,width){
  assert.equal(await pickerHex.getAttribute('aria-errormessage'),await picker.locator('.cp-status').getAttribute('id'));
  await capture(page,theme,width,'color-picker-error-owner');
  await pickerHex.fill(originalColor);await pickerHex.press('Enter');
+ const popupDropper=picker.getByRole('button',{name:'Capturar cor da tela',exact:true});
+ // The browser's delayed sample cannot overwrite an explicit HEX edit.
+ await popupDropper.click();
+ assert.equal(await popupDropper.getAttribute('aria-busy'),'true');
+ await pickerHex.fill('#2468AC');await pickerHex.press('Enter');
+ await page.evaluate(()=>window.__qaPopupResolve({sRGBHex:'#FF00FF'}));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.equal(await nativeSwatch.inputValue(),'#2468ac');
+ await capture(page,theme,width,'color-picker-eyedropper-stale-manual');
+ // A native source update may bypass the popover's commit() entirely.
+ await popupDropper.click();
+ await nativeSwatch.evaluate(el=>{
+  el.value='#ABC123';el.dispatchEvent(new Event('input',{bubbles:true}));
+  el.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+ await page.evaluate(()=>window.__qaPopupResolve({sRGBHex:'#C0FFEE'}));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.equal(await nativeSwatch.inputValue(),'#abc123');
+ await capture(page,theme,width,'color-picker-eyedropper-stale-external');
+ // Opacity is a separate document edit and must invalidate a pending sample.
+ await popupDropper.click();
+ const popupOpacity=picker.getByRole('spinbutton',{name:'Opacidade em porcentagem',exact:true});
+ await popupOpacity.fill('41');await popupOpacity.dispatchEvent('change');
+ await page.evaluate(()=>window.__qaPopupResolve({sRGBHex:'#FACADE'}));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.equal(await nativeSwatch.inputValue(),'#abc123');
+ assert.equal(await nativeSwatch.getAttribute('data-opacity'),'0.41');
+ await capture(page,theme,width,'color-picker-eyedropper-stale-opacity');
+ await pickerHex.fill(originalColor);await pickerHex.press('Enter');
+ await popupOpacity.fill('100');await popupOpacity.dispatchEvent('change');
  // Programmatic inspector changes can open a second picker without a
  // pointerdown. The outgoing close event must not close the new picker.
  await page.locator('#textColor').evaluate(el=>el.click());
@@ -394,6 +432,11 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'color-picker-switch-back');
  await picker.getByRole('button',{name:'Fechar seletor de cores',exact:true}).click();
  await picker.waitFor({state:'detached'});
+ await page.evaluate(()=>{
+  window.EyeDropper=window.__qaPopupOriginalEyeDropper;
+  delete window.__qaPopupOriginalEyeDropper;
+  delete window.__qaPopupResolve;
+ });
  const select=page.locator('.ds-property-select').filter({has:page.locator('#fontChoice')});
  const trigger=select.locator('.ds-select-trigger');
  await trigger.scrollIntoViewIfNeeded();await trigger.hover();await capture(page,theme,width,'select-hover');
