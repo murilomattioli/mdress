@@ -74,7 +74,7 @@ export const UX_QA_REQUIRED_SCREENSHOTS=[
  'select-hover','select-open','select-group-disabled','select-typeahead-prefix','select-long-option',
  'select-live-value','select-live-options','select-live-options-removed','select-live-search-empty','select-live-search-disabled','select-live-pagination-focus','select-live-search-scroll',
  'select-hidden-optgroup','select-all-disabled','select-resize-focus',
- 'select-scroll-focus-handoff','select-tab-forward','select-tab-backward',
+ 'select-scroll-focus-handoff','select-tab-forward','select-tab-backward','select-pagination-tab-forward','select-pagination-tab-backward',
  'select-accordion-collapse-focus-handoff','select-tab-switch-focus-handoff','select-inspector-close-focus-handoff',
  'select-disabled-focus-handoff','select-disabled-trigger-focus-handoff','select-disabled',
  'quick-select-disabled-focus-handoff','quick-gallery-disabled-focus-handoff',
