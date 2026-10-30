@@ -1,6 +1,6 @@
 # Issue #23 — evidências duráveis
 
-> **Estado atual (30/10/2026):** a matriz UX-023 exige **98 estados × 2 temas × 4 larguras = 784 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
+> **Estado atual (30/10/2026):** a matriz UX-023 exige **102 estados × 2 temas × 4 larguras = 816 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
 
 
 Capturadas localmente em 29/10/2026, sobre a integração de `7d2688b`, `c341201`, `7e2e19f` e `0a0870c`. Documento sintético padrão; nenhum documento pessoal do usuário.
@@ -73,3 +73,7 @@ A galeria fica em `test-results/ux-audit/supervised/index.html`. Revisão humana
 Rejeições tardias do EyeDropper seguem o mesmo contrato de obsolescência das amostras bem-sucedidas: edições posteriores de HEX/opacidade, mudanças externas e substituição do seletor impedem que uma falha antiga substitua feedback atual. Uma falha da captura ainda vigente continua visível; cancelar com `AbortError` não exibe erro.
 
 Salvar a cor já confirmada enquanto um campo HEX contém rascunho inválido não apaga a mensagem de validação nem sua associação `aria-errormessage`. O gate `node scripts/color-picker-qa.mjs` inclui screenshots de erro atual, erro obsoleto descartado, preservação de validação e cancelamento. A matriz supervisionada exige quatro novos estados por tema e viewport: `color-picker-save-preserves-error`, `color-picker-eyedropper-stale-failure`, `color-picker-eyedropper-current-failure` e `color-picker-eyedropper-error-owner`. Total: **98 estados × 2 temas × 4 larguras = 784 capturas**. O CI valida execução e integridade, não aprova a UX; avaliação humana permanece obrigatória.
+
+### Rascunhos não confirmados e EyeDropper (30/10/2026)
+
+Amostras nativas pendentes não substituem texto digitado mas ainda não confirmado nos campos HEX, RGB ou opacidade. Rejeições obsoletas também não geram mensagens durante a edição. O gate Chromium cobre os quatro casos com capturas específicas; o runner supervisionado exige quatro novos estados em cada tema e largura (total: **816 capturas**). As imagens exigem inspeção humana; CI verde não homologa UX.
