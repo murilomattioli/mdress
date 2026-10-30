@@ -498,8 +498,12 @@ function enhanceBinary(label,input,title){
   // Exactly one sequential Tab stop; arrows and Home/End change selection.
   off.tabIndex=!input.disabled&&!input.checked?0:-1;
   on.tabIndex=!input.disabled&&input.checked?0:-1;
-  // Disabling a focused button must not silently dump keyboard focus on body.
+  // When a document update selects the other choice while keyboard focus
+  // remains on the old one, move focus to the only sequential Tab stop.
+  // Otherwise the focused button becomes tabIndex=-1 and Tab can skip the
+  // group or unexpectedly revisit its selected choice.
   if(focused&&input.disabled)focusInspectorNeighbor(focused,{visibleOnly:true});
+  else if(focused&&focused.tabIndex<0)(input.checked?on:off).focus({preventScroll:true});
  };
  const commit=val=>{
   if(input.disabled||input.checked===val)return;
@@ -617,6 +621,13 @@ function enhanceSegment(label,select,title){
    value:item.value,disabled:elements[index].disabled
   })),select.value);
   elements.forEach((btn,index)=>{btn.tabIndex=index===tabStop?0:-1;});
+  // Native select changes (undo, preset or document sync) can change the
+  // selected segment without a click. Keep the keyboard focus on the new
+  // roving Tab stop, but preserve the nearest enabled focus recovery when a
+  // focused option was actually disabled or removed.
+  if(!focusRecovery&&focusedBeforeDisable!==-1&&
+   !elements[focusedBeforeDisable].disabled&&focusedBeforeDisable!==tabStop)
+   elements[tabStop]?.focus({preventScroll:true});
  };
  new MutationObserver(update).observe(select,{
   subtree:true,childList:true,characterData:true,attributes:true,
