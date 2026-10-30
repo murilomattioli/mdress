@@ -877,6 +877,26 @@ try {
  await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaPaginationFontGroup').remove());
  await page.waitForFunction(()=>!document.querySelector('#qaPaginationFontGroup'));
  assert.equal(await moreFonts.evaluate(el=>el===document.activeElement),true);
+ // The pagination button lives in a body portal. Tab/Shift+Tab must
+ // continue from the inspector trigger, never jump to the document edge.
+ for(const key of ['Tab','Shift+Tab']){
+  await page.keyboard.press(key);
+  assert.equal(await fontTrigger.getAttribute('aria-expanded'),'false',
+   key+' from font pagination must close the popup');
+  assert.equal(await page.locator('.ds-select-popover').count(),0);
+  const focus=await page.evaluate(()=>({
+   inInspector:Boolean(document.activeElement?.closest('.design-inspector')),
+   isTrigger:document.activeElement?.classList.contains('ds-select-trigger'),
+   isBody:document.activeElement===document.body
+  }));
+  assert.ok(focus.inInspector&&!focus.isTrigger&&!focus.isBody,
+   key+' from pagination must follow inspector tab order: '+JSON.stringify(focus));
+  await page.screenshot({path:'test-results/ux-audit/inspector-font-pagination-'+
+   (key==='Tab'?'tab-forward':'tab-backward')+'.png',animations:'disabled'});
+  await fontTrigger.click();
+  await moreFonts.waitFor({state:'visible'});
+  await moreFonts.focus();
+ }
  await page.keyboard.press('ArrowUp');
  assert.equal(await page.locator('.ds-select-option').last().evaluate(el=>el===document.activeElement),true,
   'ArrowUp from pagination must return to the last loaded option');
