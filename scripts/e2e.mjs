@@ -525,7 +525,7 @@ try {
  await colorHex.fill('#BAD');await colorHex.dispatchEvent('change');
  assert.equal(await colorHex.inputValue(),'#BAD','Invalid hex must stay editable instead of silently reverting');
  assert.equal(await colorHex.getAttribute('aria-invalid'),'true','Invalid color needs accessible feedback');
- assert.equal(await colorControl.locator('..').locator('.ds-prop-error').isVisible(),true,'Color validation must explain the expected format');
+ assert.equal(await colorControl.locator('..').locator('.ds-prop-error:not([role="alert"])').isVisible(),true,'Color validation must explain the expected format');
  assert.equal(await page.locator('#accentColor').inputValue(),previousAccent,'Invalid hex must not update document color');
  await colorControl.screenshot({path:'test-results/ux-audit/inspector-color-invalid.png',animations:'disabled'});
  await colorHex.fill('#A1744B');await colorHex.dispatchEvent('change');
