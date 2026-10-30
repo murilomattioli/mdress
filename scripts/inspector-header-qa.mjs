@@ -70,6 +70,8 @@ try{
   await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host .ds-header-menu-trigger')?.getAttribute('aria-expanded')==='false');
  }
 
+ // Synthetic fixed fixture must not intercept the real inspector's hover test.
+ await page.locator('#ux23-edge-menu-host').evaluate(el=>el.remove());
  for(const width of [1024,390]){
   await page.setViewportSize({width,height:900});await group.hover();
   const geometry=await group.evaluate(el=>{const title=el.querySelector('.ds-accordion-title').getBoundingClientRect(),actions=el.querySelector('.ds-choice-actions').getBoundingClientRect(),menu=el.querySelector('.ds-header-menu-trigger').getBoundingClientRect(),chevron=el.querySelector('.ds-accordion-chevron').getBoundingClientRect();return {ordered:title.right<=actions.left&&actions.right<=menu.left&&menu.right<=chevron.left,overflow:el.scrollWidth>el.clientWidth};});
