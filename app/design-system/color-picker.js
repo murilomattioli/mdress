@@ -102,14 +102,22 @@ export function openColorPicker(input){
   clearFieldError(opacityValue);
  };
  const status=node('p','cp-status');status.id='mdress-color-error-'+(++nextPickerId);status.setAttribute('role','status');
- function showFieldError(control,message){
-  control.setAttribute('aria-invalid','true');
-  control.setAttribute('aria-errormessage',status.id);
-  status.dataset.error='true';status.textContent=message;
- }
+ // A single visible status cannot describe several different invalid fields:
+ // its aria-errormessage must belong to exactly one active editor at a time.
+ let errorOwner=null;
  function clearFieldError(control){
   control.removeAttribute('aria-invalid');control.removeAttribute('aria-errormessage');
-  delete status.dataset.error;status.textContent='';
+  if(errorOwner!==control)return;
+  errorOwner=null;delete status.dataset.error;status.textContent='';
+  status.setAttribute('aria-live','polite');
+ }
+ function showFieldError(control,message){
+  if(errorOwner&&errorOwner!==control)clearFieldError(errorOwner);
+  errorOwner=control;
+  control.setAttribute('aria-invalid','true');
+  control.setAttribute('aria-errormessage',status.id);
+  status.dataset.error='true';status.setAttribute('aria-live','assertive');
+  status.textContent=message;
  }
  function applyHex(){const value=parseHex(hexInput.value.trim());if(!value){showFieldError(hexInput,'Use seis dígitos: #RRGGBB.');return;}commit(value);}
  hexInput.onchange=applyHex;hexInput.onkeydown=e=>{if(e.key==='Enter')applyHex();if(e.key==='Escape'){e.stopPropagation();hexInput.value=hex;clearFieldError(hexInput);}};
@@ -117,6 +125,9 @@ export function openColorPicker(input){
  function renderSaved(){swatches.replaceChildren();saved.forEach(color=>{const b=button('Usar '+color);b.className='cp-saved-color';b.textContent='';b.style.background=color;b.onclick=()=>commit(color);swatches.append(b);});}
  add.onclick=()=>{saved=[hex,...saved.filter(c=>c!==hex)].slice(0,12);renderSaved();try{localStorage.setItem(STORE,JSON.stringify(saved));status.textContent='Cor salva.';}catch{status.textContent='Cor disponível nesta sessão; armazenamento indisponível.';}};
  function sync(){
+  // Synchronizing a valid document color replaces every outstanding draft.
+  // Clear both the ARIA owner and its message, never an orphaned IDREF.
+  if(errorOwner)clearFieldError(errorOwner);
   opacityRange.value=opacityValue.value=opacity;for(const control of [opacityRange,opacityValue]){control.removeAttribute('aria-invalid');control.removeAttribute('aria-errormessage');}opacityRange.style.setProperty('--cp-opacity-color',hex);
   preview.style.background=hex+Math.round(opacity/100*255).toString(16).padStart(2,'0');hexInput.value=hex;hexInput.removeAttribute('aria-invalid');hexInput.removeAttribute('aria-errormessage');
   // When a different editor selects a palette color, the next Tab into the
