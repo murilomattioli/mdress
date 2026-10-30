@@ -31,13 +31,15 @@ test('UX QA records traces for failed scenarios without archiving successful run
 test('UX sign-off rechecks immutable screenshots instead of trusting a green report',()=>{
  assert.match(runner,/sha256:createHash\('sha256'\)\.update\(png\)\.digest\('hex'\)/,
   'Every screenshot must carry a capture-time SHA-256 fingerprint');
- assert.match(runner,/verifyScreenshotEvidence\(screenshots\)/,
-  'Interactive approval must revalidate all screenshot fingerprints');
+ assert.match(runner,/verifySourceBoundEvidence\(screenshots,sourceFingerprint\)/,
+  'Interactive approval must verify screenshots against the live source revision');
  assert.match(runner,/const report=\{schema:6,/,
   'New fingerprint requirements must use a versioned report contract');
  const resume=readFileSync(new URL('../scripts/resume-ux-review.mjs',import.meta.url),'utf8');
- assert.match(resume,/verifyScreenshotEvidence\(report\.screenshots\)/,
-  'Resumed approval must use the same evidence verification');
+ assert.match(resume,/verifySourceBoundEvidence\(report\.screenshots,currentSourceFingerprint\)/,
+  'Resumed approval must use the same source-bound evidence verification');
+ assert.match(resume,/verifyScreenshotEvidence\(screenshots,evidenceDirectory\)/,
+  'Shared verification must still hash and decode every screenshot');
  assert.match(resume,/Captura modificada desde a sessão/,
   'Replacing a valid PNG must invalidate the human review');
 });
