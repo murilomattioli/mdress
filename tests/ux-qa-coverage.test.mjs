@@ -56,6 +56,7 @@ test('visual evidence requires every control state in every viewport exactly onc
  const repeated=summarizeScreenshotCoverage([...all,all[0]]);
  assert.deepEqual(repeated.duplicates,['graphite:1440:workspace']);
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-any'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-empty-draft'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-tab-backward'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-accordion-collapse-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('select-tab-switch-focus-handoff'));
@@ -64,8 +65,8 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-disabled-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-hidden-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-detached-focus-handoff'));
- assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,86,'86 distinct states are mandatory');
- assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,86,'State names must be unique');
+ assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,87,'87 distinct states are mandatory');
+ assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,87,'State names must be unique');
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('binary-external-selection-focus'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-external-selection-focus'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-any-stepper'));
