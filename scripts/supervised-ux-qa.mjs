@@ -364,7 +364,7 @@ async function exercise(page,theme,width){
  await page.evaluate(()=>{
   window.__qaPopupOriginalEyeDropper=window.EyeDropper;
   window.EyeDropper=class{open(){
-   return new Promise(resolve=>{window.__qaPopupResolve=resolve;});
+   return new Promise((resolve,reject)=>{window.__qaPopupResolve=resolve;window.__qaPopupReject=reject;});
   }};
  });
  await nativeSwatch.evaluate(el=>el.click());
@@ -387,6 +387,12 @@ async function exercise(page,theme,width){
  assert.equal(await pickerHex.getAttribute('aria-invalid'),'true');
  assert.equal(await pickerHex.getAttribute('aria-errormessage'),await picker.locator('.cp-status').getAttribute('id'));
  await capture(page,theme,width,'color-picker-error-owner');
+ const validationBeforeSave=await picker.locator('.cp-status').textContent();
+ await picker.getByRole('button',{name:'Salvar cor atual',exact:true}).click();
+ assert.equal(await picker.locator('.cp-status').textContent(),validationBeforeSave,
+  'Saving the current color cannot hide an active HEX validation error');
+ assert.equal(await pickerHex.getAttribute('aria-invalid'),'true');
+ await capture(page,theme,width,'color-picker-save-preserves-error');
  await pickerHex.fill(originalColor);await pickerHex.press('Enter');
  const popupDropper=picker.getByRole('button',{name:'Capturar cor da tela',exact:true});
  // The browser's delayed sample cannot overwrite an explicit HEX edit.
@@ -416,6 +422,28 @@ async function exercise(page,theme,width){
  assert.equal(await nativeSwatch.inputValue(),'#abc123');
  assert.equal(await nativeSwatch.getAttribute('data-opacity'),'0.41');
  await capture(page,theme,width,'color-picker-eyedropper-stale-opacity');
+ // Native errors must follow the same revision contract as successful samples.
+ await popupDropper.click();
+ await pickerHex.fill('#2468AC');await pickerHex.press('Enter');
+ await page.evaluate(()=>window.__qaPopupReject(new Error('permission denied')));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.equal(await picker.locator('.cp-status').textContent(),'',
+  'A stale rejection cannot replace feedback for a newer manual edit');
+ await capture(page,theme,width,'color-picker-eyedropper-stale-failure');
+ await popupDropper.click();
+ await page.evaluate(()=>window.__qaPopupReject(new Error('permission denied')));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.match(await picker.locator('.cp-status').textContent(),/Não foi possível capturar/);
+ await capture(page,theme,width,'color-picker-eyedropper-current-failure');
+ await popupDropper.click();
+ await pickerHex.fill('bad');await pickerHex.dispatchEvent('change');
+ const validationBeforeReject=await picker.locator('.cp-status').textContent();
+ await page.evaluate(()=>window.__qaPopupReject(new Error('permission denied')));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.equal(await picker.locator('.cp-status').textContent(),validationBeforeReject,
+  'A native failure cannot overwrite an active field validation message');
+ assert.equal(await pickerHex.getAttribute('aria-errormessage'),await picker.locator('.cp-status').getAttribute('id'));
+ await capture(page,theme,width,'color-picker-eyedropper-error-owner');
  await pickerHex.fill(originalColor);await pickerHex.press('Enter');
  await popupOpacity.fill('100');await popupOpacity.dispatchEvent('change');
  // Programmatic inspector changes can open a second picker without a
