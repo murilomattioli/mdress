@@ -373,6 +373,22 @@ try {
  assert.equal(await qaRangePrecision.getAttribute('aria-invalid'),'true','Live step mismatch must be explained');
  assert.equal(await qaRange.inputValue(),'8','Invalid draft must not mutate native slider');
  await qaRangeRow.screenshot({path:'test-results/ux-audit/inspector-range-live-step-invalid.png',animations:'disabled'});
+ const invalidRangeSteppers=qaRangeRow.locator('.ds-number-step');
+ assert.equal(await invalidRangeSteppers.first().isDisabled(),true,'An invalid precision draft must block decrement');
+ assert.equal(await invalidRangeSteppers.last().isDisabled(),true,'An invalid precision draft must block increment');
+ await assertNoRedundantNativeEvents(qaRange,async()=>
+  invalidRangeSteppers.last().evaluate(el=>el.click()),'Blocked stepper must not overwrite a mismatched precision draft');
+ assert.equal(await qaRangePrecision.inputValue(),'9','The rejected draft must survive an attempted stepper action');
+ await qaRangePrecision.fill('');
+ await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await qaRangePrecision.inputValue(),'','An empty precision draft must remain editable');
+ assert.equal(await qaRange.inputValue(),'8','Empty precision must not change the source of truth');
+ assert.equal(await invalidRangeSteppers.first().isDisabled(),true);
+ assert.equal(await invalidRangeSteppers.last().isDisabled(),true);
+ await qaRangeRow.screenshot({path:'test-results/ux-audit/inspector-range-live-empty-draft.png',animations:'disabled'});
+ await qaRangePrecision.fill('8');await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await invalidRangeSteppers.first().isEnabled(),true,'Correcting a draft restores decrement');
+ assert.equal(await invalidRangeSteppers.last().isEnabled(),true,'Correcting a draft restores increment');
  await qaRange.evaluate(el=>{el.step='any';});
  await page.waitForFunction(()=>document.querySelector('#qaRangeLive')?.closest('.ds-property-range')?.querySelector('.ds-prop-number')?.step==='any');
  await qaRangePrecision.fill('9.25');await qaRangePrecision.dispatchEvent('change');
