@@ -517,6 +517,11 @@ function enhanceColor(label,input,title){
  });
  hex.addEventListener('input',()=>{
   editing=true;
+  // A draft starts on input, not on blur/change. A pending native screen
+  // sample must never overwrite valid or invalid HEX the user is typing.
+  // Rotate the request epoch so late successes AND failures are ignored.
+  if(picking){dropperEpoch++;picking=false;update();}
+  setPipetteError('');
   setError(isHex(hex.value.trim())?'':'Use uma cor hexadecimal com seis dígitos (#RRGGBB).');
  });
  hex.addEventListener('change',()=>{
@@ -536,7 +541,12 @@ function enhanceColor(label,input,title){
   editing=false;setPipetteError('');update();
  };
  input.addEventListener('input',nativeUpdate);input.addEventListener('change',nativeUpdate);
- new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
+ new MutationObserver(records=>{
+  // A disabled -> enabled transition in the same task must still cancel the
+  // native request, even if the final disabled property is false.
+  if(records.length&&picking){dropperEpoch++;picking=false;}
+  update();
+ }).observe(input,{attributes:true,attributeFilter:['disabled']});
  controllers.push(update);update();
 }
 function enhanceBinary(label,input,title){
