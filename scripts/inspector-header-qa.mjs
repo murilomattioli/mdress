@@ -58,7 +58,9 @@ try{
  for(const viewport of [{width:390,height:320},{width:1024,height:420}]){
   await page.setViewportSize(viewport);
   const edgeTrigger=page.locator('#ux23-edge-menu-host .ds-header-menu-trigger');
-  await edgeTrigger.click();
+  // The app topbar can visually overlap a synthetic fixed fixture at 320px;
+  // keyboard activation exercises the actual trigger without a false pointer interception.
+  await edgeTrigger.focus();await edgeTrigger.press('Enter');
   const bounds=await page.locator('#ux23-edge-menu-host [role=menu]').boundingBox();
   assert.ok(bounds&&bounds.x>=7&&bounds.y>=7&&bounds.x+bounds.width<=viewport.width-7&&bounds.y+bounds.height<=viewport.height-7,
    'Menu must stay within the viewport: '+JSON.stringify({viewport,bounds}));
