@@ -247,6 +247,32 @@ async function exercise(page,theme,width){
  await assertInspectorFocusHandoff(page,'Disabling a focused native color swatch must preserve inspector keyboard focus');
  await capture(page,theme,width,'color-swatch-disabled-focus-handoff');
  await nativeSwatch.evaluate(el=>{el.disabled=false;});
+ // A visible color error status can describe only one invalid editor at a
+ // time. Capture both the handoff and the unrelated-Escape regression so the
+ // reviewer can inspect the feedback in every theme and viewport.
+ await nativeSwatch.evaluate(el=>el.click());
+ const picker=page.getByRole('dialog',{name:/Cores/});
+ await picker.waitFor({state:'visible'});
+ await picker.getByRole('tab',{name:'RGB',exact:true}).click();
+ const pickerHex=picker.getByRole('textbox',{name:'Cor hexadecimal',exact:true});
+ const pickerRed=picker.getByRole('spinbutton',{name:'Vermelho — valor',exact:true});
+ await pickerHex.fill('bad');await pickerHex.dispatchEvent('change');
+ assert.equal(await pickerHex.getAttribute('aria-invalid'),'true');
+ await pickerRed.fill('999');await pickerRed.dispatchEvent('change');
+ assert.equal(await pickerHex.getAttribute('aria-invalid'),null);
+ assert.equal(await pickerHex.getAttribute('aria-errormessage'),null);
+ assert.equal(await pickerRed.getAttribute('aria-invalid'),'true');
+ assert.equal(await pickerRed.getAttribute('aria-errormessage'),await picker.locator('.cp-status').getAttribute('id'));
+ await capture(page,theme,width,'color-picker-error-handoff');
+ await pickerRed.press('Escape');
+ await pickerHex.fill('bad');await pickerHex.dispatchEvent('change');
+ await pickerRed.press('Escape');
+ assert.equal(await pickerHex.getAttribute('aria-invalid'),'true');
+ assert.equal(await pickerHex.getAttribute('aria-errormessage'),await picker.locator('.cp-status').getAttribute('id'));
+ await capture(page,theme,width,'color-picker-error-owner');
+ await pickerHex.fill(originalColor);await pickerHex.press('Enter');
+ await picker.getByRole('button',{name:'Fechar seletor de cores',exact:true}).click();
+ await picker.waitFor({state:'detached'});
  const select=page.locator('.ds-property-select').filter({has:page.locator('#fontChoice')});
  const trigger=select.locator('.ds-select-trigger');
  await trigger.scrollIntoViewIfNeeded();await trigger.hover();await capture(page,theme,width,'select-hover');
