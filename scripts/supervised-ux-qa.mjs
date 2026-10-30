@@ -165,7 +165,18 @@ async function exercise(page,theme,width){
  await livePrecision.fill('9');await livePrecision.dispatchEvent('change');
  assert.equal(await livePrecision.getAttribute('aria-invalid'),'true');
  assert.equal(await liveNative.inputValue(),'8');
+ assert.equal(await liveRow.locator('.ds-number-step').first().isDisabled(),true);
+ assert.equal(await liveRow.locator('.ds-number-step').last().isDisabled(),true);
  await capture(page,theme,width,'range-live-invalid');
+ await livePrecision.fill('');await livePrecision.dispatchEvent('change');
+ assert.equal(await livePrecision.inputValue(),'');
+ assert.equal(await liveNative.inputValue(),'8');
+ assert.equal(await liveRow.locator('.ds-number-step').first().isDisabled(),true);
+ assert.equal(await liveRow.locator('.ds-number-step').last().isDisabled(),true);
+ await capture(page,theme,width,'range-live-empty-draft');
+ await livePrecision.fill('8');await livePrecision.dispatchEvent('change');
+ assert.equal(await liveRow.locator('.ds-number-step').first().isEnabled(),true);
+ assert.equal(await liveRow.locator('.ds-number-step').last().isEnabled(),true);
  await liveNative.evaluate(el=>{el.step='any';});
  await page.waitForFunction(()=>document.querySelector('#qaSupervisedRange')?.closest('.ds-property-range')?.querySelector('.ds-prop-number')?.step==='any');
  await livePrecision.fill('9.25');await livePrecision.dispatchEvent('change');
