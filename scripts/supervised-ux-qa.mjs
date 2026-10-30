@@ -253,7 +253,10 @@ async function exercise(page,theme,width){
  await page.evaluate(async()=>{
   window.__qaSupervisedOriginalEyeDropper=window.EyeDropper;
   window.EyeDropper=class{open(){
-   return new Promise(resolve=>{window.__qaSupervisedDropperResolve=resolve;});
+   return new Promise((resolve,reject)=>{
+    window.__qaSupervisedDropperResolve=resolve;
+    window.__qaSupervisedDropperReject=reject;
+   });
   }};
   const label=document.createElement('label');label.className='property-row';
   label.textContent='Cor supervisionada';
@@ -294,11 +297,27 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'color-eyedropper-stale-ignored');
  await page.evaluate(()=>window.__qaSupervisedDropperResolve({sRGBHex:'#ABCDEF'}));
  await page.waitForFunction(()=>document.getElementById('qaSupervisedEyeDropperColor').value==='#abcdef');
+ // Permission failures must remain visible long enough for a human to
+ // review, without presenting the valid HEX field as invalid.
+ await eyedropperButton.click();
+ await page.evaluate(()=>window.__qaSupervisedDropperReject(new Error('permission denied')));
+ const eyedropperError=page.locator('.ds-property-color').filter({has:eyedropperInput})
+  .locator('.ds-prop-error[role="alert"]');
+ await eyedropperError.waitFor({state:'visible'});
+ assert.equal(await eyedropperButton.getAttribute('aria-describedby'),await eyedropperError.getAttribute('id'));
+ assert.equal(await page.locator('.ds-property-color').filter({has:eyedropperInput})
+  .locator('.ds-color-hex').getAttribute('aria-invalid'),null);
+ assert.equal(await eyedropperButton.getAttribute('aria-busy'),null);
+ await capture(page,theme,width,'color-eyedropper-failure-feedback');
+ await eyedropperButton.click();
+ assert.equal(await eyedropperError.isHidden(),true);
+ await page.evaluate(()=>window.__qaSupervisedDropperResolve({sRGBHex:'#ABCDEF'}));
  await page.evaluate(()=>{
   document.getElementById('qaSupervisedEyeDropperColor').closest('label').remove();
   window.EyeDropper=window.__qaSupervisedOriginalEyeDropper;
   delete window.__qaSupervisedOriginalEyeDropper;
   delete window.__qaSupervisedDropperResolve;
+  delete window.__qaSupervisedDropperReject;
   delete window.__qaSupervisedStaleDropperResolve;
  });
  // A visible color error status can describe only one invalid editor at a
