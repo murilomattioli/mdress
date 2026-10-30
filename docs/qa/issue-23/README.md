@@ -1,6 +1,6 @@
 # Issue #23 — evidências duráveis
 
-> **Estado atual (30/10/2026):** a matriz UX-023 exige **113 estados × 2 temas × 4 larguras = 904 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
+> **Estado atual (30/10/2026):** a matriz UX-023 exige **115 estados × 2 temas × 4 larguras = 920 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
 
 
 Capturadas localmente em 29/10/2026, sobre a integração de `7d2688b`, `c341201`, `7e2e19f` e `0a0870c`. Documento sintético padrão; nenhum documento pessoal do usuário.
@@ -41,7 +41,9 @@ Integração de 29/10/2026: [desktop](pdf-weight-1440.png), [mobile](pdf-weight-
 
 O bloqueio de teclas de composição IME foi estendido para **todos os alvos do select portalled**: busca, opções, botão **Mostrar mais**, trigger e listener global. Eventos `isComposing` e teclados legados com `keyCode=229` não podem disparar navegação, typeahead, seleção, expansão ou fechamento do popover. A navegação normal por teclado continua ativa quando não há composição.
 
-O E2E Chromium verifica os dois formatos de eventos nos três tipos de botão, sem perder foco nem fechar a lista, e registra `inspector-font-ime-option.png` e `inspector-font-ime-pagination.png`. O runner supervisionado também registra os estados `select-ime-option-focus` e `select-ime-pagination-focus` em todos os temas e viewports. **Contrato: 113 estados × 8 combinações = 904 PNGs**, sujeitos a revisão humana. Eventos sintéticos verificam o tratamento do componente, mas não substituem testes manuais com um teclado IME real.
+Atualizações assíncronas do catálogo são **adiadas durante a composição ativa**: o campo de busca não é substituído antes do evento `compositionend` e da última edição `input`. O Playwright valida o mesmo nó de busca durante a mutação, a atualização posterior do popover, o foco e o texto final. Capturas adicionais: `inspector-font-ime-catalog-pending.png` e `inspector-font-ime-catalog-resumed.png`.
+
+O E2E Chromium verifica os dois formatos de eventos nos três tipos de botão, sem perder foco nem fechar a lista, e registra `inspector-font-ime-option.png` e `inspector-font-ime-pagination.png`. O runner supervisionado também registra os estados `select-ime-option-focus` e `select-ime-pagination-focus` em todos os temas e viewports. **Contrato: 115 estados × 8 combinações = 920 PNGs**, sujeitos a revisão humana. Eventos sintéticos verificam o tratamento do componente, mas não substituem testes manuais com um teclado IME real.
 
 ## UX-023 — navegação da paginação do seletor de fontes (30/10/2026)
 
