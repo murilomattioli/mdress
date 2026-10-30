@@ -38,6 +38,10 @@ export function openColorPicker(input){
  let restoreFocus=true,handoffOnClose=false,opacity=opacityPercent(input.dataset.opacity),editRevision=0;
  const events=new AbortController();
  const anchor=()=>input.isConnected?input:[...document.querySelectorAll('input[type="color"]')].find(el=>input.id?el.id===input.id:el.getAttribute('aria-label')===input.getAttribute('aria-label'));
+ // Source edits may travel through the app without the picker commit path.
+ // Track events as well as the value so an A→B→A edit still cancels a sample.
+ for(const type of ['input','change'])
+  input.addEventListener(type,()=>{editRevision++;},{signal:events.signal});
  dialog.setAttribute('aria-label','Cores — '+(input.getAttribute('aria-label')||input.closest('label')?.querySelector('.ds-prop-name')?.textContent||'Documento'));
  const header=node('header','cp-header'),heading=node('h2','','Cores'),close=button('Fechar seletor de cores','x'),pipette=button('Capturar cor da tela','pipette');
  header.append(pipette,heading,close);close.onclick=()=>dialog.close();
@@ -161,7 +165,7 @@ export function openColorPicker(input){
  let picking=false;
  pipette.onclick=async()=>{
   if(picking||!dialog.open||active!==dialog||input.disabled)return;
-  const source=anchor(),sourceHex=parseHex(source?.value),revision=editRevision;
+  const source=anchor(),sourceHex=parseHex(source?.value),sourceOpacity=source?.dataset.opacity,revision=editRevision;
   if(!source||source.disabled)return;
   picking=true;pipette.setAttribute('aria-busy','true');pipette.setAttribute('aria-disabled','true');
   if(!errorOwner){status.textContent='';delete status.dataset.error;}
@@ -171,7 +175,7 @@ export function openColorPicker(input){
    // RGB, palette, opacity or external document edit, or a replaced source.
    if(dialog.open&&active===dialog&&!input.disabled&&
     revision===editRevision&&anchor()===source&&!source.disabled&&
-    parseHex(source.value)===sourceHex){
+    parseHex(source.value)===sourceHex&&source.dataset.opacity===sourceOpacity){
     const color=parseHex(result?.sRGBHex);
     if(color)commit(color);
    }
@@ -215,7 +219,10 @@ export function openColorPicker(input){
  const observer=new ResizeObserver(reposition);observer.observe(dialog);
  // A disabled source can no longer accept edits: dismiss its popover and
  // transfer keyboard focus instead of stranding focus inside a dead editor.
- const disabledObserver=new MutationObserver(()=>{
+ const disabledObserver=new MutationObserver(records=>{
+  // A disable/re-enable transition within one task must invalidate an
+  // outstanding native sample even if the final state is enabled.
+  if(records.length)editRevision++;
   if(!input.disabled||!dialog.open)return;
   restoreFocus=false;handoffOnClose=true;dialog.close();
  });
