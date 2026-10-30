@@ -746,6 +746,9 @@ try {
  // A live catalog update that still has zero matches must NOT dismiss the
  // editable search or drop keyboard focus. The same applies when the only
  // matching option is disabled but other native choices remain available.
+ // Keep a mid-query selection intact; resetting the caret makes subsequent
+ // typing replace the wrong characters after a background font update.
+ await liveFontSearch.evaluate(el=>el.setSelectionRange(2,6,'forward'));
  await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
  await page.locator('#fontChoice').evaluate(select=>{
   const group=document.createElement('optgroup');
@@ -758,6 +761,8 @@ try {
   'Unmatched async font insertion must keep the searchable popover open');
  assert.equal(await liveFontSearch.inputValue(),'uxqa-never');
  assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true);
+ assert.deepEqual(await liveFontSearch.evaluate(el=>[el.selectionStart,el.selectionEnd,el.selectionDirection]),
+  [2,6,'forward'],'Live catalog updates must preserve search selection and caret');
  assert.equal(await page.locator('.ds-select-empty[role="status"]').isVisible(),true);
  await page.locator('.ds-select-popover').screenshot({
   path:'test-results/ux-audit/inspector-font-search-live-empty.png',animations:'disabled'
