@@ -206,7 +206,7 @@ async function exercise(page,theme,width){
  const originalColor=await nativeSwatch.inputValue();
  await hex.fill('#BAD');await hex.dispatchEvent('change');
  assert.equal(await hex.getAttribute('aria-invalid'),'true');
- assert.equal(await color.locator('..').locator('.ds-prop-error').isVisible(),true);
+ assert.equal(await color.locator('..').locator('.ds-prop-error:not([role="alert"])').isVisible(),true);
  assert.equal(await page.locator('#accentColor').inputValue(),originalColor);
  await capture(page,theme,width,'color-invalid');
  // A redraw/sync of the inspector must not erase the draft the user is
