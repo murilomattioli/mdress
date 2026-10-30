@@ -984,6 +984,36 @@ try {
   path:'test-results/ux-audit/inspector-font-search-live-pagination.png',animations:'disabled'
  });
  await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaLiveFontGroup').remove());
+ // IME candidate confirmation is not a request to select a font. In
+ // particular, Enter and Escape belong to the composition window, and
+ // older Chromium integrations can report keyCode=229 without isComposing.
+ await liveFontSearch.fill('palatino');
+ const composingKeys=await liveFontSearch.evaluate(el=>{
+  const events=['Enter','Escape','ArrowDown'].map(key=>{
+   const event=new KeyboardEvent('keydown',{
+    key,bubbles:true,cancelable:true,isComposing:true
+   });
+   el.dispatchEvent(event);
+   return {key,prevented:event.defaultPrevented};
+  });
+  const legacy=new KeyboardEvent('keydown',{
+   key:'Enter',bubbles:true,cancelable:true
+  });
+  Object.defineProperty(legacy,'keyCode',{value:229});
+  el.dispatchEvent(legacy);
+  return {events,legacyPrevented:legacy.defaultPrevented};
+ });
+ assert.ok(composingKeys.events.every(event=>!event.prevented)&&!composingKeys.legacyPrevented,
+  'Font combobox must leave IME candidate keystrokes to the browser');
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'true',
+  'IME Escape/Enter must not dismiss the font picker');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true,
+  'IME arrow navigation must keep focus in the search editor');
+ assert.equal(await liveFontSearch.inputValue(),'palatino',
+  'IME key handling must not overwrite the active font query');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-ime-composition.png',animations:'disabled'
+ });
  await page.keyboard.press('Escape');
  assert.equal(await fontTrigger.getAttribute('aria-expanded'),'false');
  // Two open events during one pending catalog request must not append
