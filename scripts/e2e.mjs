@@ -369,6 +369,16 @@ try {
  assert.equal(await qaRangePrecision.getAttribute('max'),'14');
  await qaRangePrecision.fill('8');await qaRangePrecision.dispatchEvent('change');
  assert.equal(await qaRange.inputValue(),'8','Range precision must commit on the new native step grid');
+ // A still-focused, valid draft must be stepped from its visible value.
+ // Programmatic activation avoids blur/change implicitly committing it first.
+ await qaRangePrecision.fill('11');
+ assert.equal(await qaRange.inputValue(),'8','Typing alone must not commit the precision draft');
+ await qaRangeRow.screenshot({path:'test-results/ux-audit/inspector-range-live-valid-draft.png',animations:'disabled'});
+ await qaRangeRow.locator('.ds-number-step').last().evaluate(el=>el.click());
+ assert.equal(await qaRange.inputValue(),'14','Stepper must advance from valid draft 11, not stale native 8');
+ assert.equal(await qaRangePrecision.inputValue(),'14','Committed step must sync the precision field');
+ await qaRangePrecision.fill('8');await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await qaRange.inputValue(),'8');
  await qaRangePrecision.fill('9');await qaRangePrecision.dispatchEvent('change');
  assert.equal(await qaRangePrecision.getAttribute('aria-invalid'),'true','Live step mismatch must be explained');
  assert.equal(await qaRange.inputValue(),'8','Invalid draft must not mutate native slider');

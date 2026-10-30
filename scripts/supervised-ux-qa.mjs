@@ -167,6 +167,15 @@ async function exercise(page,theme,width){
  assert.equal(await liveNative.inputValue(),'8');
  await liveRow.scrollIntoViewIfNeeded();
  await capture(page,theme,width,'range-live-valid');
+ await livePrecision.fill('11');
+ assert.equal(await liveNative.inputValue(),'8','Typing a valid draft must not commit before change');
+ await capture(page,theme,width,'range-live-valid-draft');
+ await liveRow.locator('.ds-number-step').last().evaluate(el=>el.click());
+ assert.equal(await liveNative.inputValue(),'14','Stepper must use the visible valid draft');
+ assert.equal(await livePrecision.inputValue(),'14');
+ await capture(page,theme,width,'range-live-valid-draft-stepper');
+ await livePrecision.fill('8');await livePrecision.dispatchEvent('change');
+ assert.equal(await liveNative.inputValue(),'8');
  await livePrecision.fill('9');await livePrecision.dispatchEvent('change');
  assert.equal(await livePrecision.getAttribute('aria-invalid'),'true');
  assert.equal(await liveNative.inputValue(),'8');

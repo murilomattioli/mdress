@@ -257,9 +257,12 @@ function enhanceRange(label,input,title){
   if(!Number.isNaN(value))field.setAttribute('data-value',formatControlValue(value,unit));
  };
  const increment=direction=>{
-  const {min,max,step,valid}=rangeConstraints(input);
-  if(!valid||editing&&!valid())return;
-  const next=rangeStepTarget(Number(input.value),direction,min,max,step);
+  const {min,max,step,valid:boundsValid}=rangeConstraints(input);
+  if(!boundsValid||(editing&&!valid()))return;
+  // A valid, uncommitted precision draft is the value the user sees.
+  // Step from that draft, not the older native value; do not shadow valid().
+  const current=editing?numeric.valueAsNumber:Number(input.value);
+  const next=rangeStepTarget(current,direction,min,max,step);
   if(next===null)return;
   editing=false;nativeCommit(input,next);update();
  };
