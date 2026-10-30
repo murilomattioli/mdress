@@ -65,8 +65,8 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-disabled-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-hidden-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-detached-focus-handoff'));
- assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,94,'94 distinct states are mandatory');
- assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,94,'State names must be unique');
+ assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,98,'98 distinct states are mandatory');
+ assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,98,'State names must be unique');
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-valid-draft-noop-stepper'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-valid-draft-boundary'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-valid-draft'));
@@ -84,7 +84,7 @@ test('visual evidence requires every control state in every viewport exactly onc
   assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes(state),state+' must have supervised visual evidence');
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('color-picker-error-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('color-picker-error-owner'));
- for(const state of ['color-picker-eyedropper-stale-manual','color-picker-eyedropper-stale-external','color-picker-eyedropper-stale-opacity'])
+ for(const state of ['color-picker-eyedropper-stale-manual','color-picker-eyedropper-stale-external','color-picker-eyedropper-stale-opacity','color-picker-eyedropper-stale-failure','color-picker-eyedropper-current-failure','color-picker-eyedropper-error-owner','color-picker-save-preserves-error'])
   assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes(state),state+' must have supervised visual evidence');
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('color-picker-switch-text'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('color-picker-switch-back'));
