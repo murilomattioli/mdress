@@ -429,13 +429,26 @@ function enhanceColor(label,input,title){
  pipette.append(pipetteIcon);pipette.setAttribute('aria-label','Capturar cor da tela — '+title);
  const canPick=typeof window.EyeDropper==='function';
  pipette.title=canPick?'Capturar cor da tela':'Conta-gotas indisponível neste navegador';right.append(pipette);
+ // Native capture failures are not invalid HEX drafts. Keep a separate,
+ // persistent status owned by the eyedropper, including its ARIA reference.
+ const pipetteError=span('ds-prop-error');
+ pipetteError.id='ds-pipette-error-'+(++nextUid);
+ pipetteError.setAttribute('role','alert');
+ pipetteError.hidden=true;
+ label.append(pipetteError);
+ const setPipetteError=message=>{
+  pipetteError.textContent=message||'';
+  pipetteError.hidden=!message;
+  if(message)pipette.setAttribute('aria-describedby',pipetteError.id);
+  else pipette.removeAttribute('aria-describedby');
+ };
  let picking=false,dropperEpoch=0;
  const isHex=v=>/^#[0-9a-f]{6}$/i.test(v);
  let editing=false;
  const update=()=>{
   const v=input.value.toUpperCase();
   if(input.disabled){
-   editing=false;
+   editing=false;setPipetteError('');
    // Invalidate an in-flight native picker immediately. If this source is
    // re-enabled before the old promise settles, its result is still stale.
    if(picking){dropperEpoch++;picking=false;}
@@ -464,6 +477,7 @@ function enhanceColor(label,input,title){
  pipette.addEventListener('click',async event=>{
   event.preventDefault();event.stopPropagation();
   if(input.disabled||picking||!canPick)return;
+  setPipetteError('');
   const epoch=++dropperEpoch,sourceColor=input.value;
   picking=true;update();
   try{
@@ -476,7 +490,7 @@ function enhanceColor(label,input,title){
    }
   }catch(error){
    if(epoch===dropperEpoch&&!input.disabled&&error?.name!=='AbortError')
-    setError('Não foi possível capturar a cor. Tente novamente.');
+    setPipetteError('Não foi possível capturar a cor. Tente novamente.');
   }finally{
    // An older promise must not clear a newer request's busy state or focus.
    if(epoch===dropperEpoch){
@@ -506,7 +520,7 @@ function enhanceColor(label,input,title){
   // Undo, preset changes and edits from another control supersede a pending
   // screen sample, even if the source remains enabled throughout.
   if(picking){dropperEpoch++;picking=false;}
-  editing=false;update();
+  editing=false;setPipetteError('');update();
  };
  input.addEventListener('input',nativeUpdate);input.addEventListener('change',nativeUpdate);
  new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
