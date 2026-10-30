@@ -429,41 +429,63 @@ function enhanceColor(label,input,title){
  pipette.append(pipetteIcon);pipette.setAttribute('aria-label','Capturar cor da tela — '+title);
  const canPick=typeof window.EyeDropper==='function';
  pipette.title=canPick?'Capturar cor da tela':'Conta-gotas indisponível neste navegador';right.append(pipette);
- let picking=false;
+ let picking=false,dropperEpoch=0;
  const isHex=v=>/^#[0-9a-f]{6}$/i.test(v);
  let editing=false;
  const update=()=>{
   const v=input.value.toUpperCase();
-  if(input.disabled)editing=false;
+  if(input.disabled){
+   editing=false;
+   // Invalidate an in-flight native picker immediately. If this source is
+   // re-enabled before the old promise settles, its result is still stale.
+   if(picking){dropperEpoch++;picking=false;}
+  }
   // App-level inspector synchronization must not discard an uncommitted
   // hex draft (especially an invalid one) or clear its error announcement.
   if(!editing){hex.value=v;setError('');}
   const focusedHex=document.activeElement===hex;
+  const focusedPipette=document.activeElement===pipette;
   hex.disabled=input.disabled;
-  pipette.disabled=input.disabled||!canPick||picking;
+  // Keep the busy button keyboard-focusable. Native disabled during a
+  // pending EyeDropper request silently moves keyboard focus to <body>.
+  pipette.disabled=input.disabled||!canPick;
+  if(picking){
+   pipette.setAttribute('aria-busy','true');
+   pipette.setAttribute('aria-disabled','true');
+  }else{
+   pipette.removeAttribute('aria-busy');
+   pipette.removeAttribute('aria-disabled');
+  }
   if(input.disabled&&focusedHex)focusInspectorNeighbor(hex,{visibleOnly:true});
+  if(input.disabled&&focusedPipette)focusInspectorNeighbor(pipette,{visibleOnly:true});
   restoreNativeFocus();
   swatch.style.backgroundColor=v;
-  pipette.disabled=input.disabled||!canPick||picking;
  };
  pipette.addEventListener('click',async event=>{
   event.preventDefault();event.stopPropagation();
   if(input.disabled||picking||!canPick)return;
+  const epoch=++dropperEpoch,sourceColor=input.value;
   picking=true;update();
   try{
    const result=await new window.EyeDropper().open();
-   if(!input.disabled&&input.isConnected&&isHex(result.sRGBHex)){
-    editing=false;nativeCommit(input,result.sRGBHex);update();
+   if(epoch===dropperEpoch&&!input.disabled&&input.isConnected&&
+    input.value===sourceColor&&isHex(result?.sRGBHex)){
+    // Native input/change events below are our own commit, not an external
+    // edit that should invalidate this request.
+    picking=false;editing=false;nativeCommit(input,result.sRGBHex);update();
    }
-  }catch(error){if(error.name!=='AbortError')setError('Não foi possível capturar a cor. Tente novamente.');}
-  finally{
-   picking=false;pipette.disabled=input.disabled||!canPick;
-   // Native EyeDropper may return focus to <body>. Restore it only when the
-   // user has not deliberately moved to another field while awaiting a result.
-   const current=document.activeElement;
-   if(!pipette.disabled&&pipette.isConnected&&
-    (current===document.body||current===pipette))
-    pipette.focus({preventScroll:true});
+  }catch(error){
+   if(epoch===dropperEpoch&&!input.disabled&&error?.name!=='AbortError')
+    setError('Não foi possível capturar a cor. Tente novamente.');
+  }finally{
+   // An older promise must not clear a newer request's busy state or focus.
+   if(epoch===dropperEpoch){
+    picking=false;update();
+    const current=document.activeElement;
+    if(!pipette.disabled&&pipette.isConnected&&
+     (current===document.body||current===pipette))
+     pipette.focus({preventScroll:true});
+   }
   }
  });
  hex.addEventListener('input',()=>{
@@ -480,7 +502,12 @@ function enhanceColor(label,input,title){
   if(e.key==='Enter'){hex.dispatchEvent(new Event('change'));if(isHex(hex.value.trim()))hex.blur();}
  });
  // A real native swatch edit takes precedence over the pending text draft.
- const nativeUpdate=()=>{editing=false;update();};
+ const nativeUpdate=()=>{
+  // Undo, preset changes and edits from another control supersede a pending
+  // screen sample, even if the source remains enabled throughout.
+  if(picking){dropperEpoch++;picking=false;}
+  editing=false;update();
+ };
  input.addEventListener('input',nativeUpdate);input.addEventListener('change',nativeUpdate);
  new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
  controllers.push(update);update();
