@@ -86,3 +86,11 @@ O slider de um campo numérico com limites explícitos desabilita quando o contr
 ### Troca de seletor de cores sem perda de foco (UX-023)
 
 Os estados `color-picker-switch-text` e `color-picker-switch-back` comprovam a transição **Destaque → Texto → Destaque** sem evento de ponteiro. O diálogo antigo pode disparar `close` depois que o novo já recebeu foco; nesse caso, não deve devolver o foco ao controle anterior nem fechar o novo seletor. Os identificadores de abas, painéis e erros são exclusivos por instância, inclusive enquanto os dois elementos de diálogo coexistem durante o fechamento assíncrono. O gate `node scripts/color-picker-qa.mjs` testa essas transições e grava `switch-text-*.png` / `switch-back-*.png` em 1440, 768, 390 e 320px. A matriz supervisionada exige 80 estados e 640 capturas; revisão humana permanece obrigatória.
+
+### Conta-gotas assíncrono e foco (UX-023)
+
+O conta-gotas do diálogo de cores aceita **uma única solicitação nativa pendente**: o botão continua navegável por teclado, anuncia `aria-busy` e `aria-disabled` e recebe feedback visual sem perder o foco. Respostas tardias, inclusive após Escape e abertura de outro seletor, não podem alterar a cor do documento nem fechar o novo diálogo. `scripts/color-picker-qa.mjs` exercita resolução adiada, cliques repetidos, encerramento durante a solicitação e produz `eyedropper-pending.png` e `eyedropper-stale-ignored.png`.
+
+No controle de cor do inspetor, uma resolução assíncrona só devolve o foco ao botão quando o navegador deixou o foco em `body` ou no próprio botão. Se a pessoa navegou deliberadamente para o campo HEX, esse foco é preservado. `scripts/e2e.mjs` verifica as duas situações e gera `inspector-eyedropper-preserved-focus.png` e `inspector-eyedropper-restored-focus.png`.
+
+Essas quatro capturas são **evidências funcionais adicionais** dos gates Chromium, não vereditos humanos nem estados novos da matriz de 640 imagens. A revisão visual da galeria supervisionada e das interações continua obrigatória antes de qualquer merge ou publicação.
