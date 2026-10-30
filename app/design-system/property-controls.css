@@ -694,6 +694,9 @@
 .design-inspector .ds-scrub-control .ds-prop-track,.design-inspector .ds-scrub-number-track{position:relative;flex:1;min-width:24px;height:100%;min-height:0;cursor:ew-resize}
 .design-inspector .ds-scrub-control :is(.ds-prop-fill,.ds-prop-ticks,.ds-prop-thumb),.design-inspector .ds-scrub-control .ds-prop-track::before{display:none}
 .design-inspector .ds-scrub-control :is(.ds-range-native,.ds-scrub-range){position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:ew-resize;padding:0}
+.design-inspector .ds-scrub-number-track:has(.ds-scrub-range:disabled),
+.design-inspector .ds-scrub-control .ds-scrub-range:disabled{cursor:not-allowed}
+.design-inspector .ds-property-number:has(.ds-number-native[aria-invalid="true"]) .ds-scrub-number-track{opacity:.5}
 .design-inspector .ds-scrub-control .ds-prop-numberbox{flex:0 0 72px;width:72px;height:100%;min-width:0;border:0;background:transparent;padding:0 4px}
 .design-inspector .ds-scrub-control .ds-number-native{flex:0 0 56px;width:56px;min-width:0;background:transparent;border:0;padding:0 3px;text-align:right}
 .design-inspector .ds-scrub-control .ds-prop-unit{flex:none;padding-right:5px}

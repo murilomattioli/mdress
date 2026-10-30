@@ -673,6 +673,9 @@ async function exercise(page,theme,width){
  await input.scrollIntoViewIfNeeded();
  await input.focus();await capture(page,theme,width,'number-focus');
  const originalNumber=await input.inputValue();
+ const draftScrub=number.locator('.ds-scrub-range');
+ const originalScrub=await draftScrub.inputValue();
+ const originalProgress=await number.locator('.ds-number-actions').evaluate(el=>el.style.getPropertyValue('--ds-range-progress'));
  await input.fill('9999');await input.dispatchEvent('change');
  assert.equal(await input.getAttribute('aria-invalid'),'true');
  assert.equal(await number.locator('..').locator('.ds-prop-error').isVisible(),true);
@@ -683,7 +686,20 @@ async function exercise(page,theme,width){
  }));
  assert.ok(numberGeometry.inputWidth>=52,'Numeric drafts need a readable multi-digit field: '+JSON.stringify(numberGeometry));
  await capture(page,theme,width,'number-invalid');
+ assert.equal(await draftScrub.isDisabled(),true,'Invalid draft must disable scrub');
+ assert.equal(await draftScrub.inputValue(),originalScrub);
+ assert.equal(await number.locator('.ds-number-actions').evaluate(el=>el.style.getPropertyValue('--ds-range-progress')),originalProgress);
+ await capture(page,theme,width,'number-slider-invalid-draft');
  await input.press('Escape');
+ assert.equal(await draftScrub.isEnabled(),true);
+ await input.fill('');
+ assert.equal(await input.getAttribute('aria-invalid'),'true');
+ assert.equal(await draftScrub.isDisabled(),true,'Empty draft must disable scrub');
+ assert.equal(await draftScrub.inputValue(),originalScrub);
+ await capture(page,theme,width,'number-slider-empty-draft');
+ await input.press('Escape');
+ assert.equal(await draftScrub.isEnabled(),true);
+
  assert.equal(await input.inputValue(),originalNumber);
  assert.equal(await input.getAttribute('aria-invalid'),null);
  const nextNumber=originalNumber==='18'?'19':'18';

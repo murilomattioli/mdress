@@ -42,7 +42,7 @@ Reference: user-supplied screenshots of Designminis Background Remover property 
 7. Mesh gallery, editor and theme persistence unchanged.
 8. Canvas responsive views at 1366, 1600 and mobile; PDF remains text-extractable.
 9. Playwright regression verifies unchanged values produce zero native `input`/`change` events for range, color, select, segment and binary; screenshot of localized binary control is retained as visual evidence.
-10. Supervised UX-023 matrix: 83 states × two themes × four widths (1440/1024/768/390px) = 664 screenshots; all must be reviewed by a human before merge.
+10. Supervised UX-023 matrix: 86 states × two themes × four widths (1440/1024/768/390px) = 688 screenshots; all must be reviewed by a human before merge.
 
 11. At 390px, numeric steppers, color swatches, dropdowns, segmented/binary buttons and precision inputs expose 44px mobile targets; Playwright asserts the geometry and captures the inspector overlay.
 
@@ -63,3 +63,8 @@ This ships the core family, not a complete Figma-grade DS. Future items: pointer
 - Disabling/re-enabling the source, or changing the source color while a request is pending, invalidates that request. Stale resolutions cannot overwrite newer edits or reset a newer request's busy state.
 - Disabled focused eyedroppers transfer keyboard focus to a visible inspector control; narrow viewports provide a 44 × 44px touch target.
 - Mandatory supervised states: `color-eyedropper-pending-focus`, `color-eyedropper-disabled-focus-handoff`, `color-eyedropper-stale-ignored`. Automated screenshots require human inspection, not automatic UX approval.
+
+
+### Invalid numeric drafts and auxiliary scrub
+
+An empty, out-of-range or off-step number draft disables the scrub slider while preserving the last committed thumb/progress position. Escape or valid correction restores scrubbing. Chromium and supervised screenshots `number-slider-invalid-draft` and `number-slider-empty-draft` are mandatory; automated checks do not replace human review.

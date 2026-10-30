@@ -64,14 +64,16 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-disabled-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-hidden-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-detached-focus-handoff'));
- assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,84,'84 distinct states are mandatory');
- assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,84,'State names must be unique');
+ assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,86,'86 distinct states are mandatory');
+ assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,86,'State names must be unique');
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('binary-external-selection-focus'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('segment-external-selection-focus'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-any-stepper'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-grid-edge'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('number-disabled-invalid-draft'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('number-rollback-valid-draft'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('number-slider-invalid-draft'));
+ assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('number-slider-empty-draft'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('color-draft-sync'));
  for(const state of ['color-eyedropper-pending-focus','color-eyedropper-disabled-focus-handoff','color-eyedropper-stale-ignored','color-eyedropper-failure-feedback'])
   assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes(state),state+' must have supervised visual evidence');

@@ -357,11 +357,15 @@ function enhanceNumber(label,input,title){
    // Do not expose a misleading default 0..100 range or a NaN progress track.
    const usable=numericScrubBoundsValid(min,max,input.step);
    slider.min=input.min;slider.max=input.max;slider.step=input.step||'1';
-   slider.disabled=input.disabled||!usable;
-   if(usable){
-    slider.value=input.value;
+   // Invalid drafts cannot drive the scrub. Retain the last committed
+   // position, not a fake zero from Number('') or a NaN CSS percentage.
+   const shown=ok?input.valueAsNumber:Number(committed);
+   const hasPosition=usable&&Number.isFinite(shown)&&shown>=min&&shown<=max;
+   slider.disabled=input.disabled||!usable||!ok;
+   if(hasPosition){
+    slider.value=String(shown);
     controls.style.setProperty('--ds-range-progress',
-     clamp((Number(input.value)-min)/(max-min)*100,0,100)+'%');
+     clamp((shown-min)/(max-min)*100,0,100)+'%');
    }else controls.style.setProperty('--ds-range-progress','0%');
   }
   setError(!input.disabled&&editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
