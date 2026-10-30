@@ -35,7 +35,7 @@ export function openColorPicker(input){
  let hex=parseHex(input.value)||'#000000',hsv=rgbToHsv(hexToRgb(hex)),saved=savedColors();
  const dialog=node('dialog','mdress-color-picker');
  const pickerId=++nextPickerId;active=dialog;
- let restoreFocus=true,handoffOnClose=false,opacity=opacityPercent(input.dataset.opacity);
+ let restoreFocus=true,handoffOnClose=false,opacity=opacityPercent(input.dataset.opacity),editRevision=0;
  const events=new AbortController();
  const anchor=()=>input.isConnected?input:[...document.querySelectorAll('input[type="color"]')].find(el=>input.id?el.id===input.id:el.getAttribute('aria-label')===input.getAttribute('aria-label'));
  dialog.setAttribute('aria-label','Cores — '+(input.getAttribute('aria-label')||input.closest('label')?.querySelector('.ds-prop-name')?.textContent||'Documento'));
@@ -81,6 +81,8 @@ export function openColorPicker(input){
    showFieldError(control,'Use um valor inteiro entre 0% e 100%.');
    return;
   }
+  // An explicit opacity edit supersedes any pending screen sample too.
+  editRevision++;
   clearFieldError(control);
   opacity=value;sync();
   const target=anchor();
@@ -141,7 +143,11 @@ export function openColorPicker(input){
   const rgb=hexToRgb(hex);channels.forEach(({range,number},i)=>{range.value=number.value=rgb[i];number.removeAttribute('aria-invalid');number.removeAttribute('aria-errormessage');const low=[...rgb],high=[...rgb];low[i]=0;high[i]=255;range.style.background=`linear-gradient(to right,${rgbToHex(low)},${rgbToHex(high)})`;});
  }
  function commit(value,keepHSV=false){
-  if(input.disabled){dialog.close();return;}hex=value;if(!keepHSV)hsv=rgbToHsv(hexToRgb(hex));status.textContent='';delete status.dataset.error;sync();
+  if(input.disabled){dialog.close();return;}
+  // The user's palette, HEX, RGB or spectrum edit takes precedence over an
+  // asynchronous EyeDropper response, even when the source HEX is unchanged.
+  editRevision++;
+  hex=value;if(!keepHSV)hsv=rgbToHsv(hexToRgb(hex));status.textContent='';delete status.dataset.error;sync();
   const target=anchor();if(target){
    // Native color inputs normalize case; compare semantic colors, not raw strings.
    // Enter followed by change and reselecting a swatch must not duplicate edits.
@@ -155,10 +161,17 @@ export function openColorPicker(input){
  let picking=false;
  pipette.onclick=async()=>{
   if(picking||!dialog.open||active!==dialog||input.disabled)return;
+  const source=anchor(),sourceHex=parseHex(source?.value),revision=editRevision;
+  if(!source||source.disabled)return;
   picking=true;pipette.setAttribute('aria-busy','true');pipette.setAttribute('aria-disabled','true');
+  if(!errorOwner){status.textContent='';delete status.dataset.error;}
   try{
    const result=await new window.EyeDropper().open();
-   if(dialog.open&&active===dialog&&!input.disabled){
+   // Native sampling is asynchronous. Do not overwrite an intervening HEX,
+   // RGB, palette, opacity or external document edit, or a replaced source.
+   if(dialog.open&&active===dialog&&!input.disabled&&
+    revision===editRevision&&anchor()===source&&!source.disabled&&
+    parseHex(source.value)===sourceHex){
     const color=parseHex(result?.sRGBHex);
     if(color)commit(color);
    }
