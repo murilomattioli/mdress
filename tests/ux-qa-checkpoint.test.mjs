@@ -3,7 +3,7 @@ import {strict as assert} from 'node:assert';
 import {mkdtemp,readFile,readdir,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {writeUxQaResumeCheckpoint,reviewSessionForResume} from '../scripts/ux-qa-checkpoint.mjs';
+import {writeUxQaResumeCheckpoint,writeUxQaReportAtomic,reviewSessionForResume} from '../scripts/ux-qa-checkpoint.mjs';
 import {resumableUxViewportRows,UX_QA_REQUIRED_SCREENSHOTS,validateHumanReviewEvidence} from '../scripts/ux-qa-coverage.mjs';
 
 test('headed runner checkpoints complete viewports atomically without granting UX approval',async()=>{
@@ -50,4 +50,21 @@ test('recaptured viewports invalidate previous human review IDs, fully reused on
  assert.equal(validateHumanReviewEvidence(oldReview,newId).valid,false,
   'A stale exported review cannot approve new screenshots');
  assert.throws(()=>reviewSessionForResume(oldId,9,8),/inválida/);
+});
+
+test('final report and human verdict replace JSON atomically without leftover temporary files',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'mdress-final-atomic-'));
+ const path=join(directory,'report.json');
+ try{
+  await writeUxQaReportAtomic(path,{schema:6,reviewSessionId:'capture',humanReview:{status:'not-reviewed'}});
+  const approved={schema:6,reviewSessionId:'capture',humanReview:{status:'approved'}};
+  await writeUxQaReportAtomic(path,approved);
+  assert.deepEqual(JSON.parse(await readFile(path,'utf8')),approved);
+  assert.deepEqual(await readdir(directory),['report.json']);
+  await assert.rejects(writeUxQaReportAtomic(path,{bad:1n}),/BigInt/);
+  assert.deepEqual(JSON.parse(await readFile(path,'utf8')),approved,
+   'Serialization failure must not corrupt the previously persisted report');
+  assert.deepEqual(await readdir(directory),['report.json'],
+   'Failed writes must clean up their temporary files');
+ }finally{await rm(directory,{recursive:true,force:true});}
 });
