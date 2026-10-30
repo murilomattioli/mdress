@@ -654,6 +654,63 @@ async function exercise(page,theme,width){
  assert.equal(await page.evaluate(()=>document.activeElement?.matches('.ds-select-popover [role="option"]:not(:disabled)')),true,
   'Removing a focused native option must restore focus inside the refreshed listbox');
  await capture(page,theme,width,'select-live-options-removed');
+ // Search remains editable across asynchronous catalog mutations even if
+ // nothing matches. Capturing the live empty state prevents a green CI run
+ // from hiding a popover that disappeared during a background update.
+ const fontSearch=page.getByRole('searchbox',{name:'Buscar fonte'});
+ await fontSearch.fill('uxqa-no-match');
+ await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
+ await page.locator('#fontChoice').evaluate(el=>{
+  el.querySelector('optgroup').append(new Option('Unrelated QA Font','qa-unmatched'));
+ });
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
+ assert.equal(await trigger.getAttribute('aria-expanded'),'true');
+ assert.equal(await fontSearch.inputValue(),'uxqa-no-match');
+ assert.equal(await fontSearch.evaluate(el=>el===document.activeElement),true);
+ assert.equal(await page.locator('.ds-select-empty[role="status"]').isVisible(),true);
+ await capture(page,theme,width,'select-live-search-empty');
+ await page.locator('#fontChoice option[value="qa-unmatched"]').evaluate(el=>el.remove());
+ await fontSearch.fill('');
+ // A disabled-only filtered result is still a valid search: it should be
+ // announced and shown disabled, not close the entire combobox.
+ await page.locator('#fontChoice').evaluate(el=>{
+  const option=new Option('UXQA disabled only','qa-disabled-only');
+  option.disabled=true;el.querySelector('optgroup').append(option);
+ });
+ await fontSearch.fill('uxqa disabled only');
+ await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
+ await page.locator('#fontChoice option[value="qa-disabled-only"]').evaluate(el=>{el.label='UXQA disabled only revised';});
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
+ assert.equal(await trigger.getAttribute('aria-expanded'),'true');
+ assert.equal(await fontSearch.evaluate(el=>el===document.activeElement),true);
+ assert.equal(await page.locator('.ds-select-option:visible').count(),1);
+ assert.equal(await page.locator('.ds-select-option:visible').first().isDisabled(),true);
+ await capture(page,theme,width,'select-live-search-disabled');
+ await page.locator('#fontChoice option[value="qa-disabled-only"]').evaluate(el=>el.remove());
+ await fontSearch.fill('');
+ // More than one page of filtered options: keyboard focus on the pagination
+ // action must survive a live native-option refresh.
+ await page.locator('#fontChoice').evaluate(el=>{
+  const group=document.createElement('optgroup');group.id='qaPaginationGroup';
+  group.label='UXQA pagination';
+  for(let i=0;i<66;i++)group.append(new Option('UXQA pagination '+i,'qa-pagination-'+i));
+  el.append(group);
+ });
+ await fontSearch.fill('UXQA pagination');
+ await page.waitForFunction(()=>document.querySelectorAll('.ds-select-popover [role="option"]').length===60);
+ await page.locator('.ds-select-popover [role="option"]').last().focus();
+ await page.keyboard.press('ArrowDown');
+ const fontMore=page.locator('.ds-select-more');
+ assert.equal(await fontMore.evaluate(el=>el===document.activeElement),true);
+ await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
+ await page.locator('#fontChoice option[value="qa-pagination-0"]').evaluate(el=>{el.label='UXQA pagination 0 updated';});
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
+ assert.equal(await fontMore.evaluate(el=>el===document.activeElement),true,
+  'Live pagination refresh must retain the focused action');
+ await capture(page,theme,width,'select-live-pagination-focus');
+ await page.locator('#qaPaginationGroup').evaluate(el=>el.remove());
+ await fontSearch.fill('');
+ await page.locator('.ds-select-popover [data-value="system"]').waitFor({state:'visible'});
  // A hidden native optgroup must not leak its options into the portalled UI.
  await firstGroup.evaluate(el=>{el.hidden=true;});
  await page.waitForFunction(()=>!document.querySelector('.ds-select-popover [data-value="system"]'));
