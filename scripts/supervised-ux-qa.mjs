@@ -333,6 +333,32 @@ async function exercise(page,theme,width){
  await capture(page,theme,width,'color-eyedropper-stale-ignored');
  await page.evaluate(()=>window.__qaSupervisedDropperResolve({sRGBHex:'#ABCDEF'}));
  await page.waitForFunction(()=>document.getElementById('qaSupervisedEyeDropperColor').value==='#abcdef');
+ // Inline HEX drafts must win the same native sampling race as the full
+ // picker. Keep their visual state available for human review.
+ const inlineHex=page.locator('.ds-property-color').filter({has:eyedropperInput}).locator('.ds-color-hex');
+ await eyedropperButton.click();
+ await inlineHex.fill('#112233');
+ assert.equal(await eyedropperButton.getAttribute('aria-busy'),null);
+ await page.evaluate(()=>window.__qaSupervisedDropperResolve({sRGBHex:'#FFFFFF'}));
+ assert.equal(await eyedropperInput.inputValue(),'#abcdef');
+ assert.equal(await inlineHex.inputValue(),'#112233');
+ await capture(page,theme,width,'color-eyedropper-inline-valid-draft');
+ await inlineHex.press('Escape');
+ await eyedropperButton.click();
+ await inlineHex.fill('bad');
+ assert.equal(await inlineHex.getAttribute('aria-invalid'),'true');
+ await page.evaluate(()=>window.__qaSupervisedDropperReject(new Error('obsolete native failure')));
+ assert.equal(await inlineHex.inputValue(),'bad');
+ assert.equal(await inlineHex.getAttribute('aria-invalid'),'true');
+ await capture(page,theme,width,'color-eyedropper-inline-invalid-draft');
+ await inlineHex.press('Escape');
+ await eyedropperButton.click();
+ await eyedropperInput.evaluate(el=>{el.disabled=true;el.disabled=false;});
+ await page.waitForFunction(()=>document.querySelector('#qaSupervisedEyeDropperColor')
+  ?.closest('.ds-property-color')?.querySelector('.ds-color-pipette')?.getAttribute('aria-busy')===null);
+ await page.evaluate(()=>window.__qaSupervisedDropperResolve({sRGBHex:'#FFFFFF'}));
+ assert.equal(await eyedropperInput.inputValue(),'#abcdef');
+ await capture(page,theme,width,'color-eyedropper-inline-rapid-reenable');
  // Permission failures must remain visible long enough for a human to
  // review, without presenting the valid HEX field as invalid.
  await eyedropperButton.click();
