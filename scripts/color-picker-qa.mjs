@@ -133,6 +133,11 @@ try{
   assert.equal(await hex.getAttribute('aria-invalid'),'true',
    'Cancelling an unrelated RGB field must not erase the active HEX error');
   await assertDescribedError(hex);
+  const validationBeforeSave=await dialog.locator('.cp-status').textContent();
+  await dialog.getByRole('button',{name:'Salvar cor atual',exact:true}).click();
+  assert.equal(await dialog.locator('.cp-status').textContent(),validationBeforeSave,
+   'Saving the committed color must not overwrite an active HEX validation error');
+  await assertDescribedError(hex);
   await page.screenshot({path:`test-results/color-picker/error-owner-${width}.png`});
   await hex.fill('#123456');await hex.press('Enter');assert.equal(await input.inputValue(),'#123456');
   assert.equal(await dialog.locator('.cp-status').textContent(),'','Successful edit clears the shared error');
@@ -223,7 +228,7 @@ try{
   window.__qaDropperCalls=0;
   window.EyeDropper=class{open(){
    window.__qaDropperCalls++;
-   return new Promise(resolve=>{window.__qaDropperResolve=resolve;});
+   return new Promise((resolve,reject)=>{window.__qaDropperResolve=resolve;window.__qaDropperReject=reject;});
   }};
   document.getElementById('accentColor').click();
  });
@@ -301,8 +306,43 @@ try{
   'A pending sample must not overwrite a newer opacity edit');
  assert.equal(await page.locator('#accentColor').getAttribute('data-opacity'),'0.41');
  await dialog.screenshot({path:'test-results/color-picker/eyedropper-opacity-edit-preserved.png',animations:'disabled'});
+ // Rejected native samples are also asynchronous: obsolete failures must
+ // not replace validation messages or invent errors after a newer edit.
  await asyncDropper.click();
  assert.equal(await page.evaluate(()=>window.__qaDropperCalls),7);
+ await pendingHex.fill('#2468AC');await pendingHex.press('Enter');
+ await page.evaluate(()=>window.__qaDropperReject(new Error('Native device unavailable')));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.equal(await page.locator('#accentColor').inputValue(),'#2468ac');
+ assert.equal(await dialog.locator('.cp-status').textContent(),'','A stale native failure must not interrupt a newer HEX edit');
+ await dialog.screenshot({path:'test-results/color-picker/eyedropper-stale-failure-ignored.png',animations:'disabled'});
+ await asyncDropper.click();
+ assert.equal(await page.evaluate(()=>window.__qaDropperCalls),8);
+ await pendingHex.fill('bad');await pendingHex.dispatchEvent('change');
+ const errorRef=await pendingHex.getAttribute('aria-errormessage');
+ assert.ok(errorRef,'Invalid HEX needs an accessible error reference');
+ const validationBeforeReject=await dialog.locator('.cp-status').textContent();
+ await page.evaluate(()=>window.__qaDropperReject(new Error('Native device unavailable')));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.equal(await dialog.locator('.cp-status').textContent(),validationBeforeReject,
+  'Native rejection must not overwrite the active field validation error');
+ assert.equal(await pendingHex.getAttribute('aria-errormessage'),errorRef);
+ await dialog.screenshot({path:'test-results/color-picker/eyedropper-error-owner-preserved.png',animations:'disabled'});
+ await pendingHex.fill('#2468AC');await pendingHex.press('Enter');
+ await asyncDropper.click();
+ assert.equal(await page.evaluate(()=>window.__qaDropperCalls),9);
+ await page.evaluate(()=>window.__qaDropperReject(new Error('Native device unavailable')));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.match(await dialog.locator('.cp-status').textContent(),/Não foi possível capturar/,
+  'A current native rejection must still report its failure');
+ await dialog.screenshot({path:'test-results/color-picker/eyedropper-current-failure.png',animations:'disabled'});
+ await asyncDropper.click();
+ assert.equal(await page.evaluate(()=>window.__qaDropperCalls),10);
+ await page.evaluate(()=>window.__qaDropperReject(Object.assign(new Error('Cancelled'),{name:'AbortError'})));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.equal(await dialog.locator('.cp-status').textContent(),'','Cancellation must not show an error');
+ await asyncDropper.click();
+ assert.equal(await page.evaluate(()=>window.__qaDropperCalls),11);
  await dialog.press('Escape');
  await page.locator('.mdress-color-picker').waitFor({state:'detached'});
  await page.evaluate(()=>document.getElementById('accentColor').click());
