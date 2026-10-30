@@ -659,6 +659,7 @@ async function exercise(page,theme,width){
  // from hiding a popover that disappeared during a background update.
  const fontSearch=page.getByRole('searchbox',{name:'Buscar fonte'});
  await fontSearch.fill('uxqa-no-match');
+ await fontSearch.evaluate(el=>el.setSelectionRange(2,6,'forward'));
  await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
  await page.locator('#fontChoice').evaluate(el=>{
   el.querySelector('optgroup').append(new Option('Unrelated QA Font','qa-unmatched'));
@@ -667,6 +668,8 @@ async function exercise(page,theme,width){
  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
  assert.equal(await fontSearch.inputValue(),'uxqa-no-match');
  assert.equal(await fontSearch.evaluate(el=>el===document.activeElement),true);
+ assert.deepEqual(await fontSearch.evaluate(el=>[el.selectionStart,el.selectionEnd,el.selectionDirection]),
+  [2,6,'forward'],'Live refresh must preserve the active search text selection');
  assert.equal(await page.locator('.ds-select-empty[role="status"]').isVisible(),true);
  await capture(page,theme,width,'select-live-search-empty');
  await page.locator('#fontChoice option[value="qa-unmatched"]').evaluate(el=>el.remove());
