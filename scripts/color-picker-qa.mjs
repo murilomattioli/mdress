@@ -343,13 +343,14 @@ try{
  assert.equal(await dialog.locator('.cp-status').textContent(),'','Cancellation must not show an error');
  await asyncDropper.click();
  assert.equal(await page.evaluate(()=>window.__qaDropperCalls),11);
+ const beforeDismissal=await page.locator('#accentColor').inputValue();
  await dialog.press('Escape');
  await page.locator('.mdress-color-picker').waitFor({state:'detached'});
  await page.evaluate(()=>document.getElementById('accentColor').click());
  dialog=page.getByRole('dialog',{name:/Cores/});
  await dialog.waitFor();
  await page.evaluate(()=>window.__qaDropperResolve({sRGBHex:'#FF00FF'}));
- assert.equal(await page.locator('#accentColor').inputValue(),'#abc123',
+ assert.equal(await page.locator('#accentColor').inputValue(),beforeDismissal,
   'A stale eyedropper result must not mutate the document after dismissal');
  assert.equal(await dialog.isVisible(),true,
   'A stale eyedropper result must not dismiss the replacement dialog');
