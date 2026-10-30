@@ -381,6 +381,7 @@ try{
   const sampleButton=dialog.getByRole('button',{name:'Capturar cor da tela',exact:true});
   await sampleButton.click();
   assert.equal(await sampleButton.getAttribute('aria-busy'),'true');
+  if(scenario.kind==='rgb')await dialog.getByRole('tab',{name:'RGB',exact:true}).click();
   const draftInput=dialog.locator(scenario.selector).first();
   await draftInput.fill(scenario.draft);
   assert.equal(await draftInput.inputValue(),scenario.draft);
