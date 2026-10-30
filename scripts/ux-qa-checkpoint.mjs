@@ -17,10 +17,12 @@ export function makeUxQaResumeCheckpoint({
  };
 }
 
-export async function writeUxQaResumeCheckpoint(reportPath,session){
+/** Atomic replacement for both capture checkpoints and final/human-review reports.
+ * A crash while writing must leave the previous resumable JSON intact.
+ */
+export async function writeUxQaReportAtomic(reportPath,report){
  const destination=resolve(reportPath);
  const temporary=destination+'.tmp-'+process.pid+'-'+randomUUID();
- const report=makeUxQaResumeCheckpoint(session);
  await mkdir(dirname(destination),{recursive:true});
  try{
   await writeFile(temporary,JSON.stringify(report,null,2)+'\n');
@@ -30,6 +32,10 @@ export async function writeUxQaResumeCheckpoint(reportPath,session){
   throw error;
  }
  return report;
+}
+
+export async function writeUxQaResumeCheckpoint(reportPath,session){
+ return writeUxQaReportAtomic(reportPath,makeUxQaResumeCheckpoint(session));
 }
 
 /** A new screenshot set must never inherit a prior human review's session ID.
