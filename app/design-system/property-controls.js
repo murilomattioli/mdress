@@ -456,7 +456,15 @@ function enhanceColor(label,input,title){
     editing=false;nativeCommit(input,result.sRGBHex);update();
    }
   }catch(error){if(error.name!=='AbortError')setError('Não foi possível capturar a cor. Tente novamente.');}
-  finally{picking=false;pipette.disabled=input.disabled||!canPick;if(!pipette.disabled&&pipette.isConnected)pipette.focus({preventScroll:true});}
+  finally{
+   picking=false;pipette.disabled=input.disabled||!canPick;
+   // Native EyeDropper may return focus to <body>. Restore it only when the
+   // user has not deliberately moved to another field while awaiting a result.
+   const current=document.activeElement;
+   if(!pipette.disabled&&pipette.isConnected&&
+    (current===document.body||current===pipette))
+    pipette.focus({preventScroll:true});
+  }
  });
  hex.addEventListener('input',()=>{
   editing=true;
