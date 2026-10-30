@@ -130,3 +130,16 @@ a galeria está sendo revisada ou durante a validação, a aprovação é recusa
 Arquivos de evidência simbólicos (symlinks) também são recusados, mesmo quando
 apontam para PNGs válidos. Testes de contrato cobrem alterações antes/depois
 da validação e tentativas de reutilização de links simbólicos.
+
+### Recuperação após encerramento inesperado
+
+O runner supervisionado salva um relatório de retomada **atomicamente após cada
+viewport**, mesmo antes da conclusão da matriz. Se o processo ou terminal fechar
+inesperadamente, `npm run qa:resume-capture` pode reaproveitar os viewports
+completos, desde que o código, a URL e os PNGs ainda correspondam. Um viewport
+interrompido durante sua execução será recapturado integralmente. O relatório
+intermediário sempre registra `summary.status=stopped` e
+`humanReview.status=not-reviewed`: um checkpoint não é aprovação humana.
+A gravação usa arquivo temporário e rename, para evitar JSON truncado em
+interrupções durante a escrita. Uma execução completa substitui esse checkpoint
+pelo relatório final habitual.

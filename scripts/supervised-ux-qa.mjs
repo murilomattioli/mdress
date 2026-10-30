@@ -15,6 +15,7 @@ import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice,v
 import {renderUxQaGallery} from './ux-qa-gallery.mjs';
 import {fingerprintUxQaSource} from './ux-qa-source.mjs';
 import {verifySourceBoundEvidence} from './resume-ux-review.mjs';
+import {writeUxQaResumeCheckpoint} from './ux-qa-checkpoint.mjs';
 
 const args=new Set(process.argv.slice(2));
 const automated=args.has('--auto');
@@ -1095,6 +1096,11 @@ try{
     }catch(e){error('trace',theme,width,e);}
     coverage.push({theme,width,scenario:scenarioPassed,inspector:inspectorPassed,toolbar:toolbarPassed,errors:errors.length});
     await context.close();
+     // Persist after each viewport: a terminal/browser crash must not force
+     // recapturing previously completed, verified visual states.
+     if(!automated)await writeUxQaResumeCheckpoint(reportPath,{
+      sourceFingerprint,reviewSessionId,url,headless,coverage,screenshots,findings
+     });
    }
    if(stopped)break;
   }
