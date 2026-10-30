@@ -7,13 +7,13 @@
  */
 import {chromium} from 'playwright';
 import {strict as assert} from 'node:assert';
-import {mkdir,writeFile,readFile,readdir} from 'node:fs/promises';
-import {join} from 'node:path';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {randomUUID,createHash} from 'node:crypto';
 import {createInterface} from 'node:readline/promises';
 import {stdin,stdout} from 'node:process';
 import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT,resumableUxViewportRows} from './ux-qa-coverage.mjs';
 import {renderUxQaGallery} from './ux-qa-gallery.mjs';
+import {fingerprintUxQaSource} from './ux-qa-source.mjs';
 import {verifyScreenshotEvidence} from './resume-ux-review.mjs';
 
 const args=new Set(process.argv.slice(2));
@@ -32,23 +32,6 @@ const findings=[],screenshots=[],traces=[],coverage=[];
 let stopped=false,humanReview='not-reviewed',humanReviewEvidence=null;
 let reviewSessionId=randomUUID();
 class ReviewStopped extends Error {constructor(){super('Interrompido pelo revisor');this.name='ReviewStopped';}}
-async function fingerprintSource(){
- const hash=createHash('sha256');
- async function walk(dir){
-  const entries=(await readdir(dir,{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name));
-  for(const entry of entries){
-   const path=join(dir,entry.name);
-   if(entry.isDirectory())await walk(path);
-   else if(entry.isFile()){
-    hash.update(path.replaceAll('\\','/'));hash.update('\\0');
-    hash.update(await readFile(path));hash.update('\\0');
-   }
-  }
- }
- await walk('app');await walk('scripts');
- hash.update(await readFile('package.json'));
- return hash.digest('hex');
-}
 const io=!automated?createInterface({input:stdin,output:stdout}):null;
 async function checkpoint(label){
  console.log('[UX QA] '+label);
@@ -1046,7 +1029,7 @@ async function toolbarAudit(page,theme,width){
  await capture(page,theme,width,'toolbar-detached-focus-handoff');
 }
 await mkdir(directory,{recursive:true});
-const sourceFingerprint=await fingerprintSource();
+const sourceFingerprint=await fingerprintUxQaSource();
 const resumedViewports=new Set();
 if(resumeRequested){
  let previous;
@@ -1121,7 +1104,7 @@ try{
 finally{
  await browser?.close();
  try{
-  if(await fingerprintSource()!==sourceFingerprint)
+  if(await fingerprintUxQaSource()!==sourceFingerprint)
    findings.push({severity:'error',phase:'source-changed',theme:'all',width:0,
     message:'O código da aplicação ou do runner mudou durante a captura; gere novas evidências.'});
  }catch(e){error('source-fingerprint','all',0,e);}
