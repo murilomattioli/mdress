@@ -1046,6 +1046,39 @@ try {
  await page.locator('.ds-select-popover').screenshot({
   path:'test-results/ux-audit/inspector-font-ime-composition.png',animations:'disabled'
  });
+ // Catalog changes during an active IME session must not detach the search
+ // input. A committed input may arrive *after* compositionend.
+ await liveFontSearch.fill('palatin');
+ await liveFontSearch.evaluate(el=>el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true})));
+ await page.evaluate(()=>{
+  window.__qaImePopup=document.querySelector('.ds-select-popover');
+  window.__qaImeSearch=document.querySelector('.ds-select-search');
+ });
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');group.id='qaImeFontGroup';group.label='QA IME catalog';
+  group.append(new Option('QA IME Candidate','qa:ime-candidate'));select.append(group);
+ });
+ await page.waitForTimeout(60);
+ assert.equal(await page.evaluate(()=>document.querySelector('.ds-select-popover')===window.__qaImePopup&&
+  document.querySelector('.ds-select-search')===window.__qaImeSearch&&
+  document.activeElement===window.__qaImeSearch),true,
+  'An async catalog mutation must not destroy the active IME input');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-ime-catalog-pending.png',animations:'disabled'
+ });
+ await liveFontSearch.evaluate(el=>{
+  el.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));
+  el.value='palatino';el.dispatchEvent(new Event('input',{bubbles:true}));
+ });
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaImePopup);
+ assert.equal(await liveFontSearch.inputValue(),'palatino',
+  'Final input after compositionend must survive deferred catalog refresh');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true,
+  'Deferred IME refresh must restore the search focus');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-ime-catalog-resumed.png',animations:'disabled'
+ });
+ await page.locator('#qaImeFontGroup').evaluate(el=>el.remove());
  await page.keyboard.press('Escape');
  assert.equal(await fontTrigger.getAttribute('aria-expanded'),'false');
  const imeTrigger=await checkImeButton(fontTrigger);
