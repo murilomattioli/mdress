@@ -71,7 +71,11 @@ export function openColorPicker(input){
   const row=node('label','cp-channel'),name=node('span','',label),range=node('input'),number=node('input');range.type='range';number.type='number';
   for(const el of [range,number]){el.min='0';el.max='255';el.step='1';el.setAttribute('aria-label',label+(el===range?' — controle':' — valor'));}
   function apply(el){const value=el.valueAsNumber;if(!Number.isFinite(value)||value<0||value>255||!Number.isInteger(value)){showFieldError(el,'Use um valor inteiro entre 0 e 255.');return;}clearFieldError(el);const rgb=hexToRgb(hex);rgb[index]=value;commit(rgbToHex(rgb));}
-  range.oninput=()=>apply(range);number.onchange=()=>apply(number);number.onkeydown=e=>{if(e.key==='Enter')apply(number);if(e.key==='Escape'){e.stopPropagation();number.value=hexToRgb(hex)[index];clearFieldError(number);}};
+  range.oninput=()=>apply(range);
+  // Typing is already an intentional edit, even before blur/change commits it.
+  // Never allow a pending native screen sample to erase an in-progress draft.
+  number.addEventListener('input',()=>{editRevision++;});
+  number.onchange=()=>apply(number);number.onkeydown=e=>{if(e.key==='Enter')apply(number);if(e.key==='Escape'){e.stopPropagation();number.value=hexToRgb(hex)[index];clearFieldError(number);}};
   row.append(name,range,number);panels[2].append(row);return {range,number};
  });
  const valueRow=node('div','cp-value'),preview=node('span','cp-preview'),hexLabel=node('label','','Hexadecimal'),hexInput=node('input','cp-hex');hexInput.type='text';hexInput.maxLength=7;hexInput.spellcheck=false;hexInput.setAttribute('aria-label','Cor hexadecimal');hexLabel.append(hexInput);valueRow.append(preview,hexLabel);
@@ -101,7 +105,10 @@ export function openColorPicker(input){
    }
   }
  }
- opacityRange.oninput=()=>applyOpacity(opacityRange);opacityValue.onchange=()=>applyOpacity(opacityValue);
+ opacityRange.oninput=()=>applyOpacity(opacityRange);
+ // A not-yet-committed opacity draft must also invalidate EyeDropper results.
+ opacityValue.addEventListener('input',()=>{editRevision++;});
+ opacityValue.onchange=()=>applyOpacity(opacityValue);
  opacityValue.onkeydown=e=>{
   if(e.key!=='Escape')return;
   e.stopPropagation();
@@ -127,6 +134,9 @@ export function openColorPicker(input){
   status.textContent=message;
  }
  function applyHex(){const value=parseHex(hexInput.value.trim());if(!value){showFieldError(hexInput,'Use seis dígitos: #RRGGBB.');return;}commit(value);}
+ // Invalidate an in-flight sample at the first keystroke, not only on Enter.
+ // This protects both valid and invalid drafts from late native resolutions.
+ hexInput.addEventListener('input',()=>{editRevision++;});
  hexInput.onchange=applyHex;hexInput.onkeydown=e=>{if(e.key==='Enter')applyHex();if(e.key==='Escape'){e.stopPropagation();hexInput.value=hex;clearFieldError(hexInput);}};
  const footer=node('section','cp-saved'),footerTitle=node('div','cp-saved-title','Cores salvas'),swatches=node('div','cp-swatches'),add=button('Salvar cor atual','plus');footerTitle.append(add);footer.append(footerTitle,swatches);
  function renderSaved(){swatches.replaceChildren();saved.forEach(color=>{const b=button('Usar '+color);b.className='cp-saved-color';b.textContent='';b.style.background=color;b.onclick=()=>commit(color);swatches.append(b);});}
