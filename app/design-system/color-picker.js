@@ -149,7 +149,26 @@ export function openColorPicker(input){
    if(changed){target.value=hex;target.dispatchEvent(new Event('input',{bubbles:true}));target.dispatchEvent(new Event('change',{bubbles:true}));}
   }
  }
- pipette.onclick=async()=>{try{const result=await new window.EyeDropper().open();if(dialog.open)commit(parseHex(result.sRGBHex)||hex);}catch(error){if(error.name!=='AbortError')status.textContent='Não foi possível capturar a cor.';}};
+ // Native EyeDropper requests can resolve after the picker was dismissed.
+ // Keep a single in-flight request; stale results must never mutate a newer
+ // picker or the document, and asynchronous failures must not resurrect UI.
+ let picking=false;
+ pipette.onclick=async()=>{
+  if(picking||!dialog.open||active!==dialog||input.disabled)return;
+  picking=true;pipette.setAttribute('aria-busy','true');pipette.setAttribute('aria-disabled','true');
+  try{
+   const result=await new window.EyeDropper().open();
+   if(dialog.open&&active===dialog&&!input.disabled){
+    const color=parseHex(result?.sRGBHex);
+    if(color)commit(color);
+   }
+  }catch(error){
+   if(error?.name!=='AbortError'&&dialog.open&&active===dialog)
+    status.textContent='Não foi possível capturar a cor.';
+  }finally{
+   picking=false;pipette.removeAttribute('aria-busy');pipette.removeAttribute('aria-disabled');
+  }
+ };
  dialog.append(header,tabs,...panels,valueRow,opacityRow,footer,status);document.body.append(dialog);
  dialog.addEventListener('keydown',e=>{
   if(e.key==='Escape'){e.preventDefault();dialog.close();}
