@@ -585,6 +585,20 @@ try {
  assert.deepEqual(await rules.locator('.ds-segment-option').evaluateAll(buttons=>buttons.map(button=>button.tabIndex)),[-1,-1,0],
   'Only the selected segment is tabbable');
  await rules.screenshot({path:'test-results/ux-audit/inspector-segment-roving-tabstop.png',animations:'disabled'});
+ // Document sync may select another native option without clicking the
+ // segmented UI. The focused button must follow the new single Tab stop.
+ await page.locator('#sectionRule').evaluate(el=>{
+  el.value='line';el.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+ assert.equal(await rules.locator('[data-value="line"]').evaluate(el=>el===document.activeElement),true,
+  'External segment selection must transfer focus to the selected option');
+ assert.deepEqual(await rules.locator('.ds-segment-option').evaluateAll(buttons=>buttons.map(button=>button.tabIndex)),[0,-1,-1]);
+ await rules.screenshot({path:'test-results/ux-audit/inspector-segment-external-selection-focus.png',animations:'disabled'});
+ await page.locator('#sectionRule').evaluate(el=>{
+  el.value='block';el.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+ assert.equal(await rules.locator('[data-value="block"]').evaluate(el=>el===document.activeElement),true,
+  'Reverting an external segment selection must preserve roving focus');
  await assertNoRedundantNativeEvents(page.locator('#sectionRule'),async()=>{
   await rules.getByRole('button',{name:'Bloco'}).click();
  },'Pressing an already selected segment must not create a document edit');
@@ -629,6 +643,20 @@ try {
  await guides.getByRole('button',{name:'Marcações de página — Ocultar'}).press('ArrowRight');
  assert.equal(await page.locator('#showPageGuides').isChecked(),true,'ArrowRight selects the following alternative');
  await guides.screenshot({path:'test-results/ux-audit/inspector-binary-keyboard-roving.png',animations:'disabled'});
+ // A programmatic source-of-truth update must not leave focus on an option
+ // that has just been removed from the sequential keyboard navigation.
+ await page.locator('#showPageGuides').evaluate(el=>{
+  el.checked=false;el.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+ assert.equal(await guides.locator('.ds-binary-option').first().evaluate(el=>el===document.activeElement),true,
+  'External binary update must focus the newly selected option');
+ assert.deepEqual(await guides.locator('.ds-binary-option').evaluateAll(buttons=>buttons.map(button=>button.tabIndex)),[0,-1]);
+ await guides.screenshot({path:'test-results/ux-audit/inspector-binary-external-selection-focus.png',animations:'disabled'});
+ await page.locator('#showPageGuides').evaluate(el=>{
+  el.checked=true;el.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+ assert.equal(await guides.locator('.ds-binary-option').last().evaluate(el=>el===document.activeElement),true,
+  'Restoring binary selection must restore the sole Tab stop and focus');
  await page.keyboard.press('Tab');
  assert.equal(await guides.locator('.ds-binary-group').evaluate(el=>el.contains(document.activeElement)),false,
   'Tab must leave the binary group instead of visiting a second button');
