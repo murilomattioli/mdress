@@ -33,3 +33,7 @@ No runner headed: ENTER avança, `m` permite intervenção no navegador, ENTER r
 ## F-013 — peso e sorteio harmônico
 
 Integração de 29/10/2026: [desktop](pdf-weight-1440.png), [mobile](pdf-weight-390.png), [24 medições reais](pdf-weight-calibration.json). Capturas inspecionadas pelo agente; homologação do usuário pendente. `npm run qa:pdf-weight` valida abertura do detalhe, largura, alteração de custo ao aplicar Glass e persistência após recarregar. `node scripts/pdf-weight-calibrate.mjs` gera a calibração sob demanda. Ambos aceitam `MDRESS_AUDIT_URL`.
+
+## UX-023 — troca de Color Picker e foco assíncrono (30/10/2026)
+
+O Color Picker não pode devolver o foco ao campo anterior quando outro seletor já está aberto. Cada instância possui IDs próprios para tabs, painéis e erros durante o fechamento assíncrono. O gate Chromium cobre Destaque → Texto → Destaque em 1440/768/390/320px, com capturas `switch-text-*.png` e `switch-back-*.png`. A matriz supervisionada exige **80 estados × 2 temas × 4 larguras = 640 capturas**. Checks verdes não substituem a revisão visual humana.

@@ -166,6 +166,28 @@ try{
    await page.screenshot({path:`test-results/color-picker/opacity-${width}.png`});
    await dialog.getByRole('button',{name:'Fechar seletor de cores',exact:true}).click();
   assert.equal(await input.evaluate(el=>el===document.activeElement),true);
+  // A scripted/keyboard switch has no outside pointerdown. The previous
+  // close event must not steal focus from the replacement picker.
+  await input.evaluate(el=>el.click());await dialog.waitFor();
+  const duplicatePickerIds=await page.evaluate(()=>{
+   document.getElementById('textColor').click();
+   const ids=[...document.querySelectorAll('.mdress-color-picker [id]')].map(el=>el.id);
+   return ids.filter((id,index)=>ids.indexOf(id)!==index);
+  });
+  assert.deepEqual(duplicatePickerIds,[],'Overlapping pickers need unique ARIA IDs');
+  await page.waitForFunction(()=>document.querySelectorAll('.mdress-color-picker').length===1);
+  assert.match(await dialog.getAttribute('aria-label'),/Texto/);
+  assert.equal(await dialog.evaluate(el=>el.contains(document.activeElement)),true,
+   'A superseded picker must not steal focus from its replacement');
+  await page.screenshot({path:`test-results/color-picker/switch-text-${width}.png`});
+  await input.evaluate(el=>el.click());
+  await page.waitForFunction(()=>document.querySelectorAll('.mdress-color-picker').length===1);
+  assert.match(await dialog.getAttribute('aria-label'),/Destaque/);
+  assert.equal(await dialog.evaluate(el=>el.contains(document.activeElement)),true,
+   'Switching back must preserve focus in the active picker');
+  await page.screenshot({path:`test-results/color-picker/switch-back-${width}.png`});
+  await dialog.getByRole('button',{name:'Fechar seletor de cores',exact:true}).click();
+  assert.equal(await input.evaluate(el=>el===document.activeElement),true);
   await input.press('Enter');await dialog.waitFor();await dialog.press('Escape');await dialog.waitFor({state:'hidden'});
   await page.waitForFunction(()=>document.getElementById('saveStatus').textContent==='Salvo localmente');
   await page.reload();

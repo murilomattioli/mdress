@@ -33,7 +33,8 @@ export function openColorPicker(input){
  if(input.disabled)return;
  active?.close();
  let hex=parseHex(input.value)||'#000000',hsv=rgbToHsv(hexToRgb(hex)),saved=savedColors();
- const dialog=node('dialog','mdress-color-picker');active=dialog;
+ const dialog=node('dialog','mdress-color-picker');
+ const pickerId=++nextPickerId;active=dialog;
  let restoreFocus=true,handoffOnClose=false,opacity=opacityPercent(input.dataset.opacity);
  const events=new AbortController();
  const anchor=()=>input.isConnected?input:[...document.querySelectorAll('input[type="color"]')].find(el=>input.id?el.id===input.id:el.getAttribute('aria-label')===input.getAttribute('aria-label'));
@@ -42,8 +43,8 @@ export function openColorPicker(input){
  header.append(pipette,heading,close);close.onclick=()=>dialog.close();
  pipette.disabled=typeof window.EyeDropper!=='function';if(pipette.disabled)pipette.title='Conta-gotas indisponível neste navegador';
  const tabs=node('div','cp-tabs');tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Modo de seleção');
- const modes=['Grade','Espectro','RGB'],panels=modes.map((name,i)=>{const p=node('div','cp-panel');p.id='cp-panel-'+i;p.setAttribute('role','tabpanel');p.setAttribute('aria-labelledby','cp-tab-'+i);return p;});
- const tabButtons=modes.map((name,i)=>{const b=button(name);b.id='cp-tab-'+i;b.setAttribute('role','tab');b.setAttribute('aria-controls',panels[i].id);b.onclick=()=>selectTab(i);b.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?2:(i+(e.key==='ArrowRight'?1:2))%3;selectTab(next);tabButtons[next].focus();};tabs.append(b);return b;});
+ const modes=['Grade','Espectro','RGB'],panels=modes.map((name,i)=>{const p=node('div','cp-panel');p.id='cp-panel-'+pickerId+'-'+i;p.setAttribute('role','tabpanel');p.setAttribute('aria-labelledby','cp-tab-'+pickerId+'-'+i);return p;});
+ const tabButtons=modes.map((name,i)=>{const b=button(name);b.id='cp-tab-'+pickerId+'-'+i;b.setAttribute('role','tab');b.setAttribute('aria-controls',panels[i].id);b.onclick=()=>selectTab(i);b.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?2:(i+(e.key==='ArrowRight'?1:2))%3;selectTab(next);tabButtons[next].focus();};tabs.append(b);return b;});
  function selectTab(index){tabButtons.forEach((b,i)=>{b.setAttribute('aria-selected',String(i===index));b.tabIndex=i===index?0:-1;panels[i].hidden=i!==index;});}
  const grid=node('div','cp-grid');grid.setAttribute('aria-label','Paleta de cores');panels[0].append(grid);
  const colors=Array.from({length:12},(_,i)=>rgbToHex(Array(3).fill(255-i*255/11)));
@@ -101,7 +102,7 @@ export function openColorPicker(input){
   opacityValue.value=opacity;
   clearFieldError(opacityValue);
  };
- const status=node('p','cp-status');status.id='mdress-color-error-'+(++nextPickerId);status.setAttribute('role','status');
+ const status=node('p','cp-status');status.id='mdress-color-error-'+pickerId;status.setAttribute('role','status');
  // A single visible status cannot describe several different invalid fields:
  // its aria-errormessage must belong to exactly one active editor at a time.
  let errorOwner=null;
@@ -189,11 +190,14 @@ export function openColorPicker(input){
  disabledObserver.observe(input,{attributes:true,attributeFilter:['disabled']});
  dialog.addEventListener('close',()=>{
   events.abort();observer.disconnect();disabledObserver.disconnect();
-  dialog.remove();if(active===dialog)active=null;
-  // Mesh updates rebuild their native inputs; restore focus to the replacement.
+  dialog.remove();
+  // Closing is asynchronous. If another picker has opened, restoring the
+  // previous source's focus would dismiss the replacement on focusin.
+  const superseded=active!==dialog;
+  if(!superseded)active=null;
   const target=anchor();
-  if(restoreFocus&&target&&!target.disabled)target.focus();
-   else if(handoffOnClose){
+  if(!superseded&&restoreFocus&&target&&!target.disabled)target.focus();
+   else if(!superseded&&handoffOnClose){
     const scope=input.closest('.design-inspector')||document;
     const usable=el=>el!==input&&!el.disabled&&el.tabIndex>=0&&el.getClientRects().length&&
      !el.closest('[hidden],[inert],[aria-hidden="true"]')&&getComputedStyle(el).visibility!=='hidden';

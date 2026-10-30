@@ -271,6 +271,18 @@ async function exercise(page,theme,width){
  assert.equal(await pickerHex.getAttribute('aria-errormessage'),await picker.locator('.cp-status').getAttribute('id'));
  await capture(page,theme,width,'color-picker-error-owner');
  await pickerHex.fill(originalColor);await pickerHex.press('Enter');
+ // Programmatic inspector changes can open a second picker without a
+ // pointerdown. The outgoing close event must not close the new picker.
+ await page.locator('#textColor').evaluate(el=>el.click());
+ await page.waitForFunction(()=>document.querySelectorAll('.mdress-color-picker').length===1);
+ assert.match(await picker.getAttribute('aria-label'),/Texto/);
+ assert.equal(await picker.evaluate(el=>el.contains(document.activeElement)),true);
+ await capture(page,theme,width,'color-picker-switch-text');
+ await nativeSwatch.evaluate(el=>el.click());
+ await page.waitForFunction(()=>document.querySelectorAll('.mdress-color-picker').length===1);
+ assert.match(await picker.getAttribute('aria-label'),/Destaque/);
+ assert.equal(await picker.evaluate(el=>el.contains(document.activeElement)),true);
+ await capture(page,theme,width,'color-picker-switch-back');
  await picker.getByRole('button',{name:'Fechar seletor de cores',exact:true}).click();
  await picker.waitFor({state:'detached'});
  const select=page.locator('.ds-property-select').filter({has:page.locator('#fontChoice')});
