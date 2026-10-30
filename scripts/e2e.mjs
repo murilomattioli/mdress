@@ -546,7 +546,10 @@ try {
    window.__qaInspectorDropperCalls=0;
    window.EyeDropper=class{open(){
     window.__qaInspectorDropperCalls++;
-    return new Promise(resolve=>{window.__qaInspectorDropperResolve=resolve;});
+    return new Promise((resolve,reject)=>{
+     window.__qaInspectorDropperResolve=resolve;
+     window.__qaInspectorDropperReject=reject;
+    });
    }};
    const label=document.createElement('label');label.className='property-row';
    label.textContent='Cor de teste';
@@ -623,10 +626,32 @@ try {
   await page.evaluate(()=>window.__qaInspectorStaleResolve({sRGBHex:'#FFFFFF'}));
   assert.equal(await page.locator('#qaEyeDropperColor').inputValue(),'#445566',
    'A late result must never undo a newer document edit');
+  // Native permission/device errors must remain visible and be announced
+  // on the eyedropper itself; the valid HEX field must not become invalid.
+  await dropperButton.click();
+  await page.evaluate(()=>window.__qaInspectorDropperReject(new Error('permission denied')));
+  const dropperError=dropperRow.locator('.ds-prop-error[role="alert"]');
+  await dropperError.waitFor({state:'visible'});
+  assert.match(await dropperError.innerText(),/Não foi possível capturar a cor/);
+  assert.equal(await dropperButton.getAttribute('aria-describedby'),await dropperError.getAttribute('id'));
+  assert.equal(await dropperHex.getAttribute('aria-invalid'),null,
+   'A native capture failure must not invalidate the unrelated HEX editor');
+  assert.equal(await dropperButton.getAttribute('aria-busy'),null);
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-failure-feedback.png',animations:'disabled'});
+  await dropperButton.click();
+  assert.equal(await dropperError.isHidden(),true,'Retry must clear the old error');
+  assert.equal(await dropperButton.getAttribute('aria-describedby'),null);
+  await page.evaluate(()=>window.__qaInspectorDropperReject({name:'AbortError'}));
+  assert.equal(await dropperError.isHidden(),true,'User cancellation is not an error');
+  await dropperButton.click();
+  await page.evaluate(()=>window.__qaInspectorDropperResolve({sRGBHex:'#AABBCC'}));
+  await page.waitForFunction(()=>document.getElementById('qaEyeDropperColor').value==='#aabbcc');
+  assert.equal(await dropperError.isHidden(),true,'Successful retry must not restore stale errors');
   await page.evaluate(()=>{
    document.getElementById('qaEyeDropperColor').closest('label').remove();
    window.EyeDropper=undefined;
    delete window.__qaInspectorDropperResolve;
+   delete window.__qaInspectorDropperReject;
   });
  const fontPicker=page.locator('.ds-property-select').filter({has:page.locator('#fontChoice')});
  await fontPicker.locator('.ds-select-trigger').click();
