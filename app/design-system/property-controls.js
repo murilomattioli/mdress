@@ -7,6 +7,9 @@ import {initializeColorPicker} from './color-picker.js';
 import {createChoiceActions} from './choice-actions.js';
 import {createInspectorHeader} from './inspector-header.js';
 const enhanced=new WeakSet();
+// IME candidate navigation belongs to the OS, including legacy keyCode=229.
+// Guard every keyboard entry point of the portalled select, not only search.
+const isImeKeyEvent=event=>event.isComposing||event.keyCode===229;
 const controllers=[];
 let openSelect=null;
 let nextUid=0;
@@ -975,6 +978,7 @@ function makeListbox(label,select,title){
    item.title=text.textContent; // Full label remains discoverable when ellipsized.
    item.addEventListener('click',()=>{if(isSelectOptionDisabled(opt))return;nativeCommit(select,opt.value);closePopup();});
    item.addEventListener('keydown',e=>{
+    if(isImeKeyEvent(e))return;
     const move=(dir)=>{
      const available=buttons.filter(b=>!b.disabled&&!b.hidden);
      const cur=available.indexOf(item);
@@ -1030,6 +1034,7 @@ function makeListbox(label,select,title){
     buttons.find(item=>!item.disabled)||search)?.focus();
   });
   more.addEventListener('keydown',event=>{
+   if(isImeKeyEvent(event))return;
    if(event.key==='ArrowUp'){
     event.preventDefault();
     (buttons.findLast(item=>!item.disabled)||search)?.focus();
@@ -1048,7 +1053,7 @@ function makeListbox(label,select,title){
    search.addEventListener('keydown',event=>{
     // Enter confirms IME composition; Escape/arrow keys may also belong to
     // the candidate picker. Do not commit a font or dismiss the popover.
-    if(event.isComposing||event.keyCode===229)return;
+    if(isImeKeyEvent(event))return;
     const available=buttons.filter(item=>!item.disabled&&!item.hidden);
     if(['ArrowDown','ArrowUp','Enter'].includes(event.key)){
      event.preventDefault();
@@ -1120,7 +1125,7 @@ function makeListbox(label,select,title){
     restoredSearch.selectionDirection||'none');
  };
  trigger.addEventListener('click',event=>{event.preventDefault();open();});
- trigger.addEventListener('keydown',e=>{if(['Enter',' ','ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();open();}});
+ trigger.addEventListener('keydown',e=>{if(isImeKeyEvent(e))return;if(['Enter',' ','ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();open();}});
  select.addEventListener('change',()=>queueMicrotask(update));
  const observer=new MutationObserver(update);observer.observe(select,{childList:true,subtree:true,attributes:true,attributeFilter:['selected','label','disabled','hidden','value'],characterData:true});
  controllers.push(update);update();
@@ -1250,7 +1255,7 @@ export function initializePropertyControls(){
    closePopup({restoreFocus:false});
  });
  document.addEventListener('keydown',event=>{
-  if(event.isComposing||event.keyCode===229)return;
+  if(isImeKeyEvent(event))return;
   if(event.key==='Escape'&&openSelect){event.preventDefault();closePopup();}
  });
  document.addEventListener('close',event=>{
