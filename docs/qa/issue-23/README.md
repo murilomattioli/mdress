@@ -37,6 +37,10 @@ No runner headed: ENTER avança, `m` permite intervenção no navegador, ENTER r
 
 Integração de 29/10/2026: [desktop](pdf-weight-1440.png), [mobile](pdf-weight-390.png), [24 medições reais](pdf-weight-calibration.json). Capturas inspecionadas pelo agente; homologação do usuário pendente. `npm run qa:pdf-weight` valida abertura do detalhe, largura, alteração de custo ao aplicar Glass e persistência após recarregar. `node scripts/pdf-weight-calibrate.mjs` gera a calibração sob demanda. Ambos aceitam `MDRESS_AUDIT_URL`.
 
+## UX-023 — busca de fontes durante atualização assíncrona (30/10/2026)
+
+O combobox compartilhado preserva **texto da busca, foco do teclado e quantidade de resultados expandidos** quando as opções nativas são adicionadas, removidas ou reordenadas com o popover aberto (inclusive durante o carregamento do catálogo Google Fonts). Se a busca não encontrar opções, o aviso tem `role="status"` para leitores de tela. O E2E Chromium injeta/remove optgroups com a busca aberta, verifica a preservação do rascunho e do foco, e gera `inspector-font-search-live-insert.png` e `inspector-font-search-live-focus.png` para inspeção humana. A matriz supervisionada permanece em **840 capturas**; nenhuma evidência recebe aprovação automática.
+
 ## UX-023 — troca de Color Picker e foco assíncrono (30/10/2026)
 
 **30/10/2026 — conta-gotas inline:** o campo HEX aprimorado invalida a captura nativa já no primeiro `input`, inclusive para rascunhos inválidos. Respostas e erros tardios não apagam o rascunho nem seu feedback acessível. Transições `disabled → enabled` no mesmo task também invalidam a captura. Regressões Chromium e três estados de evidência humana (`color-eyedropper-inline-valid-draft`, `color-eyedropper-inline-invalid-draft`, `color-eyedropper-inline-rapid-reenable`) elevam a matriz para **105 estados × 2 temas × 4 larguras = 840 screenshots**. Homologação humana pendente.

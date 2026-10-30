@@ -866,12 +866,17 @@ function makeListbox(label,select,title){
   }
   if(openSelect?.trigger===trigger){
    const focusedOption=openSelect.optionItems.find(({item})=>item===document.activeElement);
+   const searchState=openSelect.search?{
+    query:openSelect.search.value,
+    focused:document.activeElement===openSelect.search,
+    limit:openSelect.getLimit()
+   }:null;
    const visible=visibleSelectOptions(select);
    if(selectPopupNeedsRefresh(openSelect.sourceItems||openSelect.optionItems,visible)){
     // Preserve the keyboard position when options are inserted, removed,
     // hidden or renamed. Never leave focus in a detached popup button.
     closePopup({restoreFocus:false});
-    open(focusedOption?.option.value);
+    open(focusedOption?.option.value??null,searchState);
     return;
    }
    for(const {option,item} of openSelect.optionItems){
@@ -888,7 +893,7 @@ function makeListbox(label,select,title){
    }
   }
  };
- const open=(preferredValue=null)=>{
+ const open=(preferredValue=null,restoredSearch=null)=>{
   if(select.disabled)return;
   if(openSelect?.trigger===trigger){closePopup();return;}
   closePopup({restoreFocus:false});
@@ -907,7 +912,8 @@ function makeListbox(label,select,title){
    popup.append(search,list);
   }
   const opts=visibleSelectOptions(select),buttons=[],optionItems=[];
-  let typeahead='',lastTypedAt=0,limit=60;
+  let typeahead='',lastTypedAt=0,limit=restoredSearch?.limit??60;
+  if(search)search.value=restoredSearch?.query??'';
   const normalize=text=>text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase();
   const more=button('ds-select-more','Mostrar mais');
   const renderOptions=()=>{
@@ -967,7 +973,11 @@ function makeListbox(label,select,title){
   }
   more.hidden=shown.length===matches.length;
   more.textContent='Mostrar mais · '+shown.length+' de '+matches.length;
-  if(!matches.length)list.append(span('ds-select-empty','Nenhuma fonte encontrada.'));
+  if(!matches.length){
+   const empty=span('ds-select-empty','Nenhuma fonte encontrada.');
+   empty.setAttribute('role','status');
+   list.append(empty);
+  }
   };
   renderOptions();
   more.addEventListener('click',()=>{const firstNew=buttons.length;limit+=60;renderOptions();buttons[firstNew]?.focus();});
@@ -999,7 +1009,7 @@ function makeListbox(label,select,title){
   };
   reposition();
   trigger.setAttribute('aria-expanded','true');
-  openSelect={popup,trigger,optionItems,sourceItems:opts.map(option=>({option,value:option.value,label:option.label||option.textContent,group:option.parentElement?.tagName==='OPTGROUP'?option.parentElement.label:null})),reposition,onClose:()=>{}};
+  openSelect={popup,trigger,search,getLimit:()=>limit,optionItems,sourceItems:opts.map(option=>({option,value:option.value,label:option.label||option.textContent,group:option.parentElement?.tagName==='OPTGROUP'?option.parentElement.label:null})),reposition,onClose:()=>{}};
   // The listbox is portalled to body, so hiding its source accordion,
   // inspector tab or entire panel does not automatically remove it.
   // Observe only the anchor's ancestor chain while open. This also catches
@@ -1024,8 +1034,12 @@ function makeListbox(label,select,title){
   const target=buttons.find(b=>b.dataset.value===preferredValue&&!b.disabled)||
    buttons.find(b=>b.dataset.value===select.value&&!b.disabled)||
    buttons.find(b=>!b.disabled);
-  if(search&&preferredValue===null)search.focus();
+  // Asynchronous font-catalog updates must not erase a typed query or move
+  // keyboard focus away from the search editor. If a focused option survives
+  // the refresh, preserve that focus and the user's expanded result limit.
+  if(search&&(restoredSearch?.focused||preferredValue===null))search.focus();
   else if(target)target.focus();
+  else if(search)search.focus();
   else {closePopup({restoreFocus:false});trigger.focus({preventScroll:true});}
  };
  trigger.addEventListener('click',event=>{event.preventDefault();open();});

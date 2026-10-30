@@ -731,6 +731,53 @@ try {
  await fontPicker.locator('.ds-select-trigger').click();
  await page.locator('.ds-select-popover .ds-select-option').filter({hasText:'Palatino'}).click();
  assert.equal(await page.locator('#fontChoice').inputValue(),'palatino');
+ // Live Google Fonts catalog / optgroup edits must not erase the user's
+ // search or throw keyboard focus out of the portalled searchable listbox.
+ const fontTrigger=fontPicker.locator('.ds-select-trigger');
+ await fontTrigger.click();
+ const liveFontSearch=page.getByRole('searchbox',{name:'Buscar fonte'});
+ await liveFontSearch.fill('uxqa-never');
+ assert.equal(await page.locator('.ds-select-empty[role="status"]').isVisible(),true,
+  'An empty font search must announce its result state');
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');
+  group.id='qaLiveFontGroup';group.label='QA dynamic fonts';
+  group.append(new Option('UXQA Never', 'qa:live'));
+  select.append(group);
+ });
+ await page.waitForFunction(()=>document.querySelector('.ds-select-option[data-value="qa:live"]'));
+ assert.equal(await liveFontSearch.inputValue(),'uxqa-never',
+  'A native optgroup insertion must preserve the active search query');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true,
+  'A live options refresh must retain keyboard focus in the search editor');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-search-live-insert.png',animations:'disabled'
+ });
+ await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaLiveFontGroup').remove());
+ await page.waitForFunction(()=>document.querySelector('.ds-select-empty[role="status"]')?.getClientRects().length);
+ assert.equal(await liveFontSearch.inputValue(),'uxqa-never',
+  'Removing a native optgroup must preserve the search draft too');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true);
+ await liveFontSearch.fill('palatino');
+ await liveFontSearch.press('ArrowDown');
+ const focusedFontValue=await page.locator('.ds-select-option:focus').getAttribute('data-value');
+ assert.ok(focusedFontValue,'A matching option must be reachable by keyboard');
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');
+  group.id='qaLiveFontGroup';group.label='QA dynamic fonts';
+  group.append(new Option('Unrelated QA Font', 'qa:other'));
+  select.append(group);
+ });
+ await page.waitForFunction(value=>document.querySelector('.ds-select-option:focus')?.dataset.value===value,
+  focusedFontValue);
+ assert.equal(await liveFontSearch.inputValue(),'palatino',
+  'A focused option refresh must preserve the filter without changing the selection');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-search-live-focus.png',animations:'disabled'
+ });
+ await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaLiveFontGroup').remove());
+ await page.keyboard.press('Escape');
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'false');
  await page.locator('[data-inspector-tab="page"]').click();
  const paginationAccordion=page.locator('#inspector-page .ds-accordion-toggle').filter({hasText:'Paginação'});
  await paginationAccordion.click();
