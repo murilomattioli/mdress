@@ -887,6 +887,13 @@ function makeListbox(label,select,title){
    }:null;
    const visible=visibleSelectOptions(select);
    if(selectPopupNeedsRefresh(openSelect.sourceItems||openSelect.optionItems,visible)){
+    // Replacing the focused search input during an active IME composition
+    // cancels the OS candidate session and loses uncommitted characters.
+    // Keep the portal stable until compositionend and the final input event.
+    if(openSelect.search&&openSelect.composing){
+     openSelect.refreshPending=true;
+     return;
+    }
     // Preserve the keyboard position when options are inserted, removed,
     // hidden or renamed. Never leave focus in a detached popup button.
     closePopup({restoreFocus:false});
@@ -1049,6 +1056,20 @@ function makeListbox(label,select,title){
   });
   if(searchable)popup.append(more);
   if(search){
+   search.addEventListener('compositionstart',()=>{
+    if(openSelect?.popup===popup)openSelect.composing=true;
+   });
+   search.addEventListener('compositionend',()=>{
+    if(openSelect?.popup!==popup)return;
+    openSelect.composing=false;
+    // Some browsers dispatch the committed input after compositionend.
+    // Flush after that event, never from the compositionend call stack.
+    setTimeout(()=>{
+     if(openSelect?.popup===popup&&openSelect.refreshPending){
+      openSelect.refreshPending=false;update();
+     }
+    },0);
+   });
    search.addEventListener('input',()=>{limit=60;renderOptions();list.scrollTop=0;});
    search.addEventListener('keydown',event=>{
     // Enter confirms IME composition; Escape/arrow keys may also belong to
@@ -1083,7 +1104,7 @@ function makeListbox(label,select,title){
   if(search&&Number.isFinite(restoredSearch?.scrollTop))
    list.scrollTop=restoredSearch.scrollTop;
   trigger.setAttribute('aria-expanded','true');
-  openSelect={popup,trigger,search,list,more,getLimit:()=>limit,optionItems,sourceItems:opts.map(option=>({option,value:option.value,label:option.label||option.textContent,group:option.parentElement?.tagName==='OPTGROUP'?option.parentElement.label:null})),reposition,onClose:()=>{}};
+  openSelect={popup,trigger,search,list,more,composing:false,refreshPending:false,getLimit:()=>limit,optionItems,sourceItems:opts.map(option=>({option,value:option.value,label:option.label||option.textContent,group:option.parentElement?.tagName==='OPTGROUP'?option.parentElement.label:null})),reposition,onClose:()=>{}};
   // The listbox is portalled to body, so hiding its source accordion,
   // inspector tab or entire panel does not automatically remove it.
   // Observe only the anchor's ancestor chain while open. This also catches
