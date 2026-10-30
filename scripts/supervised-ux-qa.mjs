@@ -302,7 +302,7 @@ async function exercise(page,theme,width){
  await eyedropperButton.click();
  await page.evaluate(()=>window.__qaSupervisedDropperReject(new Error('permission denied')));
  const eyedropperError=page.locator('.ds-property-color').filter({has:eyedropperInput})
-  .locator('.ds-prop-error[role="alert"]');
+  .locator('..').locator('.ds-prop-error[role="alert"]');
  await eyedropperError.waitFor({state:'visible'});
  assert.equal(await eyedropperButton.getAttribute('aria-describedby'),await eyedropperError.getAttribute('id'));
  assert.equal(await page.locator('.ds-property-color').filter({has:eyedropperInput})
