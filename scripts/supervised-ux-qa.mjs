@@ -735,6 +735,31 @@ async function exercise(page,theme,width){
  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
  await capture(page,theme,width,'select-ime-option-focus');
  await fontSearch.focus();
+ await fontSearch.evaluate(el=>el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true})));
+ await page.evaluate(()=>{
+  window.__qaImePopup=document.querySelector('.ds-select-popover');
+  window.__qaImeSearch=document.querySelector('.ds-select-search');
+ });
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');group.id='qaSupervisedImeGroup';group.label='UXQA IME';
+  group.append(new Option('UXQA IME pending','qa-ime-pending'));select.append(group);
+ });
+ await page.waitForTimeout(60);
+ assert.equal(await page.evaluate(()=>document.querySelector('.ds-select-popover')===window.__qaImePopup&&
+  document.activeElement===window.__qaImeSearch),true,
+  'Active IME composition must defer native-option refresh');
+ await capture(page,theme,width,'select-ime-catalog-pending');
+ await fontSearch.evaluate(el=>{
+  el.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));
+  el.dispatchEvent(new Event('input',{bubbles:true}));
+ });
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaImePopup);
+ assert.equal(await fontSearch.evaluate(el=>el===document.activeElement),true,
+  'Deferred IME refresh must retain the search focus');
+ assert.equal(await fontSearch.inputValue(),'UXQA pagination');
+ await capture(page,theme,width,'select-ime-catalog-resumed');
+ await page.locator('#qaSupervisedImeGroup').evaluate(el=>el.remove());
+ await fontSearch.focus();
  const previousFontScroll=await page.locator('.ds-select-results').evaluate(el=>{
   el.scrollTop=Math.min(220,el.scrollHeight-el.clientHeight);
   return el.scrollTop;
