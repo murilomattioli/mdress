@@ -871,6 +871,9 @@ function makeListbox(label,select,title){
     focused:document.activeElement===openSelect.search,
     paginationFocused:document.activeElement===openSelect.more,
     scrollTop:openSelect.list.scrollTop,
+    selectionStart:openSelect.search.selectionStart,
+    selectionEnd:openSelect.search.selectionEnd,
+    selectionDirection:openSelect.search.selectionDirection,
     limit:openSelect.getLimit()
    }:null;
    const visible=visibleSelectOptions(select);
@@ -1093,6 +1096,13 @@ function makeListbox(label,select,title){
   else if(target)target.focus();
   else if(search)search.focus();
   else {closePopup({restoreFocus:false});trigger.focus({preventScroll:true});}
+  // Refreshing a live catalog must not move the text caret to the end of
+  // a query being edited in the middle (or discard an active selection).
+  if(search&&restoredSearch?.focused&&
+   Number.isInteger(restoredSearch.selectionStart)&&
+   Number.isInteger(restoredSearch.selectionEnd))
+   search.setSelectionRange(restoredSearch.selectionStart,restoredSearch.selectionEnd,
+    restoredSearch.selectionDirection||'none');
  };
  trigger.addEventListener('click',event=>{event.preventDefault();open();});
  trigger.addEventListener('keydown',e=>{if(['Enter',' ','ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();open();}});
