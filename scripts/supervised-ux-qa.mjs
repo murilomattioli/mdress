@@ -708,6 +708,19 @@ async function exercise(page,theme,width){
  assert.equal(await fontMore.evaluate(el=>el===document.activeElement),true,
   'Live pagination refresh must retain the focused action');
  await capture(page,theme,width,'select-live-pagination-focus');
+ await fontSearch.focus();
+ const previousFontScroll=await page.locator('.ds-select-results').evaluate(el=>{
+  el.scrollTop=Math.min(220,el.scrollHeight-el.clientHeight);
+  return el.scrollTop;
+ });
+ assert.ok(previousFontScroll>20,'Filtered pagination results must be scrollable');
+ await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
+ await page.locator('#fontChoice option[value="qa-pagination-1"]').evaluate(el=>{el.label='UXQA pagination 1 updated';});
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
+ assert.equal(await fontSearch.evaluate(el=>el===document.activeElement),true);
+ assert.ok(Math.abs(await page.locator('.ds-select-results').evaluate(el=>el.scrollTop)-previousFontScroll)<=2,
+  'A live catalog refresh must preserve the scrolled result position');
+ await capture(page,theme,width,'select-live-search-scroll');
  await page.locator('#qaPaginationGroup').evaluate(el=>el.remove());
  await fontSearch.fill('');
  await page.locator('.ds-select-popover [data-value="system"]').waitFor({state:'visible'});
