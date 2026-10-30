@@ -410,7 +410,7 @@
 .design-inspector .ds-header-menu-trigger{position:relative;z-index:1;margin-left:auto}
 .design-inspector .ds-header-menu-trigger[data-visibility=hover]{opacity:0;pointer-events:none}
 .design-inspector .ds-accordion-header:hover .ds-header-menu-trigger,.design-inspector .ds-accordion-header:focus-within .ds-header-menu-trigger,.design-inspector .ds-header-menu-trigger[aria-expanded=true]{opacity:1;pointer-events:auto}
-.ds-header-menu{position:fixed;inset:auto;margin:0;padding:4px;min-width:160px;max-width:calc(100vw - 16px);border:1px solid var(--ds-border);border-radius:8px;background:var(--ds-panel);color:var(--ds-text);box-shadow:var(--ds-shadow-pop)}
+.ds-header-menu{position:fixed;inset:auto;margin:0;padding:4px;min-width:160px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow-y:auto;overscroll-behavior:contain;border:1px solid var(--ds-border);border-radius:8px;background:var(--ds-panel);color:var(--ds-text);box-shadow:var(--ds-shadow-pop)}
 .ds-header-menu button{display:block;width:100%;border:0;background:transparent;color:inherit;text-align:left;padding:8px;font:12px var(--ds-font)}
 .ds-header-menu button:hover,.ds-header-menu button:focus-visible{background:var(--ds-panel-hover)}
 @media(hover:none){.design-inspector .ds-header-menu-trigger[data-visibility=hover]{opacity:1;pointer-events:auto}}
