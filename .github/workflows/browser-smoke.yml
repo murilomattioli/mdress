@@ -19,7 +19,7 @@ concurrency:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 (Node 24)
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5 (Node 24)
@@ -48,6 +48,9 @@ jobs:
         run: node scripts/supervised-ux-qa.mjs --auto --headless
       - name: Human review gallery browser smoke
         run: node scripts/ux-qa-gallery-smoke.mjs
+      - name: Real PTY pause, stop and resume (two viewports, no human approval)
+        timeout-minutes: 8
+        run: node scripts/ux-qa-interruption-e2e.mjs
       # Temporary, read-only evidence transport. Not the permanent PR image publisher.
       # No repository write permission; PNGs are already compressed.
       - name: Upload short-lived UX review bundle
