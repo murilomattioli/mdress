@@ -1046,6 +1046,9 @@ function makeListbox(label,select,title){
   if(search){
    search.addEventListener('input',()=>{limit=60;renderOptions();list.scrollTop=0;});
    search.addEventListener('keydown',event=>{
+    // Enter confirms IME composition; Escape/arrow keys may also belong to
+    // the candidate picker. Do not commit a font or dismiss the popover.
+    if(event.isComposing||event.keyCode===229)return;
     const available=buttons.filter(item=>!item.disabled&&!item.hidden);
     if(['ArrowDown','ArrowUp','Enter'].includes(event.key)){
      event.preventDefault();
@@ -1246,7 +1249,10 @@ export function initializePropertyControls(){
   if(openSelect&&!openSelect.popup.contains(event.target)&&!openSelect.trigger.contains(event.target))
    closePopup({restoreFocus:false});
  });
- document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openSelect){event.preventDefault();closePopup();}});
+ document.addEventListener('keydown',event=>{
+  if(event.isComposing||event.keyCode===229)return;
+  if(event.key==='Escape'&&openSelect){event.preventDefault();closePopup();}
+ });
  document.addEventListener('close',event=>{
   if(openSelect&&event.target.contains?.(openSelect.trigger))closePopup({restoreFocus:false});
  },true);
