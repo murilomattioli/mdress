@@ -43,3 +43,14 @@ test('UX sign-off rechecks immutable screenshots instead of trusting a green rep
  assert.match(resume,/Captura modificada desde a sessão/,
   'Replacing a valid PNG must invalidate the human review');
 });
+
+test('stopping after capture preserves the completed viewport for safe resume',()=>{
+ const checkpoint=runner.indexOf("await checkpoint(theme+'/'+width");
+ const finalize=runner.indexOf('scenarioPassed=toolbarPassed&&inspectorPassed&&errors.length===0;',checkpoint);
+ const cleanup=runner.indexOf('finally{',checkpoint);
+ const coverage=runner.indexOf('coverage.push({theme,width,scenario:scenarioPassed',checkpoint);
+ assert.ok(checkpoint>=0&&cleanup>checkpoint&&finalize>cleanup&&coverage>finalize,
+  'Viewport status must be computed in finally, including when q stops at the checkpoint');
+ assert.match(runner,/writeUxQaResumeCheckpoint\(reportPath,/,
+  'Completed viewports must be saved for recovery after unexpected termination');
+});
