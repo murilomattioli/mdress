@@ -5,6 +5,8 @@
 .mdress-color-picker button{font:inherit;cursor:pointer;color:inherit;min-width:0;margin:0}
 .mdress-color-picker button:hover{filter:none}
 .mdress-color-picker button:disabled{opacity:.4;cursor:default}
+/* Keep the eyedropper keyboard-focusable while its native request is pending. */
+.mdress-color-picker .cp-button[aria-busy=true]{opacity:.55;cursor:progress;background:var(--ds-panel-hover)}
 .mdress-color-picker :focus-visible{outline:2px solid var(--ds-focus);outline-offset:3px}
 .cp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .cp-header h2{font:650 16px/1.3 var(--ds-font);margin:0;color:inherit}
