@@ -357,6 +357,53 @@ try{
  await dialog.screenshot({path:'test-results/color-picker/eyedropper-stale-ignored.png',animations:'disabled'});
  await dialog.press('Escape');
  await page.locator('.mdress-color-picker').waitFor({state:'detached'});
+ // A user can start typing while the native EyeDropper is still pending.
+ // Draft input events must invalidate that sample *before* blur/change/Enter.
+ // Otherwise even an invalid draft is silently replaced by a late result.
+ for(const scenario of [
+  {kind:'hex',selector:'.cp-hex',draft:'#556677'},
+  {kind:'rgb',selector:'.cp-channel input[type=number]',draft:'999'},
+  {kind:'opacity',selector:'.cp-opacity input[type=number]',draft:'37'},
+  {kind:'rejected-hex',selector:'.cp-hex',draft:'#778899'}
+ ]){
+  await page.evaluate(()=>{
+   window.EyeDropper=class{open(){
+    return new Promise((resolve,reject)=>{
+     window.__qaDraftDropperResolve=resolve;
+     window.__qaDraftDropperReject=reject;
+    });
+   }};
+   document.getElementById('accentColor').click();
+  });
+  dialog=page.getByRole('dialog',{name:/Cores/});await dialog.waitFor();
+  const sourceBefore=await page.locator('#accentColor').inputValue();
+  const alphaBefore=await page.locator('#accentColor').getAttribute('data-opacity');
+  const sampleButton=dialog.getByRole('button',{name:'Capturar cor da tela',exact:true});
+  await sampleButton.click();
+  assert.equal(await sampleButton.getAttribute('aria-busy'),'true');
+  const draftInput=dialog.locator(scenario.selector).first();
+  await draftInput.fill(scenario.draft);
+  assert.equal(await draftInput.inputValue(),scenario.draft);
+  if(scenario.kind==='rejected-hex')
+   await page.evaluate(()=>window.__qaDraftDropperReject(new Error('Device unavailable')));
+  else
+   await page.evaluate(()=>window.__qaDraftDropperResolve({sRGBHex:'#FEDCBA'}));
+  await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+  assert.equal(await page.locator('#accentColor').inputValue(),sourceBefore,
+   'EyeDropper must not commit over an uncommitted '+scenario.kind+' draft');
+  assert.equal(await page.locator('#accentColor').getAttribute('data-opacity'),alphaBefore,
+   'Pending samples must not change opacity while another field is being edited');
+  assert.equal(await draftInput.inputValue(),scenario.draft,
+   'Pending sample must preserve the visible '+scenario.kind+' draft');
+  assert.equal(await dialog.locator('.cp-status').textContent(),'',
+   'Obsolete native results and failures must not interrupt the current draft');
+  await dialog.screenshot({
+   path:'test-results/color-picker/eyedropper-uncommitted-'+scenario.kind+'.png',
+   animations:'disabled'
+  });
+  await dialog.press('Escape');
+  await page.locator('.mdress-color-picker').waitFor({state:'detached'});
+ }
  await page.evaluate(()=>{window.EyeDropper=undefined;document.getElementById('accentColor').click();});
  assert.equal(await dialog.getByRole('button',{name:'Capturar cor da tela',exact:true}).isDisabled(),true);await dialog.press('Escape');await page.locator('.mdress-color-picker').waitFor({state:'detached'});
  await page.evaluate(()=>{const kind=document.getElementById('bgKind');kind.value='mesh';kind.dispatchEvent(new Event('change',{bubbles:true}));});
