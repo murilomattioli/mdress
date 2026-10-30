@@ -136,7 +136,7 @@ test('supervised resume reuses only complete and matching source/viewport eviden
   screenshots:[...shots('graphite',1440),...shots('graphite',1024)]};
  const options={url,directory,sourceFingerprint};
  assert.deepEqual(resumableUxViewportRows(report,options).map(row=>row.width),[1440]);
- assert.equal(resumableUxViewportRows({...report,summary:{status:'passed'}},options).length,0,
+ assert.throws(()=>resumableUxViewportRows({...report,summary:{status:'passed'}},options),/incompatível/,
   'A completed run must use qa:resume-review, not rerun the capture session');
  assert.throws(()=>resumableUxViewportRows(report,{...options,sourceFingerprint:'c'.repeat(64)}),/incompatível/);
  assert.throws(()=>resumableUxViewportRows({...report,url:'http://different'},options),/incompatível/);
