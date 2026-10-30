@@ -34,6 +34,8 @@ jobs:
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173 >/dev/null && exit 0; sleep 1; done
           cat /tmp/mdress-server.log; exit 1
       - run: node scripts/e2e.mjs
+      - name: Inspector header menus — keyboard, disabled actions and viewport fit
+        run: node scripts/inspector-header-qa.mjs
       - name: Quick actions — dynamic focus handoff and mobile hit targets
         run: node scripts/choice-actions-qa.mjs
       - name: Alert dialogs — keyboard, cancellation and focus restoration
@@ -62,6 +64,8 @@ jobs:
           path: |
             test-results/ux-audit/*.png
             test-results/color-picker/*.png
+            test-results/header-edge-menu-*.png
+            test-results/header-pattern-*.png
             test-results/ux-audit/supervised/*.png
             test-results/ux-audit/supervised/index.html
             test-results/ux-audit/supervised/*-trace.zip
