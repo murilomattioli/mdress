@@ -1029,6 +1029,12 @@ function makeListbox(label,select,title){
     (buttons.findLast(item=>!item.disabled)||search)?.focus();
    }
    if(event.key==='Escape'){event.preventDefault();closePopup();}
+   if(event.key==='Tab'){
+    // Pagination is portalled to body, just like the listbox options.
+    // Restore the native tab-order origin before the browser handles Tab
+    // or Shift+Tab, otherwise focus jumps outside the inspector.
+    closePopup({restoreFocus:false});trigger.focus({preventScroll:true});
+   }
   });
   if(searchable)popup.append(more);
   if(search){
