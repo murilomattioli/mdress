@@ -530,7 +530,12 @@ async function exercise(page,theme,width){
  const popup=page.locator('.ds-select-popover');
  const visiblePopup=()=>popup.evaluate(el=>el.matches(':popover-open')&&
   el.getBoundingClientRect().width>0&&el.getBoundingClientRect().height>0);
- if(!await visiblePopup()){
+ // Native popover layout may settle on the next rendering frame. A DOM
+ // attachment alone is insufficient: wait for real painted dimensions.
+ let painted=false;
+ try{await popup.waitFor({state:'visible',timeout:2500});painted=await visiblePopup();}
+ catch{painted=false;}
+ if(!painted){
   findings.push({severity:'warning',phase:'select-native-popover-dismissed',theme,width,
    message:'Native listbox became hidden after ArrowDown; checking keyboard Escape/reopen recovery.'});
   await trigger.press('Escape');
