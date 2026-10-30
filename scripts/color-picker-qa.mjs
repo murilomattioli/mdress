@@ -117,7 +117,25 @@ try{
   assert.equal((await input.inputValue()).slice(1,3),'ff');
   const hex=dialog.getByRole('textbox',{name:'Cor hexadecimal',exact:true});
   await hex.fill('bad');await hex.press('Enter');assert.equal(await hex.getAttribute('aria-invalid'),'true');await assertDescribedError(hex);
+  // A shared error status has exactly one ARIA owner. Switching from HEX to
+  // RGB must remove the old invalid state before describing the new field.
+  await redChannel.fill('999');await redChannel.dispatchEvent('change');
+  assert.equal(await hex.getAttribute('aria-invalid'),null,'Previous HEX error owner must be cleared');
+  assert.equal(await hex.getAttribute('aria-errormessage'),null,'Previous HEX error IDREF must be removed');
+  assert.equal(await redChannel.getAttribute('aria-invalid'),'true');
+  await assertDescribedError(redChannel);
+  assert.equal(await dialog.locator('.cp-status').getAttribute('aria-live'),'assertive');
+  await page.screenshot({path:`test-results/color-picker/error-handoff-${width}.png`});
+  await redChannel.press('Escape');
+  assert.equal(await dialog.locator('.cp-status').textContent(),'');
+  await hex.fill('bad');await hex.dispatchEvent('change');
+  await redChannel.press('Escape');
+  assert.equal(await hex.getAttribute('aria-invalid'),'true',
+   'Cancelling an unrelated RGB field must not erase the active HEX error');
+  await assertDescribedError(hex);
+  await page.screenshot({path:`test-results/color-picker/error-owner-${width}.png`});
   await hex.fill('#123456');await hex.press('Enter');assert.equal(await input.inputValue(),'#123456');
+  assert.equal(await dialog.locator('.cp-status').textContent(),'','Successful edit clears the shared error');
   assert.equal(await hex.getAttribute('aria-errormessage'),null,'Valid HEX must clear stale error references');
   await page.screenshot({path:`test-results/color-picker/rgb-${width}.png`});
   assert.equal(await dialog.evaluate(el=>el.scrollWidth>el.clientWidth),false);
