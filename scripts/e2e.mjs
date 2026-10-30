@@ -577,6 +577,38 @@ try {
  await page.waitForFunction(()=>!document.querySelector('.ds-select-popover'));
  assert.equal(await page.evaluate(()=>['designToggle','railDesign'].includes(document.activeElement?.id)),true,
   'Detaching the focused combobox must restore focus to a visible inspector toggle');
+ // An ARIA-disabled toggle is not a valid recovery destination, even though
+ // it remains natively focusable. If both toggles are unavailable, restore
+ // keyboard focus to the visible Markdown editor rather than document.body.
+ await page.evaluate(async()=>{
+  for(const id of ['designToggle','railDesign'])
+   document.getElementById(id)?.setAttribute('aria-disabled','true');
+  const label=document.createElement('label');label.className='property-row';
+  label.textContent='QA lista sem alternadores disponíveis';
+  const select=document.createElement('select');select.id='qaDetachedNoToggles';
+  for(const value of ['Um','Dois']){
+   const option=document.createElement('option');option.value=value;option.textContent=value;
+   select.append(option);
+  }
+  label.append(select);
+  document.querySelector('#inspector-document .ds-accordion-body').append(label);
+  const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+  enhancePropertyControls();
+ });
+ const noTogglesTrigger=page.locator('.ds-property-select')
+  .filter({has:page.locator('#qaDetachedNoToggles')}).locator('.ds-select-trigger');
+ await noTogglesTrigger.click();
+ assert.equal(await page.locator('.ds-select-popover [role="option"]:focus').count(),1,
+  'Detached fallback fixture must focus a portalled option');
+ await noTogglesTrigger.evaluate(el=>el.closest('label').remove());
+ await page.waitForFunction(()=>!document.querySelector('.ds-select-popover')&&document.activeElement?.id==='source');
+ assert.equal(await page.locator('#source').evaluate(el=>el===document.activeElement),true,
+  'Unavailable inspector toggles must fall back to the visible editor');
+ await page.screenshot({path:'test-results/ux-audit/inspector-detached-toggle-disabled-focus.png',animations:'disabled'});
+ await page.evaluate(()=>{
+  for(const id of ['designToggle','railDesign'])
+   document.getElementById(id)?.removeAttribute('aria-disabled');
+ });
  await reveal(page,'accentColor');
  const colorControl=page.locator('.ds-property-color').filter({has:page.locator('#accentColor')});
  const colorHex=colorControl.locator('.ds-color-hex');
