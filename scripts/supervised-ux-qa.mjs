@@ -523,7 +523,24 @@ async function exercise(page,theme,width){
  await trigger.scrollIntoViewIfNeeded();await trigger.hover();await capture(page,theme,width,'select-hover');
  await trigger.focus();await trigger.press('ArrowDown');
  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
- const popupBounds=await page.locator('.ds-select-popover').evaluate(el=>{
+ // Chromium can asynchronously dismiss a native manual popover while the
+ // enhanced combobox still reports expanded. Do not accept a zero-sized
+ // portal as visual evidence: record the anomaly and exercise a real
+ // keyboard Escape/reopen recovery before checking the geometry again.
+ const popup=page.locator('.ds-select-popover');
+ const visiblePopup=()=>popup.evaluate(el=>el.matches(':popover-open')&&
+  el.getBoundingClientRect().width>0&&el.getBoundingClientRect().height>0);
+ if(!await visiblePopup()){
+  findings.push({severity:'warning',phase:'select-native-popover-dismissed',theme,width,
+   message:'Native listbox became hidden after ArrowDown; checking keyboard Escape/reopen recovery.'});
+  await trigger.press('Escape');
+  await trigger.focus();await trigger.press('ArrowDown');
+  assert.equal(await trigger.getAttribute('aria-expanded'),'true',
+   'Keyboard reopening must restore combobox expanded state');
+ }
+ await popup.waitFor({state:'visible',timeout:4000});
+ assert.equal(await visiblePopup(),true,'Reopened listbox must be in the native popover top layer');
+ const popupBounds=await popup.evaluate(el=>{
   const box=el.getBoundingClientRect();
   return {left:box.left,right:box.right,top:box.top,bottom:box.bottom,width:innerWidth,height:innerHeight};
  });
