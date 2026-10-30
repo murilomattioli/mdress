@@ -902,6 +902,11 @@ function makeListbox(label,select,title){
   popup.setAttribute('popover','manual');
   popup.setAttribute('role','listbox');popup.setAttribute('aria-label',title);
   let list=popup,search=null;
+  // A persistent live region outside the listbox announces empty searches.
+  // Status nodes inserted directly into role=listbox violate its child roles.
+  const emptyStatus=span('ds-select-empty');
+  emptyStatus.setAttribute('role','status');
+  emptyStatus.setAttribute('aria-live','polite');
   if(searchable){
    popup.removeAttribute('role');popup.classList.add('ds-select-popover--searchable');
    list=document.createElement('div');list.className='ds-select-results';
@@ -909,7 +914,7 @@ function makeListbox(label,select,title){
    search=document.createElement('input');search.type='search';search.className='ds-select-search';
    search.placeholder='Buscar fonte…';search.setAttribute('aria-label','Buscar fonte');search.setAttribute('aria-controls',list.id);
    search.autocomplete='off';search.spellcheck=false;
-   popup.append(search,list);
+   popup.append(search,list,emptyStatus);
   }
   const opts=visibleSelectOptions(select),buttons=[],optionItems=[];
   let typeahead='',lastTypedAt=0,limit=restoredSearch?.limit??60;
@@ -973,11 +978,7 @@ function makeListbox(label,select,title){
   }
   more.hidden=shown.length===matches.length;
   more.textContent='Mostrar mais · '+shown.length+' de '+matches.length;
-  if(!matches.length){
-   const empty=span('ds-select-empty','Nenhuma fonte encontrada.');
-   empty.setAttribute('role','status');
-   list.append(empty);
-  }
+  if(searchable)emptyStatus.textContent=matches.length?'':'Nenhuma fonte encontrada.';
   };
   renderOptions();
   more.addEventListener('click',()=>{const firstNew=buttons.length;limit+=60;renderOptions();buttons[firstNew]?.focus();});

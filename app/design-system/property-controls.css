@@ -192,6 +192,7 @@
 .ds-select-popover--searchable .ds-select-option{flex-shrink:0;min-height:38px;font-size:13px}
 .ds-select-popover--searchable [hidden]{display:none!important}
 .ds-select-empty{padding:16px 10px;color:var(--ds-text-secondary);font-size:12px}
+.ds-select-empty:empty{display:none}
 .ds-select-option:disabled:hover{background:transparent;color:var(--ds-text-secondary)}
 .ds-select-option:focus-visible{outline:2px solid var(--ds-focus)!important;outline-offset:-2px!important}
 .ds-select-option[aria-selected=true]{background:var(--ds-brand-soft);color:var(--ds-text);font-weight:720}

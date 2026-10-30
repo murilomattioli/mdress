@@ -739,6 +739,8 @@ try {
  await liveFontSearch.fill('uxqa-never');
  assert.equal(await page.locator('.ds-select-empty[role="status"]').isVisible(),true,
   'An empty font search must announce its result state');
+ assert.equal(await page.locator('.ds-select-results [role="status"]').count(),0,
+  'Empty-search announcements must not be nested inside the role=listbox');
  await page.locator('#fontChoice').evaluate(select=>{
   const group=document.createElement('optgroup');
   group.id='qaLiveFontGroup';group.label='QA dynamic fonts';
