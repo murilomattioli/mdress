@@ -1,5 +1,14 @@
 # Issue #23 — evidências duráveis
 
+## UX-023 — menus do cabeçalho do inspetor (30/10/2026)
+
+O menu de ações de cada acordeão agora possui `aria-controls` estável, ignora ações desabilitadas na navegação por setas/Home/End e não exibe um trigger sem nenhuma ação disponível. O popover abre acima do gatilho quando falta espaço inferior, limita a altura a `100dvh - 16px` e permite rolagem interna sem ultrapassar a janela.
+
+O teste `node scripts/inspector-header-qa.mjs` agora é um **gate obrigatório do Browser Smoke**: verifica ordem de título/ações/chevron, ativação por teclado, foco após Escape, navegação circular, ausência de ações disponíveis e geometria do menu em viewports 390×320 e 1024×420. Capturas `header-edge-menu-390.png`, `header-edge-menu-1024.png`, `header-pattern-390.png` e `header-pattern-1024.png` são anexadas ao pacote temporário do CI.
+
+**Validação:** consultar os checks do HEAD do PR #27; esta seção documenta o contrato, não substitui o resultado do workflow. A revisão visual humana permanece pendente. Não executar merge/release/publicação antes da homologação.
+
+
 > **Estado atual (30/10/2026):** a matriz UX-023 exige **115 estados × 2 temas × 4 larguras = 920 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
 
 
