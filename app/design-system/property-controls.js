@@ -245,9 +245,11 @@ function enhanceRange(label,input,title){
   // corrected or cancelled. Disable steppers rather than silently replacing
   // the draft. Direct slider gestures remain an explicit override.
   const invalidDraft=editing&&!valid();
+  // Stepper availability follows the visible valid draft, not stale native state.
+  const stepperValue=editing&&!invalidDraft?numeric.valueAsNumber:value;
   const focusedStepper=[minus,plus].find(button=>document.activeElement===button);
-  minus.disabled=input.disabled||!boundsValid||invalidDraft||rangeStepTarget(value,-1,min,max,step)===null;
-  plus.disabled=input.disabled||!boundsValid||invalidDraft||rangeStepTarget(value,1,min,max,step)===null;
+  minus.disabled=input.disabled||!boundsValid||invalidDraft||rangeStepTarget(stepperValue,-1,min,max,step)===null;
+  plus.disabled=input.disabled||!boundsValid||invalidDraft||rangeStepTarget(stepperValue,1,min,max,step)===null;
   if(focusedStepper?.disabled)focusInspectorNeighbor(focusedStepper,{visibleOnly:true});
   if(input.disabled&&focusedPrecision)focusInspectorNeighbor(numeric,{visibleOnly:true});
   restoreNativeFocus();

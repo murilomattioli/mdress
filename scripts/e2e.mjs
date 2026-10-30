@@ -377,6 +377,17 @@ try {
  await qaRangeRow.locator('.ds-number-step').last().evaluate(el=>el.click());
  assert.equal(await qaRange.inputValue(),'14','Stepper must advance from valid draft 11, not stale native 8');
  assert.equal(await qaRangePrecision.inputValue(),'14','Committed step must sync the precision field');
+ await qaRangePrecision.fill('11');
+ await assertNoRedundantNativeEvents(qaRange,async()=>
+  qaRangeRow.locator('.ds-number-step').last().evaluate(el=>el.click()),
+  'Stepping a valid draft to an unchanged native value must not emit edits');
+ assert.equal(await qaRangePrecision.inputValue(),'14','A no-op native commit must still clear the pending draft');
+ await qaRangePrecision.fill('8');await qaRangePrecision.dispatchEvent('change');
+ await qaRangePrecision.fill('14');
+ assert.equal(await qaRangeRow.locator('.ds-number-step').last().isDisabled(),true,
+  'Stepper availability must follow a valid draft at the upper bound');
+ assert.equal(await qaRangeRow.locator('.ds-number-step').first().isEnabled(),true);
+ assert.equal(await qaRange.inputValue(),'8','A boundary draft must remain uncommitted');
  await qaRangePrecision.fill('8');await qaRangePrecision.dispatchEvent('change');
  assert.equal(await qaRange.inputValue(),'8');
  await qaRangePrecision.fill('9');await qaRangePrecision.dispatchEvent('change');

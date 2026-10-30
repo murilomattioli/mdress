@@ -174,6 +174,17 @@ async function exercise(page,theme,width){
  assert.equal(await liveNative.inputValue(),'14','Stepper must use the visible valid draft');
  assert.equal(await livePrecision.inputValue(),'14');
  await capture(page,theme,width,'range-live-valid-draft-stepper');
+ await livePrecision.fill('11');
+ await liveRow.locator('.ds-number-step').last().evaluate(el=>el.click());
+ assert.equal(await liveNative.inputValue(),'14');
+ assert.equal(await livePrecision.inputValue(),'14','No-op native commit must resolve the draft');
+ await capture(page,theme,width,'range-live-valid-draft-noop-stepper');
+ await livePrecision.fill('8');await livePrecision.dispatchEvent('change');
+ await livePrecision.fill('14');
+ assert.equal(await liveRow.locator('.ds-number-step').last().isDisabled(),true);
+ assert.equal(await liveRow.locator('.ds-number-step').first().isEnabled(),true);
+ assert.equal(await liveNative.inputValue(),'8');
+ await capture(page,theme,width,'range-live-valid-draft-boundary');
  await livePrecision.fill('8');await livePrecision.dispatchEvent('change');
  assert.equal(await liveNative.inputValue(),'8');
  await livePrecision.fill('9');await livePrecision.dispatchEvent('change');
