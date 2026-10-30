@@ -683,7 +683,10 @@
 .design-inspector #inspector-document .background-effect-group :is(.ds-property-select,.ds-property-color,.ds-property-range){row-gap:2px}
 .design-inspector #inspector-document .background-effect-group .ds-prop-name{min-height:18px}
 
-.ds-select-more{display:block;width:100%;padding:8px;border:0;background:transparent;color:var(--ds-text-secondary);font-size:11px}.ds-select-more[hidden]{display:none}
+.ds-select-more{display:block;width:100%;min-height:34px;padding:8px;border:0;border-radius:6px;background:transparent;color:var(--ds-text-secondary);font-size:11px;cursor:pointer}
+.ds-select-more:hover{background:var(--ds-panel-raised);color:var(--ds-text)}
+.ds-select-more:focus-visible{outline:2px solid var(--ds-focus);outline-offset:-2px}
+.ds-select-more[hidden]{display:none}
 
 .design-inspector .document-color-group{display:flex;flex-direction:column;gap:8px;min-width:0}
 .design-inspector .document-color-group+.document-color-group{margin-top:6px}
