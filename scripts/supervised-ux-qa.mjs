@@ -247,6 +247,60 @@ async function exercise(page,theme,width){
  await assertInspectorFocusHandoff(page,'Disabling a focused native color swatch must preserve inspector keyboard focus');
  await capture(page,theme,width,'color-swatch-disabled-focus-handoff');
  await nativeSwatch.evaluate(el=>{el.disabled=false;});
+ // Supervised evidence for the inline eyedropper: pending requests retain
+ // keyboard focus; disabling the source hands it off and invalidates the
+ // pending result, even when the input is subsequently re-enabled.
+ await page.evaluate(async()=>{
+  window.__qaSupervisedOriginalEyeDropper=window.EyeDropper;
+  window.EyeDropper=class{open(){
+   return new Promise(resolve=>{window.__qaSupervisedDropperResolve=resolve;});
+  }};
+  const label=document.createElement('label');label.className='property-row';
+  label.textContent='Cor supervisionada';
+  const input=document.createElement('input');input.type='color';
+  input.id='qaSupervisedEyeDropperColor';input.value='#123456';label.append(input);
+  document.querySelector('#inspector-document .ds-accordion-body').append(label);
+  const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+  enhancePropertyControls();
+ });
+ const eyedropperInput=page.locator('#qaSupervisedEyeDropperColor');
+ const eyedropperButton=page.locator('.ds-property-color').filter({has:eyedropperInput}).locator('.ds-color-pipette');
+ await eyedropperButton.scrollIntoViewIfNeeded();
+ if(width<=390){
+  const bounds=await eyedropperButton.boundingBox();
+  assert.ok(bounds&&bounds.width>=43.5&&bounds.height>=43.5,
+   'Inline eyedropper must provide a 44px mobile touch target');
+ }
+ await eyedropperButton.click();
+ assert.equal(await eyedropperButton.getAttribute('aria-busy'),'true');
+ assert.equal(await eyedropperButton.evaluate(el=>document.activeElement===el),true);
+ await capture(page,theme,width,'color-eyedropper-pending-focus');
+ await page.evaluate(()=>{window.__qaSupervisedStaleDropperResolve=window.__qaSupervisedDropperResolve;});
+ await eyedropperInput.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#qaSupervisedEyeDropperColor')
+  ?.closest('.ds-property-color')?.querySelector('.ds-color-pipette')?.disabled);
+ await assertInspectorFocusHandoff(page,'Disabling a pending inline eyedropper must hand off keyboard focus');
+ assert.equal(await eyedropperButton.getAttribute('aria-busy'),null);
+ await capture(page,theme,width,'color-eyedropper-disabled-focus-handoff');
+ await eyedropperInput.evaluate(el=>{el.disabled=false;});
+ await page.waitForFunction(()=>!document.querySelector('#qaSupervisedEyeDropperColor')
+  ?.closest('.ds-property-color')?.querySelector('.ds-color-pipette')?.disabled);
+ await eyedropperButton.click();
+ await page.evaluate(()=>window.__qaSupervisedStaleDropperResolve({sRGBHex:'#FFFFFF'}));
+ assert.equal(await eyedropperInput.inputValue(),'#123456',
+  'An obsolete screen sample must not overwrite a re-enabled source');
+ assert.equal(await eyedropperButton.getAttribute('aria-busy'),'true',
+  'The obsolete sample must not clear the active request');
+ await capture(page,theme,width,'color-eyedropper-stale-ignored');
+ await page.evaluate(()=>window.__qaSupervisedDropperResolve({sRGBHex:'#ABCDEF'}));
+ await page.waitForFunction(()=>document.getElementById('qaSupervisedEyeDropperColor').value==='#abcdef');
+ await page.evaluate(()=>{
+  document.getElementById('qaSupervisedEyeDropperColor').closest('label').remove();
+  window.EyeDropper=window.__qaSupervisedOriginalEyeDropper;
+  delete window.__qaSupervisedOriginalEyeDropper;
+  delete window.__qaSupervisedDropperResolve;
+  delete window.__qaSupervisedStaleDropperResolve;
+ });
  // A visible color error status can describe only one invalid editor at a
  // time. Capture both the handoff and the unrelated-Escape regression so the
  // reviewer can inspect the feedback in every theme and viewport.
