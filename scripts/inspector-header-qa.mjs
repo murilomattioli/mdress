@@ -66,7 +66,8 @@ try{
    'Menu must stay within the viewport: '+JSON.stringify({viewport,bounds}));
   await page.screenshot({path:`test-results/header-edge-menu-${viewport.width}.png`});
   await page.keyboard.press('Escape');
-  assert.equal(await edgeTrigger.getAttribute('aria-expanded'),'false');
+  // Native popover toggle is dispatched asynchronously after hidePopover().
+  await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host .ds-header-menu-trigger')?.getAttribute('aria-expanded')==='false');
  }
 
  for(const width of [1024,390]){
