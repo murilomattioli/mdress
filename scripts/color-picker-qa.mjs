@@ -264,10 +264,35 @@ try{
  assert.equal(await page.locator('#accentColor').inputValue(),'#abc123',
   'An obsolete sample must not overwrite an external document edit');
  await dialog.screenshot({path:'test-results/color-picker/eyedropper-external-edit-preserved.png',animations:'disabled'});
+ // The source can change away and back to its original HEX (ABA). Value
+ // equality alone would wrongly accept that older screen sample.
+ await asyncDropper.click();
+ assert.equal(await page.evaluate(()=>window.__qaDropperCalls),4);
+ await page.locator('#accentColor').evaluate(el=>{
+  for(const value of ['#000000','#ABC123']){
+   el.value=value;el.dispatchEvent(new Event('input',{bubbles:true}));
+   el.dispatchEvent(new Event('change',{bubbles:true}));
+  }
+ });
+ await page.evaluate(()=>window.__qaDropperResolve({sRGBHex:'#010203'}));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.equal(await page.locator('#accentColor').inputValue(),'#abc123',
+  'ABA source changes must invalidate a pending sample even when HEX matches again');
+ await dialog.screenshot({path:'test-results/color-picker/eyedropper-aba-edit-preserved.png',animations:'disabled'});
+ // A disabled→enabled transition in one task is still an invalidation,
+ // even when the dialog remains open at the end of that task.
+ await asyncDropper.click();
+ assert.equal(await page.evaluate(()=>window.__qaDropperCalls),5);
+ await page.locator('#accentColor').evaluate(el=>{el.disabled=true;el.disabled=false;});
+ await page.evaluate(()=>window.__qaDropperResolve({sRGBHex:'#BADA55'}));
+ await page.waitForFunction(()=>!document.querySelector('.mdress-color-picker .cp-header [aria-busy="true"]'));
+ assert.equal(await page.locator('#accentColor').inputValue(),'#abc123',
+  'Rapid disable/re-enable must not revive a pending sample');
+ await dialog.screenshot({path:'test-results/color-picker/eyedropper-reenabled-stale.png',animations:'disabled'});
  // Changing opacity is also an intentional edit and invalidates a pending
  // sample even when the HEX color itself remains unchanged.
  await asyncDropper.click();
- assert.equal(await page.evaluate(()=>window.__qaDropperCalls),4);
+ assert.equal(await page.evaluate(()=>window.__qaDropperCalls),6);
  const pendingOpacity=dialog.getByRole('spinbutton',{name:'Opacidade em porcentagem',exact:true});
  await pendingOpacity.fill('41');await pendingOpacity.dispatchEvent('change');
  await page.evaluate(()=>window.__qaDropperResolve({sRGBHex:'#FACADE'}));
@@ -277,7 +302,7 @@ try{
  assert.equal(await page.locator('#accentColor').getAttribute('data-opacity'),'0.41');
  await dialog.screenshot({path:'test-results/color-picker/eyedropper-opacity-edit-preserved.png',animations:'disabled'});
  await asyncDropper.click();
- assert.equal(await page.evaluate(()=>window.__qaDropperCalls),5);
+ assert.equal(await page.evaluate(()=>window.__qaDropperCalls),7);
  await dialog.press('Escape');
  await page.locator('.mdress-color-picker').waitFor({state:'detached'});
  await page.evaluate(()=>document.getElementById('accentColor').click());
