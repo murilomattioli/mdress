@@ -8,12 +8,20 @@ import {createHash} from 'node:crypto';
 import {resolve,dirname,basename,relative,isAbsolute} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {summarizeUxCoverage,summarizeScreenshotCoverage,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS} from './ux-qa-coverage.mjs';
+import {fingerprintUxQaSource} from './ux-qa-source.mjs';
 
 const DEFAULT_REPORT='test-results/supervised-ux-qa.json';
 const SCREENSHOT_DIRECTORY=resolve('test-results/ux-audit/supervised');
 
-export function assessResumeReview(report,review){
+export function assessResumeReview(report,review,currentSourceFingerprint=null){
  const problems=[];
+ // Newer capture reports bind human approval to the exact app/QA source.
+ // Legacy schema-6 reports without this optional field retain the existing
+ // screenshot SHA-256 verification, but cannot claim source-bound approval.
+ if(report?.sourceFingerprint!==undefined&&
+  (!/^[a-f0-9]{64}$/.test(report.sourceFingerprint)||
+   report.sourceFingerprint!==currentSourceFingerprint))
+  problems.push('O código mudou desde a captura supervisionada; gere novas evidências.');
  if(report?.schema!==6||report?.mode!=='supervised'||report?.headless!==false)
   problems.push('O relatório não pertence a uma sessão supervisionada compatível.');
  if(report?.stopped||report?.summary?.status!=='passed')
@@ -70,7 +78,8 @@ export async function resumeHumanReview(reportPath,reviewPath){
  const reviewFile=resolve(reviewPath);
  const report=JSON.parse(await readFile(reportFile,'utf8'));
  const review=JSON.parse(await readFile(reviewFile,'utf8'));
- const assessment=assessResumeReview(report,review);
+ const currentSourceFingerprint=report.sourceFingerprint?await fingerprintUxQaSource():null;
+ const assessment=assessResumeReview(report,review,currentSourceFingerprint);
  if(!assessment.valid)throw Error(assessment.problems.join(' '));
  await verifyScreenshotEvidence(report.screenshots);
  report.humanReview={
