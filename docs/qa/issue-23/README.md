@@ -1,6 +1,6 @@
 # Issue #23 — evidências duráveis
 
-> **Estado atual (30/10/2026):** a matriz UX-023 exige **102 estados × 2 temas × 4 larguras = 816 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
+> **Estado atual (30/10/2026):** a matriz UX-023 exige **105 estados × 2 temas × 4 larguras = 840 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
 
 
 Capturadas localmente em 29/10/2026, sobre a integração de `7d2688b`, `c341201`, `7e2e19f` e `0a0870c`. Documento sintético padrão; nenhum documento pessoal do usuário.
@@ -39,7 +39,7 @@ Integração de 29/10/2026: [desktop](pdf-weight-1440.png), [mobile](pdf-weight-
 
 ## UX-023 — troca de Color Picker e foco assíncrono (30/10/2026)
 
-O Color Picker não pode devolver o foco ao campo anterior quando outro seletor já está aberto. Cada instância possui IDs próprios para tabs, painéis e erros durante o fechamento assíncrono. O gate Chromium cobre Destaque → Texto → Destaque em 1440/768/390/320px, com capturas `switch-text-*.png` e `switch-back-*.png`. A matriz supervisionada exige **83 estados × 2 temas × 4 larguras = 664 capturas**. Checks verdes não substituem a revisão visual humana.
+**30/10/2026 — conta-gotas inline:** o campo HEX aprimorado invalida a captura nativa já no primeiro `input`, inclusive para rascunhos inválidos. Respostas e erros tardios não apagam o rascunho nem seu feedback acessível. Transições `disabled → enabled` no mesmo task também invalidam a captura. Regressões Chromium e três estados de evidência humana (`color-eyedropper-inline-valid-draft`, `color-eyedropper-inline-invalid-draft`, `color-eyedropper-inline-rapid-reenable`) elevam a matriz para **105 estados × 2 temas × 4 larguras = 840 screenshots**. Homologação humana pendente.\n\nO Color Picker não pode devolver o foco ao campo anterior quando outro seletor já está aberto. Cada instância possui IDs próprios para tabs, painéis e erros durante o fechamento assíncrono. O gate Chromium cobre Destaque → Texto → Destaque em 1440/768/390/320px, com capturas `switch-text-*.png` e `switch-back-*.png`. A matriz supervisionada exige **83 estados × 2 temas × 4 larguras = 664 capturas**. Checks verdes não substituem a revisão visual humana.
 
 
 ### Conta-gotas inline e amostras obsoletas
