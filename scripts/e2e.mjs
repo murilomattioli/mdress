@@ -780,6 +780,31 @@ try {
  await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaLiveFontGroup').remove());
  await page.keyboard.press('Escape');
  assert.equal(await fontTrigger.getAttribute('aria-expanded'),'false');
+ // Pagination must survive a live native-option refresh too. Resetting
+ // "Mostrar mais" to 60 on every async catalog update loses the user's place.
+ await fontTrigger.click();
+ await liveFontSearch.fill('');
+ await page.waitForFunction(()=>document.querySelectorAll('#fontChoice optgroup[label="Google Fonts"] option').length>120);
+ const moreFonts=page.locator('.ds-select-more');
+ await moreFonts.click();
+ const expandedFontCount=await page.locator('.ds-select-option').count();
+ assert.ok(expandedFontCount>=120,'Show more must reveal the second page of fonts');
+ await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');
+  group.id='qaLiveFontGroup';group.label='QA dynamic fonts';
+  group.append(new Option('Unrelated QA Font', 'qa:other'));
+  select.append(group);
+ });
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
+ assert.equal(await page.locator('.ds-select-option').count(),expandedFontCount,
+  'Refreshing live options must preserve the expanded font result count');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-search-live-pagination.png',animations:'disabled'
+ });
+ await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaLiveFontGroup').remove());
+ await page.keyboard.press('Escape');
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'false');
  // Two open events during one pending catalog request must not append
  // duplicate Google Fonts groups (the first result may arrive asynchronously).
  const catalogPage=await browser.newPage({viewport:{width:1280,height:900}});
