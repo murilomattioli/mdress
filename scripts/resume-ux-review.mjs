@@ -3,12 +3,13 @@
  * Does not launch Chromium, recapture screenshots or infer visual approval.
  * Usage: node scripts/resume-ux-review.mjs <exported-review.json>
  */
-import {readFile,writeFile,lstat} from 'node:fs/promises';
+import {readFile,lstat} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {resolve,dirname,basename,relative,isAbsolute} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {summarizeUxCoverage,summarizeScreenshotCoverage,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS} from './ux-qa-coverage.mjs';
 import {fingerprintUxQaSource} from './ux-qa-source.mjs';
+import {writeUxQaReportAtomic} from './ux-qa-checkpoint.mjs';
 
 const DEFAULT_REPORT=process.env.MDRESS_QA_REPORT||'test-results/supervised-ux-qa.json';
 const SCREENSHOT_DIRECTORY=resolve(process.env.MDRESS_QA_DIRECTORY||'test-results/ux-audit/supervised');
@@ -109,7 +110,7 @@ export async function resumeHumanReview(reportPath,reviewPath){
   evidence:{file:reviewFile,...assessment.validation,verifiedScreenshots:report.screenshots.length,
    verifiedAt:new Date().toISOString()}
  };
- await writeFile(reportFile,JSON.stringify(report,null,2)+'\n');
+ await writeUxQaReportAtomic(reportFile,report);
  return {reportFile,verifiedScreenshots:report.screenshots.length,sessionId:report.reviewSessionId};
 }
 
