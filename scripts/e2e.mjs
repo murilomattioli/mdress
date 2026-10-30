@@ -630,7 +630,7 @@ try {
   // on the eyedropper itself; the valid HEX field must not become invalid.
   await dropperButton.click();
   await page.evaluate(()=>window.__qaInspectorDropperReject(new Error('permission denied')));
-  const dropperError=dropperRow.locator('.ds-prop-error[role="alert"]');
+  const dropperError=dropperRow.locator('..').locator('.ds-prop-error[role="alert"]');
   await dropperError.waitFor({state:'visible'});
   assert.match(await dropperError.innerText(),/Não foi possível capturar a cor/);
   assert.equal(await dropperButton.getAttribute('aria-describedby'),await dropperError.getAttribute('id'));
