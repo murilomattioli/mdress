@@ -879,6 +879,12 @@ try {
  await page.keyboard.press('Enter');
  const expandedFontCount=await page.locator('.ds-select-option').count();
  assert.ok(expandedFontCount>=120,'Show more must reveal the second page of fonts');
+ await liveFontSearch.focus();
+ const previousFontScroll=await page.locator('.ds-select-results').evaluate(el=>{
+  el.scrollTop=Math.min(220,el.scrollHeight-el.clientHeight);
+  return el.scrollTop;
+ });
+ assert.ok(previousFontScroll>20,'Expanded font results must be scrollable');
  await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
  await page.locator('#fontChoice').evaluate(select=>{
   const group=document.createElement('optgroup');
@@ -889,6 +895,10 @@ try {
  await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
  assert.equal(await page.locator('.ds-select-option').count(),expandedFontCount,
   'Refreshing live options must preserve the expanded font result count');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true,
+  'A live refresh must keep focus on the active font search');
+ assert.ok(Math.abs(await page.locator('.ds-select-results').evaluate(el=>el.scrollTop)-previousFontScroll)<=2,
+  'A live font refresh must not jump the scrolled results back to the top');
  await page.locator('.ds-select-popover').screenshot({
   path:'test-results/ux-audit/inspector-font-search-live-pagination.png',animations:'disabled'
  });
