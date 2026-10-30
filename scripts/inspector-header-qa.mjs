@@ -72,7 +72,7 @@ try{
   const geometry=await group.evaluate(el=>{const title=el.querySelector('.ds-accordion-title').getBoundingClientRect(),actions=el.querySelector('.ds-choice-actions').getBoundingClientRect(),menu=el.querySelector('.ds-header-menu-trigger').getBoundingClientRect(),chevron=el.querySelector('.ds-accordion-chevron').getBoundingClientRect();return {ordered:title.right<=actions.left&&actions.right<=menu.left&&menu.right<=chevron.left,overflow:el.scrollWidth>el.clientWidth};});
   assert.equal(geometry.ordered,true);assert.equal(geometry.overflow,false);
   await page.locator('#toast.show').waitFor({state:'hidden'});
-  await page.locator('.design-inspector').screenshot({path:`test-results/header-pattern-${width}.png`});
+  await page.locator('.design-inspector').first().screenshot({path:`test-results/header-pattern-${width}.png`});
  }
  console.log('Header layout, accessible menu linkage, keyboard wrap, empty actions, viewport bounds, screenshots and Escape passed.');
 }finally{await browser.close();}
