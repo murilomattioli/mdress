@@ -1083,11 +1083,13 @@ try{
     // Keep the headed browser available for inspection between viewports.
     // Eight checkpoints replace hundreds of interruptions while preserving m/q/ENTER.
     await checkpoint(theme+'/'+width+' — capturas concluídas; m=inspecionar, ENTER=próxima largura');
-    for(const message of errors)findings.push({severity:'error',phase:'runtime',theme,width,message});
-    scenarioPassed=toolbarPassed&&inspectorPassed&&errors.length===0;
    }catch(e){if(e instanceof ReviewStopped)stopped=true;else error('scenario',theme,width,e);}
    finally{
-    // Keep traces only for failures/interrupted reviews to avoid bloating CI artifacts.
+    // A reviewer pressing q after all captures must not invalidate a
+    // completed viewport. Preserve the actual functional result on stop.
+    for(const message of errors)findings.push({severity:'error',phase:'runtime',theme,width,message});
+    scenarioPassed=toolbarPassed&&inspectorPassed&&errors.length===0;
+    // Keep traces only for failed scenarios to avoid bloating CI artifacts.
     try{
      if(!scenarioPassed){
       const path=directory+'/'+theme+'-'+width+'-trace.zip';
