@@ -543,7 +543,9 @@ try {
   // The native eyedropper resolves asynchronously. Do not steal focus from
   // a different inspector field when the user navigates while it is open.
   await page.evaluate(async()=>{
+   window.__qaInspectorDropperCalls=0;
    window.EyeDropper=class{open(){
+    window.__qaInspectorDropperCalls++;
     return new Promise(resolve=>{window.__qaInspectorDropperResolve=resolve;});
    }};
    const label=document.createElement('label');label.className='property-row';
@@ -572,6 +574,55 @@ try {
   assert.equal(await dropperButton.evaluate(el=>document.activeElement===el),true,
    'A completed eyedropper must restore its button if native UI left focus on body');
   await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-restored-focus.png',animations:'disabled'});
+  // A pending native eyedropper must not disable the focused button or allow
+  // concurrent requests. Disabling/re-enabling the source invalidates its
+  // old promise without blocking the next screen sample.
+  await dropperButton.click();
+  assert.equal(await dropperButton.getAttribute('aria-busy'),'true');
+  assert.equal(await dropperButton.getAttribute('aria-disabled'),'true');
+  assert.equal(await dropperButton.evaluate(el=>document.activeElement===el),true,
+   'Pending screen sampling must preserve the keyboard focus');
+  await dropperButton.dispatchEvent('click');
+  assert.equal(await page.evaluate(()=>window.__qaInspectorDropperCalls),3,
+   'Repeated clicks must not start concurrent native screen samples');
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-pending-focus.png',animations:'disabled'});
+  await page.evaluate(()=>{window.__qaInspectorStaleResolve=window.__qaInspectorDropperResolve;});
+  await page.locator('#qaEyeDropperColor').evaluate(el=>{el.disabled=true;});
+  await page.waitForFunction(()=>document.querySelector('#qaEyeDropperColor')
+   ?.closest('.ds-property-color')?.querySelector('.ds-color-pipette')?.disabled===true);
+  assert.equal(await dropperButton.getAttribute('aria-busy'),null,
+   'Disabling the source must invalidate and clear the pending state');
+  assert.notEqual(await page.evaluate(()=>document.activeElement),null);
+  assert.equal(await page.evaluate(()=>document.activeElement===document.body),false,
+   'Disabling a focused eyedropper must hand focus to a usable control');
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-disabled-focus-handoff.png',animations:'disabled'});
+  await page.locator('#qaEyeDropperColor').evaluate(el=>{el.disabled=false;});
+  await page.waitForFunction(()=>!document.querySelector('#qaEyeDropperColor')
+   ?.closest('.ds-property-color')?.querySelector('.ds-color-pipette')?.disabled);
+  await dropperButton.click();
+  assert.equal(await page.evaluate(()=>window.__qaInspectorDropperCalls),4,
+   'Re-enabled source must accept a new screen sample immediately');
+  await page.evaluate(()=>window.__qaInspectorStaleResolve({sRGBHex:'#0F0F0F'}));
+  assert.equal(await page.locator('#qaEyeDropperColor').inputValue(),'#fedcba',
+   'Old native results must not overwrite a re-enabled source');
+  assert.equal(await dropperButton.getAttribute('aria-busy'),'true',
+   'An old result must not clear a newer request busy state');
+  await page.evaluate(()=>window.__qaInspectorDropperResolve({sRGBHex:'#112233'}));
+  await page.waitForFunction(()=>document.getElementById('qaEyeDropperColor').value==='#112233');
+  assert.equal(await dropperButton.getAttribute('aria-busy'),null);
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-reenabled.png',animations:'disabled'});
+  // External document edits supersede a pending sample as well.
+  await dropperButton.click();
+  await page.evaluate(()=>{
+   window.__qaInspectorStaleResolve=window.__qaInspectorDropperResolve;
+   const input=document.getElementById('qaEyeDropperColor');
+   input.value='#445566';input.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  assert.equal(await dropperButton.getAttribute('aria-busy'),null,
+   'External input must cancel the obsolete pending state');
+  await page.evaluate(()=>window.__qaInspectorStaleResolve({sRGBHex:'#FFFFFF'}));
+  assert.equal(await page.locator('#qaEyeDropperColor').inputValue(),'#445566',
+   'A late result must never undo a newer document edit');
   await page.evaluate(()=>{
    document.getElementById('qaEyeDropperColor').closest('label').remove();
    window.EyeDropper=undefined;
@@ -1065,7 +1116,7 @@ try {
   await ux.locator('[data-inspector-tab="document"]').click();
   const mobileTargets=await ux.locator('.design-inspector').evaluate(root=>{
    const selectors=['.ds-prop-number','.ds-number-native','.ds-number-step',
-    '.ds-color-swatch','.ds-color-hex','.ds-select-trigger',
+    '.ds-color-swatch','.ds-color-hex','.ds-color-pipette','.ds-select-trigger',
     '.ds-segment-option','.ds-binary-option'];
    const bounds=root.getBoundingClientRect();
    return selectors.flatMap(selector=>[...root.querySelectorAll(selector)]
@@ -1078,8 +1129,8 @@ try {
   assert.ok(mobileTargets.length>=3,'Mobile inspector must expose usable property controls');
   assert.ok(mobileTargets.every(item=>item.height>=43.5),
    'Mobile inspector targets must be at least 44px high: '+JSON.stringify(mobileTargets));
-  assert.ok(mobileTargets.filter(item=>['.ds-number-step','.ds-color-swatch'].includes(item.selector))
-   .every(item=>item.width>=43.5),'Mobile steppers and swatches need 44px touch width');
+  assert.ok(mobileTargets.filter(item=>['.ds-number-step','.ds-color-swatch','.ds-color-pipette'].includes(item.selector))
+   .every(item=>item.width>=43.5),'Mobile steppers, swatches and eyedroppers need 44px touch width');
   assert.ok(mobileTargets.every(item=>item.left>=-3&&item.right<=3),
    'Mobile property controls must not clip horizontally: '+JSON.stringify(mobileTargets));
   await ux.screenshot({path:'test-results/ux-audit/mobile-inspector-390.png',animations:'disabled'});
