@@ -49,3 +49,21 @@ A captura nativa no inspetor mantém o foco do botão durante a espera e usa `ar
 ## UX-023 — slider auxiliar e rascunhos inválidos (30/10/2026)
 
 Scrub desabilitado durante edição numérica inválida ou vazia, com posição anterior preservada e reativação após Escape/correção. E2E Chromium e matriz supervisionada exigem **86 estados × 2 temas × 4 larguras = 688 capturas**. Revisão visual humana continua obrigatória.
+
+
+## UX-023 — amostras assíncronas do Color Picker (30/10/2026)
+
+O conta-gotas do **popover completo** agora preserva a edição mais recente quando uma solicitação nativa pendente retorna depois de mudanças feitas no HEX, RGB, espectro, paleta ou opacidade. O resultado também é descartado se o input de origem mudar externamente, mesmo em uma sequência A → B → A, se a origem for substituída ou se houver uma transição rápida disabled → enabled. Cancelar ou fechar o seletor nunca concede aprovação nem aplica uma amostra obsoleta.
+
+O gate `node scripts/color-picker-qa.mjs` cobre amostras pendentes, edições manuais, externas, opacidade, ABA, disabled → enabled e descarte após fechamento, com PNGs em `test-results/color-picker/`. A matriz supervisionada exige três novos estados (`color-picker-eyedropper-stale-manual`, `color-picker-eyedropper-stale-external`, `color-picker-eyedropper-stale-opacity`) em cada tema e viewport: **94 estados × 2 temas × 4 larguras = 752 capturas**. Nenhum resultado automatizado equivale à revisão visual humana.
+
+No Windows/PowerShell, após atualizar a branch e iniciar `npm run dev`, execute em outro terminal:
+
+```powershell
+node scripts/color-picker-qa.mjs
+npm run qa:supervised
+# Se interrompido:
+npm run qa:resume-capture
+```
+
+A galeria fica em `test-results/ux-audit/supervised/index.html`. Revisão humana pendente; PR draft, sem merge, release ou Cloudflare.
