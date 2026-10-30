@@ -23,6 +23,18 @@ npm run qa:supervised
 
 O runner faz **um checkpoint por tema e largura (oito ao todo)**, depois de capturar os estados daquele viewport. Não é necessário pressionar Enter a cada screenshot. **Enter** avança ao próximo checkpoint, **m** libera o navegador para intervenção manual e **q** interrompe imediatamente o ciclo (inclusive no prompt de retomada), com código de saída não zero. **Ao terminar a matriz funcional, o modo supervisionado solicita um veredito visual explícito:** `a` solicita o arquivo JSON exportado da galeria (a aprovação só é registrada se todos os 87 estados tiverem sido marcados como aprovados na sessão atual); `r` reprova (exit code não zero), **Enter** mantém a revisão pendente e `q` interrompe. Arquivo ausente, sessão divergente ou estados pendentes/reprovados impedem a aprovação, mas não transformam checks automatizados verdes em falhas funcionais. Um resultado funcional `passed` nunca é sinônimo de homologação visual. A interrupção encerra a matriz sem solicitar checkpoints adicionais. O relatório inclui `summary.status` (`passed`, `failed` ou `stopped`) e `humanReview.status` (`approved`, `rejected`, `not-reviewed` ou `not-applicable` no CI) e reprova cobertura incompleta, repetida ou com subauditorias falhas. Capturas incluem estados hover de range e select. A auditoria salva as capturas em `test-results/ux-audit/supervised/` e o relatório em `test-results/supervised-ux-qa.json` (ignorados pelo Git). Se o servidor usar outra porta, configure `$env:MDRESS_AUDIT_URL='http://127.0.0.1:4174'` antes de executar o runner.
 
+## Retomar uma matriz interrompida (sem repetir os viewports aprovados)
+
+Se você digitou `q` ou um cenário falhou antes de completar a matriz, mantenha o diretório `test-results/` e execute no mesmo checkout, com o servidor `npm run dev` aberto:
+
+```powershell
+npm run qa:resume-capture
+```
+
+A retomada reutiliza **somente viewports concluídos e aprovados** na sessão anterior. Para cada viewport reutilizado, verifica os 87 nomes de estado, caminhos exatos, dimensões PNG, integridade dos arquivos e SHA-256. Capturas incompletas, modificadas, ausentes, duplicadas ou cenários com erro são **executados novamente**. O ID de sessão é preservado apenas quando o código-fonte, os scripts de QA, o `package.json`, a URL e o diretório de evidências correspondem exatamente à execução anterior (fingerprint SHA-256). Mudou o código? Inicie uma captura nova com `npm run qa:supervised` — misturar imagens de versões diferentes não é homologação.
+
+A retomada exige `test-results/supervised-ux-qa.json` da execução interrompida/reprovada, com `sourceFingerprint`; relatórios antigos sem fingerprint não são elegíveis. O runner revalida a integridade novamente ao concluir e recusa aprovação visual automática. `qa:resume-capture` **não** substitui `qa:resume-review`: este último apenas registra o veredito humano de uma matriz já concluída. O CI sempre começa uma captura nova, sem reutilizar evidências.
+
 ## Rastreamento de falhas (Playwright Trace Viewer)
 
 O runner grava um `*-trace.zip` por cenário que **falhar ou for interrompido**. Cenários aprovados descartam o trace para evitar artefatos grandes. O JSON `test-results/supervised-ux-qa.json` lista os arquivos em `traces`, com tema e largura; os ZIPs ficam em `test-results/ux-audit/supervised/`. O Browser Smoke anexa esses traces quando houver falha. Para abrir localmente:
@@ -81,7 +93,7 @@ npm run qa:resume-review -- "C:\Users\<usuario>\Downloads\mdress-ux023-review.js
 
 O comando reabre `test-results/supervised-ux-qa.json`, exige uma sessão **supervisionada e concluída**, valida o ID do JSON exportado e todos os 84 vereditos, e **relê os 672 arquivos PNG do disco**, verificando integridade e dimensões antes de registrar `humanReview.status=approved`. Captura ausente, corrompida, renomeada, sessão interrompida, resultado funcional falho ou JSON de outra sessão bloqueiam a aprovação sem modificar o relatório anterior. Não executa navegador nem CI, não cria capturas e **não realiza merge ou publicação**. A revisão visual e interativa precisa ter sido feita por você; esse comando apenas registra o veredito humano após verificar as evidências.
 
-Se a execução foi interrompida **antes de concluir a matriz**, o status permanece `stopped` e a homologação é recusada: execute `npm run qa:supervised` novamente para produzir uma matriz completa. Preserve o diretório `test-results/ux-audit/supervised/` e o relatório original enquanto revisa, pois uma nova captura gera outro ID de sessão e invalida o JSON anterior.
+Se a execução foi interrompida **antes de concluir a matriz**, o status permanece `stopped` e a homologação é recusada: execute `npm run qa:resume-capture` para retomar apenas os viewports ainda não aprovados (ou `npm run qa:supervised` para iniciar uma sessão nova). Preserve o diretório `test-results/ux-audit/supervised/` e o relatório original enquanto revisa, pois uma nova captura gera outro ID de sessão e invalida o JSON anterior.
 
 
 ### Slider auxiliar de números e limites dinâmicos
