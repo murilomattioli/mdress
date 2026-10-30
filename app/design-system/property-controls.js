@@ -869,6 +869,7 @@ function makeListbox(label,select,title){
    const searchState=openSelect.search?{
     query:openSelect.search.value,
     focused:document.activeElement===openSelect.search,
+    paginationFocused:document.activeElement===openSelect.more,
     limit:openSelect.getLimit()
    }:null;
    const visible=visibleSelectOptions(select);
@@ -884,8 +885,17 @@ function makeListbox(label,select,title){
     item.setAttribute('aria-selected',String(select.value===option.value));
    }
    if(!openSelect.optionItems.some(({item})=>!item.disabled)){
-    // No focusable option remains. Dismiss instead of leaving focus in a
-    // disabled/detached portal (or exposing an unusable expanded combobox).
+    // An unmatched query (or a query matching only disabled options) is a
+    // valid editable search state. Native-option mutations must not dismiss
+    // it while other choices still exist outside the current filter.
+    // When the entire native select is disabled, keep the existing focus
+    // handoff to the trigger instead of exposing an unusable listbox.
+    if(openSelect.search&&visible.some(option=>!isSelectOptionDisabled(option))){
+     if(openSelect.popup.contains(document.activeElement)&&
+      document.activeElement!==openSelect.search)
+      openSelect.search.focus({preventScroll:true});
+     return;
+    }
     closePopup({restoreFocus:false});trigger.focus({preventScroll:true});return;
    }
    if(focusedOption?.item.disabled){
@@ -1044,7 +1054,7 @@ function makeListbox(label,select,title){
   };
   reposition();
   trigger.setAttribute('aria-expanded','true');
-  openSelect={popup,trigger,search,getLimit:()=>limit,optionItems,sourceItems:opts.map(option=>({option,value:option.value,label:option.label||option.textContent,group:option.parentElement?.tagName==='OPTGROUP'?option.parentElement.label:null})),reposition,onClose:()=>{}};
+  openSelect={popup,trigger,search,more,getLimit:()=>limit,optionItems,sourceItems:opts.map(option=>({option,value:option.value,label:option.label||option.textContent,group:option.parentElement?.tagName==='OPTGROUP'?option.parentElement.label:null})),reposition,onClose:()=>{}};
   // The listbox is portalled to body, so hiding its source accordion,
   // inspector tab or entire panel does not automatically remove it.
   // Observe only the anchor's ancestor chain while open. This also catches
@@ -1072,7 +1082,8 @@ function makeListbox(label,select,title){
   // Asynchronous font-catalog updates must not erase a typed query or move
   // keyboard focus away from the search editor. If a focused option survives
   // the refresh, preserve that focus and the user's expanded result limit.
-  if(search&&(restoredSearch?.focused||preferredValue===null))search.focus();
+  if(search&&restoredSearch?.paginationFocused&&!more.hidden)more.focus();
+  else if(search&&(restoredSearch?.focused||preferredValue===null))search.focus();
   else if(target)target.focus();
   else if(search)search.focus();
   else {closePopup({restoreFocus:false});trigger.focus({preventScroll:true});}
