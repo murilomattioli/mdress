@@ -778,6 +778,31 @@ try {
  await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaLiveFontGroup').remove());
  await page.keyboard.press('Escape');
  assert.equal(await fontTrigger.getAttribute('aria-expanded'),'false');
+ // Two open events during one pending catalog request must not append
+ // duplicate Google Fonts groups (the first result may arrive asynchronously).
+ const catalogPage=await browser.newPage({viewport:{width:1280,height:900}});
+ let releaseCatalog;
+ const catalogGate=new Promise(resolve=>{releaseCatalog=resolve;});
+ try{
+  await catalogPage.route('**/google-fonts-catalog.json',async route=>{
+   await catalogGate;
+   await route.fulfill({
+    status:200,contentType:'application/json',
+    body:JSON.stringify({families:[{family:'QA Font One',variants:['400']}]})
+   });
+  });
+  await catalogPage.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173',{waitUntil:'domcontentloaded'});
+  await catalogPage.locator('#fontChoice').evaluate(select=>{
+   select.dispatchEvent(new Event('mdress:select-open'));
+   select.dispatchEvent(new Event('mdress:select-open'));
+  });
+  releaseCatalog();
+  await catalogPage.waitForFunction(()=>document.querySelector('#fontChoice optgroup[label="Google Fonts"]'));
+  assert.equal(await catalogPage.locator('#fontChoice optgroup[label="Google Fonts"]').count(),1,
+   'Concurrent catalog-open events must create only one Google Fonts group');
+  assert.equal(await catalogPage.locator('#fontChoice option[value="google:QA Font One"]').count(),1,
+   'Concurrent catalog-open events must not duplicate font options');
+ }finally{releaseCatalog?.();await catalogPage.close();}
  await page.locator('[data-inspector-tab="page"]').click();
  const paginationAccordion=page.locator('#inspector-page .ds-accordion-toggle').filter({hasText:'Paginação'});
  await paginationAccordion.click();

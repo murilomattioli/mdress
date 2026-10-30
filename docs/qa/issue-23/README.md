@@ -39,6 +39,8 @@ Integração de 29/10/2026: [desktop](pdf-weight-1440.png), [mobile](pdf-weight-
 
 ## UX-023 — busca de fontes durante atualização assíncrona (30/10/2026)
 
+O carregamento do catálogo também possui uma trava de concorrência: aberturas repetidas durante o mesmo fetch não criam optgroups duplicados. O E2E utiliza uma resposta de catálogo deliberadamente atrasada para verificar esse contrato.
+
 O combobox compartilhado preserva **texto da busca, foco do teclado e quantidade de resultados expandidos** quando as opções nativas são adicionadas, removidas ou reordenadas com o popover aberto (inclusive durante o carregamento do catálogo Google Fonts). Se a busca não encontrar opções, o aviso tem `role="status"` para leitores de tela. O E2E Chromium injeta/remove optgroups com a busca aberta, verifica a preservação do rascunho e do foco, e gera `inspector-font-search-live-insert.png` e `inspector-font-search-live-focus.png` para inspeção humana. A matriz supervisionada permanece em **840 capturas**; nenhuma evidência recebe aprovação automática.
 
 ## UX-023 — troca de Color Picker e foco assíncrono (30/10/2026)

@@ -35,14 +35,18 @@ export function ensureFontOption(select,id){
  const family=googleFamily(id);if(family&&![...select.options].some(o=>o.value===id))select.add(new Option(family,id));
 }
 export function initializeFontCatalog(select,onError){
- let loaded=false;
+ let loaded=false,loading=false;
  select.addEventListener('mdress:select-open',async()=>{
-  if(loaded)return;
+  // Opening twice while the catalog fetch is pending must not append a
+  // second empty optgroup or rebuild the active search unnecessarily.
+  if(loaded||loading)return;
+  loading=true;
   try{const entries=await loadFontCatalog();const selected=select.value;
    const group=document.createElement('optgroup');group.label='Google Fonts';
    const existing=new Set([...select.options].map(o=>o.value));
    for(const entry of entries){const id='google:'+entry.family;if(!existing.has(id))group.append(new Option(entry.family,id));}
    select.append(group);select.value=selected;loaded=true;
   }catch(e){onError(e.message);}
+  finally{loading=false;}
  });
 }
