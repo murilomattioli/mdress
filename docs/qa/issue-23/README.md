@@ -1,5 +1,8 @@
 # Issue #23 — evidências duráveis
 
+> **Estado atual (30/10/2026):** a matriz UX-023 exige **91 estados × 2 temas × 4 larguras = 728 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
+
+
 Capturadas localmente em 29/10/2026, sobre a integração de `7d2688b`, `c341201`, `7e2e19f` e `0a0870c`. Documento sintético padrão; nenhum documento pessoal do usuário.
 
 - [Desktop graphite, 1440 × 900](desktop-fonts.png): busca de fonte, painel e editor.
