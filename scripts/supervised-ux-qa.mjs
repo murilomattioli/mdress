@@ -681,6 +681,16 @@ async function exercise(page,theme,width){
  assert.equal(await offButton.evaluate(el=>el===document.activeElement),true);
  assert.equal(await offButton.getAttribute('aria-pressed'),'true');
  await capture(page,theme,width,'binary-keyboard-off');
+ // External source updates (undo, preset, document synchronization) must
+ // move focus to the new roving Tab stop instead of stranding it on tabindex=-1.
+ await native.evaluate(el=>{el.checked=true;el.dispatchEvent(new Event('change',{bubbles:true}));});
+ assert.equal(await onButton.evaluate(el=>el===document.activeElement),true,
+  'Programmatic binary selection must preserve the single keyboard entry');
+ assert.deepEqual(await binary.locator('.ds-binary-option').evaluateAll(items=>items.map(el=>el.tabIndex)),[-1,0]);
+ await capture(page,theme,width,'binary-external-selection-focus');
+ await native.evaluate(el=>{el.checked=false;el.dispatchEvent(new Event('change',{bubbles:true}));});
+ assert.equal(await offButton.evaluate(el=>el===document.activeElement),true,
+  'Programmatic binary reversal must return focus to the selected choice');
  if(originalBinary)await onButton.click();
  assert.equal(await native.isChecked(),originalBinary);
  // Segmented selects must skip disabled options and preserve focus when
@@ -715,6 +725,16 @@ async function exercise(page,theme,width){
  await page.keyboard.press('Home');
  assert.equal(await nativeSegment.inputValue(),'line','Home must select the first enabled segment');
  assert.equal(await line.evaluate(el=>el===document.activeElement),true);
+ // Native select value changes may arrive while the old segment has focus.
+ // Preserve the roving Tab stop for each new selection without extra clicks.
+ await nativeSegment.evaluate(el=>{el.value='block';el.dispatchEvent(new Event('change',{bubbles:true}));});
+ assert.equal(await block.evaluate(el=>el===document.activeElement),true,
+  'Programmatic segment selection must move focus to the new Tab stop');
+ assert.deepEqual(await segment.locator('.ds-segment-option').evaluateAll(items=>items.map(el=>el.tabIndex)),[-1,-1,0]);
+ await capture(page,theme,width,'segment-external-selection-focus');
+ await nativeSegment.evaluate(el=>{el.value='line';el.dispatchEvent(new Event('change',{bubbles:true}));});
+ assert.equal(await line.evaluate(el=>el===document.activeElement),true,
+  'Programmatic segment reversal must return focus to the selected choice');
  // Native option mutations must update segmented buttons without
  // rebuilding the inspector or losing focus on a detached button.
  const blockOption=nativeSegment.locator('option[value="block"]');
