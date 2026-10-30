@@ -711,6 +711,29 @@ async function exercise(page,theme,width){
  assert.equal(await fontMore.evaluate(el=>el===document.activeElement),true,
   'Live pagination refresh must retain the focused action');
  await capture(page,theme,width,'select-live-pagination-focus');
+ // The OS owns IME candidate navigation even while a portalled option or
+ // pagination button has focus. Preserve focus and the open popup.
+ const checkComposingKeys=async locator=>locator.evaluate(el=>{
+  const events=['ArrowUp','ArrowDown','Home','End','Escape','Tab','Enter','p'].map(key=>{
+   const event=new KeyboardEvent('keydown',{key,bubbles:true,cancelable:true,isComposing:true});
+   el.dispatchEvent(event);return event.defaultPrevented;
+  });
+  const legacy=new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true});
+  Object.defineProperty(legacy,'keyCode',{value:229});el.dispatchEvent(legacy);
+  return {events,legacyPrevented:legacy.defaultPrevented,focused:document.activeElement===el};
+ });
+ const paginationIme=await checkComposingKeys(fontMore);
+ assert.ok(paginationIme.focused&&!paginationIme.legacyPrevented&&paginationIme.events.every(value=>!value),
+  'IME keys on pagination must preserve focus without dismissing the popup');
+ assert.equal(await trigger.getAttribute('aria-expanded'),'true');
+ await capture(page,theme,width,'select-ime-pagination-focus');
+ const lastOption=page.locator('.ds-select-popover [role="option"]').last();
+ await lastOption.focus();
+ const optionIme=await checkComposingKeys(lastOption);
+ assert.ok(optionIme.focused&&!optionIme.legacyPrevented&&optionIme.events.every(value=>!value),
+  'IME keys on a focused font option must preserve keyboard focus');
+ assert.equal(await trigger.getAttribute('aria-expanded'),'true');
+ await capture(page,theme,width,'select-ime-option-focus');
  await fontSearch.focus();
  const previousFontScroll=await page.locator('.ds-select-results').evaluate(el=>{
   el.scrollTop=Math.min(220,el.scrollHeight-el.clientHeight);
