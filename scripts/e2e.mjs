@@ -754,8 +754,8 @@ try {
   'Live native option changes must refresh the result counter');
  assert.match(await page.locator('.ds-select-empty[role="status"]').textContent(),/1 fonte encontrada/,
   'Screen readers need the result count outside role=listbox');
- assert.equal(await page.locator('.ds-select-empty[role="status"]').isVisible(),false,
-  'The spoken result count must not add unnecessary vertical space');
+ assert.equal(await page.locator('.ds-select-empty[role="status"]').evaluate(el=>getComputedStyle(el).clipPath),'inset(50%)',
+  'The spoken result count must be visually clipped without adding a row');
  assert.equal(await liveFontSearch.inputValue(),'uxqa-never',
   'A native optgroup insertion must preserve the active search query');
  assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true,
