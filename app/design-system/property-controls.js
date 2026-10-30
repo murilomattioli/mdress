@@ -777,13 +777,20 @@ export function selectPopoverLayout(anchor,viewport,contentHeight){
 // keyboard focus, move to a real enabled inspector control. A disabled
 // combobox trigger cannot receive focus, and body is not a useful fallback.
 function focusInspectorNeighbor(trigger,{visibleOnly=false}={}){
+ // The inspector may disappear entirely while its portalled option owns focus.
+ // Never recover onto an ARIA-disabled toggle or a hidden rail action. The
+ // Markdown editor is a stable fallback when no inspector toggle is usable.
+ const focusOutsideInspector=()=>{
+  const target=[$('designToggle'),$('railDesign'),$('source')].find(el=>
+   el?.isConnected&&!el.disabled&&el.tabIndex>=0&&
+   !el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')&&
+   el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');
+  target?.focus({preventScroll:true});
+ };
  const root=trigger.isConnected?(trigger.closest('.design-inspector,dialog')||document.body):null;
  if(!root){
-  // A portalled option can retain focus after its entire inspector row was
-  // detached. There is no neighboring row to search in that case.
-  const toggle=[$('designToggle'),$('railDesign')].find(el=>el&&!el.disabled&&
-   el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');
-  toggle?.focus({preventScroll:true});
+  // A detached anchor no longer has a meaningful neighbor in the inspector.
+  focusOutsideInspector();
   return;
  }
  const controls=[...root.querySelectorAll('button,input,select,textarea,[tabindex]')];
@@ -812,8 +819,7 @@ function focusInspectorNeighbor(trigger,{visibleOnly=false}={}){
   root.tabIndex=-1;root.focus({preventScroll:true});
  }else{
   // Closing the inspector itself must not focus a hidden panel.
-  const toggle=[$('designToggle'),$('railDesign')].find(el=>el&&!el.disabled&&el.getClientRects().length);
-  toggle?.focus({preventScroll:true});
+  focusOutsideInspector();
  }
 }
 function makeListbox(label,select,title){
