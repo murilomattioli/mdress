@@ -510,8 +510,32 @@ try {
   await themePicker.click();
   await page.locator('.ds-select-popover .ds-select-option').filter({hasText:'Gradiente'}).click();
  },'Selecting the active combobox option must not dispatch document events');
- // A disabled native select must also disable the visible combobox and prevent opening.
+ // Focus recovery must not land on a button that is ARIA-disabled,
+ // including a descendant of an aria-disabled action group.
  const themeNative=page.locator('#bgKind');
+ await themePicker.evaluate(trigger=>{
+  const blocked=document.createElement('button');blocked.type='button';
+  blocked.dataset.qaFocusBlocked='self';blocked.setAttribute('aria-disabled','true');
+  const group=document.createElement('span');group.dataset.qaFocusGroup='true';
+  group.setAttribute('aria-disabled','true');
+  const nested=document.createElement('button');nested.type='button';
+  nested.dataset.qaFocusBlocked='ancestor';group.append(nested);
+  const usable=document.createElement('button');usable.type='button';
+  usable.dataset.qaFocusUsable='true';usable.textContent='QA próximo controle';
+  trigger.after(blocked,group,usable);
+ });
+ await themePicker.focus();
+ await themeNative.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.activeElement?.dataset.qaFocusUsable==='true');
+ assert.equal(await page.locator('[data-qa-focus-usable]').evaluate(el=>el===document.activeElement),true,
+  'Disabling the active select must skip ARIA-disabled siblings and groups');
+ await themePicker.locator('..').screenshot({
+  path:'test-results/ux-audit/inspector-aria-disabled-focus-handoff.png',animations:'disabled'
+ });
+ await themeNative.evaluate(el=>{el.disabled=false;});
+ await page.locator('[data-qa-focus-blocked],[data-qa-focus-group],[data-qa-focus-usable]')
+  .evaluateAll(nodes=>nodes.forEach(node=>node.remove()));
+ // A disabled native select must also disable the visible combobox and prevent opening.
  await themeNative.evaluate(el=>{el.disabled=true;});
  await page.waitForFunction(()=>document.querySelector('#bgKind')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.disabled);
  assert.equal(await themePicker.isDisabled(),true,'Disabled native select must disable custom trigger');
