@@ -830,6 +830,33 @@ async function exercise(page,theme,width){
    key+' from portalled listbox must follow inspector tab order: '+JSON.stringify(focusState));
   await capture(page,theme,width,key==='Tab'?'select-tab-forward':'select-tab-backward');
  }
+ // Pagination is also portalled to body. Reproduce its separate Tab-order
+ // regression with a deterministic 65-font catalog at every viewport/theme.
+ await page.locator('#fontChoice').evaluate(el=>{
+  const group=document.createElement('optgroup');group.id='qaPaginationTabGroup';group.label='UXQA tab';
+  for(let i=0;i<65;i++)group.append(new Option('UXQA tab '+i,'qa-tab-'+i));
+  el.append(group);
+ });
+ for(const key of ['Tab','Shift+Tab']){
+  await trigger.scrollIntoViewIfNeeded();await trigger.focus();await trigger.press('ArrowDown');
+  assert.equal(await trigger.getAttribute('aria-expanded'),'true');
+  await page.getByRole('searchbox',{name:'Buscar fonte'}).fill('UXQA tab');
+  const more=page.locator('.ds-select-more');
+  await more.waitFor({state:'visible'});await more.focus();
+  assert.equal(await more.evaluate(el=>el===document.activeElement),true);
+  await page.keyboard.press(key);
+  assert.equal(await trigger.getAttribute('aria-expanded'),'false',
+   key+' from pagination must dismiss the portalled popup');
+  const focus=await page.evaluate(()=>({
+   inInspector:Boolean(document.activeElement?.closest('.design-inspector')),
+   isTrigger:document.activeElement?.classList.contains('ds-select-trigger'),
+   isBody:document.activeElement===document.body
+  }));
+  assert.ok(focus.inInspector&&!focus.isTrigger&&!focus.isBody,
+   key+' from pagination must continue in inspector tab order: '+JSON.stringify(focus));
+  await capture(page,theme,width,key==='Tab'?'select-pagination-tab-forward':'select-pagination-tab-backward');
+ }
+ await page.locator('#qaPaginationTabGroup').evaluate(el=>el.remove());
  // Closing the source accordion via script must dismiss its portalled
  // listbox. Otherwise the orphaned options remain interactive outside a
  // hidden section and keyboard focus disappears into detached UI.
