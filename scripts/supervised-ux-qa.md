@@ -120,3 +120,13 @@ O scrub fica indisponível enquanto o rascunho está vazio, fora dos limites ou 
 ### Integridade da homologação (UX-023)
 
 `qa:resume-review` exige um relatório de captura **schema 6 com `sourceFingerprint` SHA-256 válido**. Relatórios antigos sem fingerprint não podem receber aprovação retroativa: recapture com `npm run qa:supervised`. O comando também confere novamente o fingerprint após verificar todos os PNGs, evitando aprovar evidências enquanto o código é alterado. Os caminhos personalizados `MDRESS_QA_REPORT` e `MDRESS_QA_DIRECTORY` são compartilhados entre captura e homologação. A aprovação humana continua obrigatória; nenhum CI substitui a revisão visual.
+
+### Proteção de homologação durante a revisão (UX-023)
+
+Tanto a aprovação no terminal supervisionado quanto `npm run qa:resume-review`
+verificam o fingerprint SHA-256 do código **antes e depois** da leitura
+integral dos PNGs. Se `app/`, `scripts/` ou `package.json` mudar enquanto
+a galeria está sendo revisada ou durante a validação, a aprovação é recusada.
+Arquivos de evidência simbólicos (symlinks) também são recusados, mesmo quando
+apontam para PNGs válidos. Testes de contrato cobrem alterações antes/depois
+da validação e tentativas de reutilização de links simbólicos.

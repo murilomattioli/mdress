@@ -3,7 +3,7 @@
  * Does not launch Chromium, recapture screenshots or infer visual approval.
  * Usage: node scripts/resume-ux-review.mjs <exported-review.json>
  */
-import {readFile,writeFile} from 'node:fs/promises';
+import {readFile,writeFile,lstat} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {resolve,dirname,basename,relative,isAbsolute} from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -62,14 +62,37 @@ export async function verifyScreenshotEvidence(screenshots,evidenceDirectory=SCR
   if(!/^[a-f0-9]{64}$/.test(item.sha256))
    throw Error('Impressão SHA-256 ausente ou inválida: '+expected);
   let bytes;
-  try{bytes=await readFile(path);}
-  catch{throw Error('Captura ausente: '+expected);}
+  try{
+   const info=await lstat(path);
+   if(!info.isFile()||info.isSymbolicLink())
+    throw Error('Captura não é arquivo regular: '+expected);
+   bytes=await readFile(path);
+  }catch(error){
+   if(error.message.startsWith('Captura não é arquivo regular:'))throw error;
+   throw Error('Captura ausente: '+expected);
+  }
   if(!validateScreenshotViewport(bytes,item.width))
    throw Error('Captura inválida ou corrompida: '+expected);
   if(createHash('sha256').update(bytes).digest('hex')!==item.sha256)
    throw Error('Captura modificada desde a sessão: '+expected);
  }
  return screenshots.length;
+}
+
+/** Keep both interactive and resumed human sign-off bound to the same source.
+ * Checking only at capture completion leaves a gap while a reviewer spends
+ * time inspecting the gallery. Recheck before and after reading every PNG.
+ */
+export async function verifySourceBoundEvidence(screenshots,sourceFingerprint,{
+ evidenceDirectory=SCREENSHOT_DIRECTORY,fingerprint=fingerprintUxQaSource
+}={}){
+ if(!/^[a-f0-9]{64}$/.test(sourceFingerprint)||
+  await fingerprint()!==sourceFingerprint)
+  throw Error('O código mudou desde a captura supervisionada; gere novas evidências.');
+ const count=await verifyScreenshotEvidence(screenshots,evidenceDirectory);
+ if(await fingerprint()!==sourceFingerprint)
+  throw Error('O código mudou durante a validação das capturas; gere novas evidências.');
+ return count;
 }
 
 export async function resumeHumanReview(reportPath,reviewPath){
@@ -80,11 +103,7 @@ export async function resumeHumanReview(reportPath,reviewPath){
  const currentSourceFingerprint=await fingerprintUxQaSource();
  const assessment=assessResumeReview(report,review,currentSourceFingerprint);
  if(!assessment.valid)throw Error(assessment.problems.join(' '));
- await verifyScreenshotEvidence(report.screenshots);
- // Full PNG verification may take minutes; do not approve if the source
- // changed while the reviewer was validating those images.
- if(await fingerprintUxQaSource()!==currentSourceFingerprint)
-  throw Error('O código mudou durante a validação das capturas; gere novas evidências.');
+ await verifySourceBoundEvidence(report.screenshots,currentSourceFingerprint);
  report.humanReview={
   status:'approved',requiresExplicitApproval:true,
   evidence:{file:reviewFile,...assessment.validation,verifiedScreenshots:report.screenshots.length,

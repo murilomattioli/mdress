@@ -14,7 +14,7 @@ import {stdin,stdout} from 'node:process';
 import {summarizeUxCoverage,summarizeScreenshotCoverage,parseHumanReviewChoice,validateHumanReviewEvidence,validateScreenshotViewport,UX_QA_VIEWPORT_HEIGHT,resumableUxViewportRows} from './ux-qa-coverage.mjs';
 import {renderUxQaGallery} from './ux-qa-gallery.mjs';
 import {fingerprintUxQaSource} from './ux-qa-source.mjs';
-import {verifyScreenshotEvidence} from './resume-ux-review.mjs';
+import {verifySourceBoundEvidence} from './resume-ux-review.mjs';
 
 const args=new Set(process.argv.slice(2));
 const automated=args.has('--auto');
@@ -1161,7 +1161,7 @@ finally{
        // The reviewer may spend hours inspecting the gallery. Revalidate
        // immutable evidence at sign-off, not just before opening the gallery.
        try{
-        humanReviewEvidence.verifiedScreenshots=await verifyScreenshotEvidence(screenshots);
+        humanReviewEvidence.verifiedScreenshots=await verifySourceBoundEvidence(screenshots,sourceFingerprint);
         humanReviewEvidence.verifiedAt=new Date().toISOString();
        }catch(error){
         humanReview='not-reviewed';

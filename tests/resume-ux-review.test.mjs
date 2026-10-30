@@ -1,11 +1,11 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
+import {mkdtemp,writeFile,readFile,rm,symlink} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {deflateSync} from 'node:zlib';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {assessResumeReview,resumeHumanReview,verifyScreenshotEvidence} from '../scripts/resume-ux-review.mjs';
+import {assessResumeReview,resumeHumanReview,verifyScreenshotEvidence,verifySourceBoundEvidence} from '../scripts/resume-ux-review.mjs';
 import {UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS} from '../scripts/ux-qa-coverage.mjs';
 import {fingerprintUxQaSource} from '../scripts/ux-qa-source.mjs';
 
@@ -150,5 +150,49 @@ test('resumed approval rejects a replaced, dimensionally valid PNG',async()=>{
   await writeFile(path,replacement);
   await assert.rejects(verifyScreenshotEvidence([screenshot],directory),/Captura modificada/);
   await assert.rejects(verifyScreenshotEvidence([{...screenshot,sha256:'bad'}],directory),/SHA-256/);
+ }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test('both sign-off paths reject source changes before and during screenshot verification',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'mdress-source-race-'));
+ const path=join(directory,'graphite-768-workspace.png');
+ const png=validPng(768),source='a'.repeat(64);
+ const screenshot={theme:'graphite',width:768,state:'workspace',path,
+  sha256:createHash('sha256').update(png).digest('hex')};
+ try{
+  await writeFile(path,png);
+  assert.equal(await verifySourceBoundEvidence([screenshot],source,{
+   evidenceDirectory:directory,fingerprint:async()=>source
+  }),1);
+  await assert.rejects(verifySourceBoundEvidence([screenshot],source,{
+   evidenceDirectory:directory,fingerprint:async()=>'b'.repeat(64)
+  }),/código mudou desde/);
+  let calls=0;
+  await assert.rejects(verifySourceBoundEvidence([screenshot],source,{
+   evidenceDirectory:directory,
+   fingerprint:async()=>++calls===1?source:'b'.repeat(64)
+  }),/código mudou durante/);
+  assert.equal(calls,2,'Source must be rechecked after all PNGs are validated');
+  await assert.rejects(verifySourceBoundEvidence([screenshot],'invalid',{
+   evidenceDirectory:directory,fingerprint:async()=>source
+  }),/código mudou desde/);
+ }finally{await rm(directory,{recursive:true,force:true});}
+});
+
+test('human sign-off never follows a symlinked screenshot outside its evidence directory',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'mdress-symlink-evidence-'));
+ const target=join(directory,'source.png'),link=join(directory,'graphite-768-workspace.png');
+ const png=validPng(768);
+ try{
+  await writeFile(target,png);
+  try{await symlink(target,link);}
+  catch(error){
+   if(['EPERM','EACCES','ENOTSUP'].includes(error.code))return;
+   throw error;
+  }
+  await assert.rejects(verifyScreenshotEvidence([{
+   theme:'graphite',width:768,state:'workspace',path:link,
+   sha256:createHash('sha256').update(png).digest('hex')
+  }],directory),/arquivo regular/);
  }finally{await rm(directory,{recursive:true,force:true});}
 });
