@@ -663,6 +663,40 @@ try {
   await page.evaluate(()=>window.__qaInspectorStaleResolve({sRGBHex:'#FFFFFF'}));
   assert.equal(await page.locator('#qaEyeDropperColor').inputValue(),'#445566',
    'A late result must never undo a newer document edit');
+  // The inline HEX field is also a draft editor. Native EyeDropper promises
+  // must lose to the FIRST input event, not only to change/Enter/blur.
+  await dropperButton.click();
+  await dropperHex.fill('#13579B');
+  assert.equal(await dropperButton.getAttribute('aria-busy'),null,
+   'Typing an inline HEX draft immediately invalidates the pending sample');
+  await page.evaluate(()=>window.__qaInspectorDropperResolve({sRGBHex:'#FFFFFF'}));
+  assert.equal(await dropperHex.inputValue(),'#13579B',
+   'A stale sample cannot erase a valid uncommitted inline HEX draft');
+  assert.equal(await page.locator('#qaEyeDropperColor').inputValue(),'#445566');
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-valid-draft-preserved.png',animations:'disabled'});
+  await dropperHex.press('Escape');
+  await dropperButton.click();
+  await dropperHex.fill('bad');
+  assert.equal(await dropperHex.getAttribute('aria-invalid'),'true');
+  const invalidDraftMessage=await dropperRow.locator('..').locator('.ds-prop-error:not([role="alert"])').first().textContent();
+  assert.match(invalidDraftMessage,/hexadecimal/i);
+  await page.evaluate(()=>window.__qaInspectorDropperReject(new Error('stale device failure')));
+  assert.equal(await dropperHex.inputValue(),'bad',
+   'A stale rejection cannot erase an invalid inline HEX draft');
+  assert.equal(await dropperHex.getAttribute('aria-invalid'),'true');
+  assert.equal(await dropperRow.locator('..').locator('.ds-prop-error:not([role="alert"])').first().textContent(),invalidDraftMessage);
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-invalid-draft-preserved.png',animations:'disabled'});
+  await dropperHex.press('Escape');
+  // MutationObserver must observe the transition records, not just the
+  // final enabled state when disabled toggles twice in a single task.
+  await dropperButton.click();
+  await page.locator('#qaEyeDropperColor').evaluate(el=>{el.disabled=true;el.disabled=false;});
+  await page.waitForFunction(()=>document.querySelector('#qaEyeDropperColor')
+   ?.closest('.ds-property-color')?.querySelector('.ds-color-pipette')?.getAttribute('aria-busy')===null);
+  await page.evaluate(()=>window.__qaInspectorDropperResolve({sRGBHex:'#FFFFFF'}));
+  assert.equal(await page.locator('#qaEyeDropperColor').inputValue(),'#445566',
+   'Rapid disable/re-enable cannot revive an obsolete inline sample');
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-rapid-reenable.png',animations:'disabled'});
   // Native permission/device errors must remain visible and be announced
   // on the eyedropper itself; the valid HEX field must not become invalid.
   await dropperButton.click();
