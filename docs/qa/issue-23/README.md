@@ -43,6 +43,14 @@ O carregamento do catálogo também possui uma trava de concorrência: aberturas
 
 O combobox compartilhado preserva **texto da busca, foco do teclado e quantidade de resultados expandidos** quando as opções nativas são adicionadas, removidas ou reordenadas com o popover aberto (inclusive durante o carregamento do catálogo Google Fonts). Se a busca não encontrar opções, o aviso tem `role="status"` para leitores de tela. O E2E Chromium injeta/remove optgroups com a busca aberta, verifica a preservação do rascunho e do foco, e gera `inspector-font-search-live-insert.png`, `inspector-font-search-live-focus.png` e `inspector-font-search-live-pagination.png` para inspeção humana. O teste também expande a segunda página de resultados e verifica que uma atualização assíncrona não a reduz novamente para 60 itens. A matriz supervisionada permanece em **840 capturas**; nenhuma evidência recebe aprovação automática.
 
+## UX-023 — paginação acessível e contagem compacta de fontes (30/10/2026)
+
+A busca no combobox de fontes agora apresenta **quantidade carregada / quantidade encontrada dentro da altura existente do campo**, sem acrescentar uma linha ao painel. Uma região de status fora do `role=listbox` anuncia os totais para leitores de tela; a mensagem vazia continua visível quando não há resultados.
+
+Com mais de 60 opções, **Seta para baixo** na última opção leva a **Mostrar mais**, **Seta para cima** retorna à última opção e **Enter** carrega a próxima página. A ação possui indicador de foco visível. Se uma opção recém-revelada estiver desabilitada, o foco procura a próxima opção habilitada em vez de se perder no botão oculto.
+
+O E2E Chromium valida os totais durante inserção assíncrona de optgroups, posição do contador dentro do campo, anúncio de acessibilidade, navegação por teclado, foco visível e expansão sem mouse. Capturas dedicadas: `inspector-font-search-count.png` e `inspector-font-pagination-focused.png` em `test-results/ux-audit/`, disponíveis no artefato temporário do Browser Smoke. **A matriz supervisionada permanece em 840 capturas**; os novos PNGs de regressão também requerem avaliação humana.
+
 ## UX-023 — troca de Color Picker e foco assíncrono (30/10/2026)
 
 **30/10/2026 — conta-gotas inline:** o campo HEX aprimorado invalida a captura nativa já no primeiro `input`, inclusive para rascunhos inválidos. Respostas e erros tardios não apagam o rascunho nem seu feedback acessível. Transições `disabled → enabled` no mesmo task também invalidam a captura. Regressões Chromium e três estados de evidência humana (`color-eyedropper-inline-valid-draft`, `color-eyedropper-inline-invalid-draft`, `color-eyedropper-inline-rapid-reenable`) elevam a matriz para **105 estados × 2 temas × 4 larguras = 840 screenshots**. Homologação humana pendente.
