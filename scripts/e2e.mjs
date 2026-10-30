@@ -984,6 +984,38 @@ try {
   path:'test-results/ux-audit/inspector-font-search-live-pagination.png',animations:'disabled'
  });
  await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaLiveFontGroup').remove());
+ // IME candidate keys must not activate a focused option or the paginated
+ // action. The search input is not the only keyboard owner in this portal.
+ const checkImeButton=async locator=>locator.evaluate(el=>{
+  const events=['ArrowDown','ArrowUp','Home','End','Escape','Tab','Enter','p'].map(key=>{
+   const event=new KeyboardEvent('keydown',{key,bubbles:true,cancelable:true,isComposing:true});
+   el.dispatchEvent(event);return {key,prevented:event.defaultPrevented};
+  });
+  const legacy=new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true});
+  Object.defineProperty(legacy,'keyCode',{value:229});
+  el.dispatchEvent(legacy);
+  return {events,legacyPrevented:legacy.defaultPrevented,stillFocused:document.activeElement===el};
+ });
+ await page.locator('.ds-select-option').last().focus();
+ const imeOption=await checkImeButton(page.locator('.ds-select-option').last());
+ assert.ok(imeOption.stillFocused&&imeOption.events.every(event=>!event.prevented)&&!imeOption.legacyPrevented,
+  'IME composition must not navigate, typeahead, tab or dismiss a focused option');
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'true');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-ime-option.png',animations:'disabled'
+ });
+ await moreFonts.focus();
+ const imeMore=await checkImeButton(moreFonts);
+ assert.ok(imeMore.stillFocused&&imeMore.events.every(event=>!event.prevented)&&!imeMore.legacyPrevented,
+  'IME composition must not activate or dismiss focused pagination');
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'true');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-ime-pagination.png',animations:'disabled'
+ });
+ await page.keyboard.press('ArrowUp');
+ assert.equal(await page.locator('.ds-select-option').last().evaluate(el=>el===document.activeElement),true,
+  'Non-composing keyboard navigation must still work after IME');
+ await liveFontSearch.focus();
  // IME candidate confirmation is not a request to select a font. In
  // particular, Enter and Escape belong to the composition window, and
  // older Chromium integrations can report keyCode=229 without isComposing.
@@ -1015,6 +1047,10 @@ try {
   path:'test-results/ux-audit/inspector-font-ime-composition.png',animations:'disabled'
  });
  await page.keyboard.press('Escape');
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'false');
+ const imeTrigger=await checkImeButton(fontTrigger);
+ assert.ok(imeTrigger.events.every(event=>!event.prevented)&&!imeTrigger.legacyPrevented,
+  'IME candidate keys on the trigger must not open a select');
  assert.equal(await fontTrigger.getAttribute('aria-expanded'),'false');
  // Two open events during one pending catalog request must not append
  // duplicate Google Fonts groups (the first result may arrive asynchronously).
