@@ -241,9 +241,13 @@ function enhanceRange(label,input,title){
   const focusedPrecision=document.activeElement===numeric;
   numeric.disabled=input.disabled;
   const {step}=rangeConstraints(input);
+  // A partially typed or invalid precision value belongs to the editor until
+  // corrected or cancelled. Disable steppers rather than silently replacing
+  // the draft. Direct slider gestures remain an explicit override.
+  const invalidDraft=editing&&!valid();
   const focusedStepper=[minus,plus].find(button=>document.activeElement===button);
-  minus.disabled=input.disabled||!boundsValid||rangeStepTarget(value,-1,min,max,step)===null;
-  plus.disabled=input.disabled||!boundsValid||rangeStepTarget(value,1,min,max,step)===null;
+  minus.disabled=input.disabled||!boundsValid||invalidDraft||rangeStepTarget(value,-1,min,max,step)===null;
+  plus.disabled=input.disabled||!boundsValid||invalidDraft||rangeStepTarget(value,1,min,max,step)===null;
   if(focusedStepper?.disabled)focusInspectorNeighbor(focusedStepper,{visibleOnly:true});
   if(input.disabled&&focusedPrecision)focusInspectorNeighbor(numeric,{visibleOnly:true});
   restoreNativeFocus();
@@ -254,7 +258,7 @@ function enhanceRange(label,input,title){
  };
  const increment=direction=>{
   const {min,max,step,valid}=rangeConstraints(input);
-  if(!valid)return;
+  if(!valid||editing&&!valid())return;
   const next=rangeStepTarget(Number(input.value),direction,min,max,step);
   if(next===null)return;
   editing=false;nativeCommit(input,next);update();
