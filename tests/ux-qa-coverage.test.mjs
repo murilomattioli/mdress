@@ -73,7 +73,7 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('number-disabled-invalid-draft'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('number-rollback-valid-draft'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('color-draft-sync'));
- for(const state of ['color-eyedropper-pending-focus','color-eyedropper-disabled-focus-handoff','color-eyedropper-stale-ignored'])
+ for(const state of ['color-eyedropper-pending-focus','color-eyedropper-disabled-focus-handoff','color-eyedropper-stale-ignored','color-eyedropper-failure-feedback'])
   assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes(state),state+' must have supervised visual evidence');
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('color-picker-error-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('color-picker-error-owner'));
