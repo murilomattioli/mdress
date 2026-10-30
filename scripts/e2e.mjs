@@ -743,6 +743,48 @@ try {
   'The compact search counter must report zero without consuming a new row');
  assert.equal(await page.locator('.ds-select-results [role="status"]').count(),0,
   'Empty-search announcements must not be nested inside the role=listbox');
+ // A live catalog update that still has zero matches must NOT dismiss the
+ // editable search or drop keyboard focus. The same applies when the only
+ // matching option is disabled but other native choices remain available.
+ await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');
+  group.id='qaUnmatchedFontGroup';group.label='Unrelated fonts';
+  group.append(new Option('Unrelated QA Font', 'qa:unmatched'));
+  select.append(group);
+ });
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'true',
+  'Unmatched async font insertion must keep the searchable popover open');
+ assert.equal(await liveFontSearch.inputValue(),'uxqa-never');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true);
+ assert.equal(await page.locator('.ds-select-empty[role="status"]').isVisible(),true);
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-search-live-empty.png',animations:'disabled'
+ });
+ await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaUnmatchedFontGroup').remove());
+ await page.waitForFunction(()=>!document.querySelector('#qaUnmatchedFontGroup'));
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');
+  group.id='qaDisabledFontGroup';group.label='QA Disabled';
+  const option=new Option('QA Disabled Only','qa:disabled');
+  option.disabled=true;group.append(option);select.append(group);
+ });
+ await liveFontSearch.fill('qa disabled only');
+ await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
+ await page.locator('#fontChoice option[value="qa:disabled"]').evaluate(el=>{el.label='QA Disabled Only Updated';});
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'true',
+  'A live refresh with disabled-only filtered matches must keep the search editable');
+ assert.equal(await liveFontSearch.inputValue(),'qa disabled only');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true);
+ assert.equal(await page.locator('.ds-select-option:visible').count(),1);
+ assert.equal(await page.locator('.ds-select-option:visible').first().isDisabled(),true);
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-search-live-disabled.png',animations:'disabled'
+ });
+ await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaDisabledFontGroup').remove());
+ await liveFontSearch.fill('uxqa-never');
  await page.locator('#fontChoice').evaluate(select=>{
   const group=document.createElement('optgroup');
   group.id='qaLiveFontGroup';group.label='QA dynamic fonts';
@@ -812,6 +854,24 @@ try {
  await page.locator('.ds-select-popover').screenshot({
   path:'test-results/ux-audit/inspector-font-pagination-focused.png',animations:'disabled'
  });
+ // Refreshing the source while the pagination button owns keyboard focus
+ // must restore that button, not silently jump to a selected font option.
+ await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');
+  group.id='qaPaginationFontGroup';group.label='QA pagination';
+  group.append(new Option('Unrelated QA Font','qa:pagination'));
+  select.append(group);
+ });
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
+ assert.equal(await moreFonts.evaluate(el=>el===document.activeElement),true,
+  'Live font refresh must preserve keyboard focus on Mostrar mais');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-pagination-live-focus.png',animations:'disabled'
+ });
+ await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaPaginationFontGroup').remove());
+ await page.waitForFunction(()=>!document.querySelector('#qaPaginationFontGroup'));
+ assert.equal(await moreFonts.evaluate(el=>el===document.activeElement),true);
  await page.keyboard.press('ArrowUp');
  assert.equal(await page.locator('.ds-select-option').last().evaluate(el=>el===document.activeElement),true,
   'ArrowUp from pagination must return to the last loaded option');
