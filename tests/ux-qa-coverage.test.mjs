@@ -65,11 +65,11 @@ test('visual evidence requires every control state in every viewport exactly onc
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-disabled-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-hidden-focus-handoff'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('toolbar-detached-focus-handoff'));
- assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,111,'111 distinct states are mandatory');
- assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,111,'State names must be unique');
+ assert.equal(UX_QA_REQUIRED_SCREENSHOTS.length,113,'113 distinct states are mandatory');
+ assert.equal(new Set(UX_QA_REQUIRED_SCREENSHOTS).size,113,'State names must be unique');
  for(const state of ['select-pagination-tab-forward','select-pagination-tab-backward'])
   assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes(state),state+' must have keyboard-focus evidence');
- for(const state of ['select-live-search-empty','select-live-search-disabled','select-live-pagination-focus','select-live-search-scroll'])
+ for(const state of ['select-live-search-empty','select-live-search-disabled','select-live-pagination-focus','select-ime-pagination-focus','select-ime-option-focus','select-live-search-scroll'])
   assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes(state),state+' must have supervised visual evidence');
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-valid-draft-noop-stepper'));
  assert.ok(UX_QA_REQUIRED_SCREENSHOTS.includes('range-live-valid-draft-boundary'));
