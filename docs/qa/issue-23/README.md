@@ -1,6 +1,6 @@
 # Issue #23 — evidências duráveis
 
-> **Estado atual (30/10/2026):** a matriz UX-023 exige **105 estados × 2 temas × 4 larguras = 840 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
+> **Estado atual (30/10/2026):** a matriz UX-023 exige **108 estados × 2 temas × 4 larguras = 864 screenshots**. Os números menores abaixo são registros históricos de execuções anteriores, não o contrato vigente. A implementação e os testes automatizados não substituem a revisão visual/interativa do usuário. PR #27 continua draft, sem merge, release ou publicação.
 
 
 Capturadas localmente em 29/10/2026, sobre a integração de `7d2688b`, `c341201`, `7e2e19f` e `0a0870c`. Documento sintético padrão; nenhum documento pessoal do usuário.
@@ -93,3 +93,12 @@ Salvar a cor já confirmada enquanto um campo HEX contém rascunho inválido nã
 ### Rascunhos não confirmados e EyeDropper (30/10/2026)
 
 Amostras nativas pendentes não substituem texto digitado mas ainda não confirmado nos campos HEX, RGB ou opacidade. Rejeições obsoletas também não geram mensagens durante a edição. O gate Chromium cobre os quatro casos com capturas específicas; o runner supervisionado exige quatro novos estados em cada tema e largura (total: **816 capturas**). As imagens exigem inspeção humana; CI verde não homologa UX.
+
+
+## UX-023 — buscas vazias e paginação durante atualização do catálogo (30/10/2026)
+
+O combobox de fontes mantém o popover e o foco no campo de busca quando uma atualização assíncrona das opções nativas continua sem resultados, ou quando os únicos resultados filtrados estão desabilitados. A lista só fecha automaticamente quando **nenhuma opção habilitada existe no select inteiro**, preservando a recuperação de foco existente. O botão **Mostrar mais** também mantém o foco após inserções, remoções e renomeações de fontes; se a paginação deixa de existir, o foco volta à busca.
+
+O E2E Chromium cobre buscas vazias durante inserção de optgroup, filtro com opção desabilitada e atualização enquanto o botão de paginação está focado. PNGs: `inspector-font-search-live-empty.png`, `inspector-font-search-live-disabled.png` e `inspector-font-pagination-live-focus.png`. A matriz supervisionada exige mais três estados (`select-live-search-empty`, `select-live-search-disabled`, `select-live-pagination-focus`) em todos os temas e viewports: **108 estados × 2 temas × 4 larguras = 864 screenshots**. São evidências automatizadas para revisão humana, não homologação visual.
+
+**PowerShell, sem merge:** `git fetch origin; git switch feat/23-property-controls-ux-qa; git pull --ff-only origin feat/23-property-controls-ux-qa; npm install --include=dev; npx playwright install chromium; npm run dev`. Em outro terminal: `node scripts/e2e.mjs; npm run qa:supervised`. Para retomar uma captura interrompida: `npm run qa:resume-capture`. Galeria: `test-results/ux-audit/supervised/index.html`.
