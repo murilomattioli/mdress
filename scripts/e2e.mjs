@@ -739,6 +739,8 @@ try {
  await liveFontSearch.fill('uxqa-never');
  assert.equal(await page.locator('.ds-select-empty[role="status"]').isVisible(),true,
   'An empty font search must announce its result state');
+ assert.equal((await page.locator('.ds-select-search-count').textContent()).trim(),'0',
+  'The compact search counter must report zero without consuming a new row');
  assert.equal(await page.locator('.ds-select-results [role="status"]').count(),0,
   'Empty-search announcements must not be nested inside the role=listbox');
  await page.locator('#fontChoice').evaluate(select=>{
@@ -748,6 +750,12 @@ try {
   select.append(group);
  });
  await page.waitForFunction(()=>document.querySelector('.ds-select-option[data-value="qa:live"]'));
+ assert.equal((await page.locator('.ds-select-search-count').textContent()).trim(),'1 / 1',
+  'Live native option changes must refresh the result counter');
+ assert.match(await page.locator('.ds-select-empty[role="status"]').textContent(),/1 fonte encontrada/,
+  'Screen readers need the result count outside role=listbox');
+ assert.equal(await page.locator('.ds-select-empty[role="status"]').isVisible(),false,
+  'The spoken result count must not add unnecessary vertical space');
  assert.equal(await liveFontSearch.inputValue(),'uxqa-never',
   'A native optgroup insertion must preserve the active search query');
  assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true,
@@ -786,7 +794,17 @@ try {
  await liveFontSearch.fill('');
  await page.waitForFunction(()=>document.querySelectorAll('#fontChoice optgroup[label="Google Fonts"] option').length>120);
  const moreFonts=page.locator('.ds-select-more');
- await moreFonts.click();
+ assert.match((await page.locator('.ds-select-search-count').textContent()).trim(),/^60 \/ \d+$/,
+  'The search field should show loaded and total font counts');
+ await page.locator('.ds-select-option').last().focus();
+ await page.keyboard.press('ArrowDown');
+ assert.equal(await moreFonts.evaluate(el=>el===document.activeElement),true,
+  'ArrowDown on the last loaded option must reach the pagination action');
+ await page.keyboard.press('ArrowUp');
+ assert.equal(await page.locator('.ds-select-option').last().evaluate(el=>el===document.activeElement),true,
+  'ArrowUp from pagination must return to the last loaded option');
+ await page.keyboard.press('ArrowDown');
+ await page.keyboard.press('Enter');
  const expandedFontCount=await page.locator('.ds-select-option').count();
  assert.ok(expandedFontCount>=120,'Show more must reveal the second page of fonts');
  await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
