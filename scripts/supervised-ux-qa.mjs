@@ -724,7 +724,15 @@ async function exercise(page,theme,width){
  assert.ok(Math.abs(await page.locator('.ds-select-results').evaluate(el=>el.scrollTop)-previousFontScroll)<=2,
   'A live catalog refresh must preserve the scrolled result position');
  await capture(page,theme,width,'select-live-search-scroll');
+ // When pagination disappears entirely, focus must fall back to the search
+ // rather than the detached Mostrar mais button or document.body.
+ await fontMore.focus();
+ await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
  await page.locator('#qaPaginationGroup').evaluate(el=>el.remove());
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
+ assert.equal(await trigger.getAttribute('aria-expanded'),'true');
+ assert.equal(await fontSearch.evaluate(el=>el===document.activeElement),true,
+  'Removing the last pagination page must restore focus to the search');
  await fontSearch.fill('');
  await page.locator('.ds-select-popover [data-value="system"]').waitFor({state:'visible'});
  // A hidden native optgroup must not leak its options into the portalled UI.
