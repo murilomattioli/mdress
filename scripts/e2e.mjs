@@ -540,6 +540,43 @@ try {
  assert.equal((await colorHex.inputValue()).toLowerCase(),'#a1744b','Escape must restore the committed color');
  assert.equal(await colorHex.evaluate(el=>document.activeElement===el),true,'Cancelling hex draft must retain keyboard focus');
  await colorControl.screenshot({path:'test-results/ux-audit/inspector-color-escape-focused.png',animations:'disabled'});
+  // The native eyedropper resolves asynchronously. Do not steal focus from
+  // a different inspector field when the user navigates while it is open.
+  await page.evaluate(async()=>{
+   window.EyeDropper=class{open(){
+    return new Promise(resolve=>{window.__qaInspectorDropperResolve=resolve;});
+   }};
+   const label=document.createElement('label');label.className='property-row';
+   label.textContent='Cor de teste';
+   const input=document.createElement('input');input.type='color';
+   input.id='qaEyeDropperColor';input.value='#123456';label.append(input);
+   document.querySelector('#inspector-document .ds-accordion-body').append(label);
+   const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+   enhancePropertyControls();
+  });
+  const dropperRow=page.locator('.ds-property-color').filter({has:page.locator('#qaEyeDropperColor')});
+  const dropperButton=dropperRow.locator('.ds-color-pipette');
+  const dropperHex=dropperRow.locator('.ds-color-hex');
+  assert.equal(await dropperButton.isEnabled(),true,'Mocked native eyedropper must be available');
+  await dropperButton.click();
+  await dropperHex.focus();
+  await page.evaluate(()=>window.__qaInspectorDropperResolve({sRGBHex:'#ABCDEF'}));
+  await page.waitForFunction(()=>document.getElementById('qaEyeDropperColor').value==='#abcdef');
+  assert.equal(await dropperHex.evaluate(el=>document.activeElement===el),true,
+   'A completed eyedropper must preserve intentional focus on another field');
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-preserved-focus.png',animations:'disabled'});
+  await dropperButton.click();
+  await page.evaluate(()=>document.activeElement.blur());
+  await page.evaluate(()=>window.__qaInspectorDropperResolve({sRGBHex:'#FEDCBA'}));
+  await page.waitForFunction(()=>document.getElementById('qaEyeDropperColor').value==='#fedcba');
+  assert.equal(await dropperButton.evaluate(el=>document.activeElement===el),true,
+   'A completed eyedropper must restore its button if native UI left focus on body');
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-restored-focus.png',animations:'disabled'});
+  await page.evaluate(()=>{
+   document.getElementById('qaEyeDropperColor').closest('label').remove();
+   window.EyeDropper=undefined;
+   delete window.__qaInspectorDropperResolve;
+  });
  const fontPicker=page.locator('.ds-property-select').filter({has:page.locator('#fontChoice')});
  await fontPicker.locator('.ds-select-trigger').click();
  await page.locator('.ds-select-popover .ds-select-option').filter({hasText:'Consolas'}).click();
