@@ -39,3 +39,11 @@ test('focused action respects padding on both viewport edges',()=>{
  assert.equal(focusedToolbarDelta({left:120,right:295},viewport),1);
  assert.equal(focusedToolbarDelta({left:105,right:295},viewport,8),-3);
 });
+
+test('oversized toolbar controls reveal the leading edge without oscillating',()=>{
+ const viewport={left:100,right:260};
+ assert.equal(focusedToolbarDelta({left:310,right:610},viewport),204);
+ assert.equal(focusedToolbarDelta({left:106,right:406},viewport),0);
+ assert.equal(focusedToolbarDelta({left:50,right:350},viewport),-56);
+ assert.equal(focusedToolbarDelta({left:106,right:406},viewport),0);
+});
