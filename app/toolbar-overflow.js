@@ -194,11 +194,24 @@ export function attachToolbarOverflow(toolbar){
  // Toolbar subtree observation alone misses mode changes on the wrapping
  // shell, body or inspector workspace. Observe ancestor attributes so an
  // already-focused action/scroll arrow is recovered when its host is hidden.
- const ancestryObserver=new MutationObserver(scheduleReveal);
- for(let ancestor=shell;ancestor;ancestor=ancestor.parentElement){
-  ancestryObserver.observe(ancestor,{attributes:true,
-   attributeFilter:['hidden','inert','aria-hidden','aria-disabled','disabled','class','style']});
- }
+ let watchedAncestors=[];
+ const ancestryObserver=new MutationObserver(()=>{
+  // Reparenting a toolbar into another workspace changes which ancestor
+  // permissions apply. Drop stale observers and bind the new ancestry.
+  syncAncestry();scheduleReveal();
+ });
+ const syncAncestry=()=>{
+  const ancestors=[];
+  for(let node=shell;node;node=node.parentElement)ancestors.push(node);
+  if(ancestors.length===watchedAncestors.length&&
+     ancestors.every((node,index)=>node===watchedAncestors[index]))return;
+  ancestryObserver.disconnect();watchedAncestors=ancestors;
+  for(const node of ancestors)ancestryObserver.observe(node,{
+   attributes:true,childList:true,
+   attributeFilter:['hidden','inert','aria-hidden','aria-disabled','disabled','class','style']
+  });
+ };
+ syncAncestry();
  window.addEventListener('resize',scheduleReveal);
  document.addEventListener('studio:resized',scheduleReveal);
  schedule();
