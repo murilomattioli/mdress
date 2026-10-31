@@ -72,6 +72,14 @@ try{
   'Visible toggle text names the menu when aria-label is absent');
  await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
  const dynamicItems=dynamicHost.locator('[role=menuitem]');
+ await dynamicHost.locator('button').first().evaluate(el=>el.textContent='Renomeada com menu aberto');
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-dynamic-menu-host');
+  return host.querySelector('.ds-header-menu-trigger').getAttribute('aria-label')==='Opções de Renomeada com menu aberto'&&
+   host.querySelector('[role=menu]').getAttribute('aria-label')==='Opções de Renomeada com menu aberto';
+ });
+ await page.screenshot({path:'test-results/header-live-rename-open.png'});
+ await dynamicHost.locator('button').first().evaluate(el=>el.textContent='Permissões dinâmicas');
  assert.equal(await dynamicItems.nth(0).evaluate(el=>el===document.activeElement),true);
  await dynamicItems.nth(0).evaluate(el=>el.setAttribute('aria-disabled','true'));
  await page.waitForFunction(()=>document.activeElement?.textContent==='Segunda',null,{timeout:3000});
