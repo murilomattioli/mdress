@@ -217,6 +217,49 @@ try{
   document.querySelector('#ux23-toolbar-ancestor-style').remove();
  });
  await page.waitForFunction(()=>!document.querySelector('.markdown-toolbar-shell .toolbar-scroll-button:last-child')?.hidden);
+ // A disabled fieldset disables descendants without changing the toolbar's
+ // own attributes. The toolbar is a div, so :disabled on the toolbar alone
+ // cannot detect this inherited restriction. Revoke arrows and restore focus.
+ await shell.evaluate(el=>{
+  const fieldset=document.createElement('fieldset');
+  fieldset.id='ux23-toolbar-disabled-fieldset';fieldset.style.minWidth='0';
+  el.before(fieldset);fieldset.append(el);
+ });
+ await last.focus();
+ await page.locator('#ux23-toolbar-disabled-fieldset').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-toolbar-disabled-fieldset');
+  return document.activeElement!==document.body&&!host.contains(document.activeElement)&&
+   [...host.querySelectorAll('.toolbar-scroll-button')].every(el=>el.hidden);
+ },null,{timeout:3000});
+ assert.equal(await page.evaluate(()=>document.activeElement?.id),'source',
+  'A disabled fieldset must recover toolbar action focus to the editor');
+ await page.screenshot({path:'test-results/ux-audit/toolbar-disabled-fieldset-focus.png',animations:'disabled'});
+ await page.locator('#ux23-toolbar-disabled-fieldset').evaluate(el=>{
+  el.disabled=false;el.before(el.firstElementChild);el.remove();
+ });
+ await page.waitForFunction(()=>
+  !document.querySelector('.markdown-toolbar-shell .toolbar-scroll-button:last-child')?.hidden);
+ await forwardArrow.focus();
+ await shell.evaluate(el=>{
+  const fieldset=document.createElement('fieldset');
+  fieldset.id='ux23-toolbar-disabled-arrow-fieldset';fieldset.style.minWidth='0';
+  el.before(fieldset);fieldset.append(el);
+ });
+ await page.locator('#ux23-toolbar-disabled-arrow-fieldset').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-toolbar-disabled-arrow-fieldset');
+  return document.activeElement!==document.body&&!host.contains(document.activeElement)&&
+   [...host.querySelectorAll('.toolbar-scroll-button')].every(el=>el.hidden);
+ },null,{timeout:3000});
+ assert.equal(await page.evaluate(()=>document.activeElement?.id),'source',
+  'A disabled fieldset must recover scroll-arrow focus to the editor');
+ await page.screenshot({path:'test-results/ux-audit/toolbar-disabled-fieldset-arrow-focus.png',animations:'disabled'});
+ await page.locator('#ux23-toolbar-disabled-arrow-fieldset').evaluate(el=>{
+  el.disabled=false;el.before(el.firstElementChild);el.remove();
+ });
+ await page.waitForFunction(()=>
+  !document.querySelector('.markdown-toolbar-shell .toolbar-scroll-button:last-child')?.hidden);
  // Moving the shell to a different parent must refresh the watched ancestry.
  // Revoking permissions on its *new* wrapper should recover focus, not leave
  // a stale observer attached to the former workspace parent.
