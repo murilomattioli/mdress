@@ -148,6 +148,9 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    if(composing||e.isComposing||e.keyCode===229)return;
    const items=available(),index=items.indexOf(document.activeElement);
    if(['ArrowDown','ArrowUp','Home','End','PageDown','PageUp'].includes(e.key)){
+    // Arrow/page navigation starts a new search context. Otherwise a quick
+    // printable key can accidentally extend the typeahead used before moving.
+    typed='';lastTypedAt=0;
     e.preventDefault();
     if(!items.length)return;
     const next=e.key==='Home'?0:e.key==='End'?items.length-1:
