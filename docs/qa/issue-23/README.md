@@ -8,7 +8,7 @@ O observador também acompanha **reparenting do shell**: deixa de observar os an
 
 **PowerShell (sem merge):**
 ```powershell
-cd F:\\Projects\\lumu\\tools\\mdress
+cd F:\Projects\lumu\tools\mdress
 git status --short
 git fetch origin
 git switch feat/23-property-controls-ux-qa
