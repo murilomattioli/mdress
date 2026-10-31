@@ -2,6 +2,12 @@
 let nextMenuId=0;
 // Pure geometry keeps keyboard scrolling local to the open popover.
 export function menuScrollDelta(item,viewport,padding=4){
+ // Zoom and text scaling can make one action taller than the menu viewport.
+ // Keep its top visible instead of alternately scrolling to both edges.
+ if(item.bottom-item.top>viewport.bottom-viewport.top-2*padding){
+  return item.top<viewport.top+padding||item.top>=viewport.bottom-padding?
+   item.top-viewport.top-padding:0;
+ }
  if(item.top<viewport.top+padding)return item.top-viewport.top-padding;
  if(item.bottom>viewport.bottom-padding)return item.bottom-viewport.bottom+padding;
  return 0;
