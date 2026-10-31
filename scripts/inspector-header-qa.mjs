@@ -127,8 +127,37 @@ try{
  assert.equal(await dynamicItems.nth(0).evaluate(el=>getComputedStyle(el).display),'none',
   'Native hidden must override the menu button display:block styling');
  await dynamicItems.nth(0).evaluate(el=>el.hidden=false);
+ // CSS on a parent can hide an action while getComputedStyle(button).display
+ // still reports inline-block. This must revoke keyboard and click access,
+ // and recover focus without closing a menu that still has other actions.
+ await dynamicItems.nth(0).focus();
+ await page.evaluate(()=>{
+  const style=document.createElement('style');
+  style.id='ux23-hidden-wrapper-style';
+  style.textContent='#ux23-dynamic-menu-host .ux23-hidden-wrapper{display:none!important}';
+  document.head.append(style);
+  const first=document.querySelector('#ux23-dynamic-menu-host [role=menuitem]');
+  const wrapper=document.createElement('div');
+  wrapper.className='ux23-hidden-wrapper';
+  first.before(wrapper);wrapper.append(first);
+ });
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Segunda');
+ assert.equal(await dynamicTrigger.getAttribute('aria-expanded'),'true',
+  'Hiding a menuitem wrapper must preserve the open menu when a sibling is available');
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'An action hidden by a display:none ancestor must not execute a stale callback');
+ await page.screenshot({path:'test-results/header-hidden-menu-wrapper-focus.png'});
+ await page.evaluate(()=>{
+  document.querySelector('#ux23-dynamic-menu-host .ux23-hidden-wrapper').classList.remove('ux23-hidden-wrapper');
+ });
+ await page.keyboard.press('Home');
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Primeira');
+ assert.equal(await dynamicItems.nth(0).evaluate(el=>el===document.activeElement),true,
+  'Restoring the ancestor must restore the action to keyboard navigation');
  await page.keyboard.press('Escape');
  await dynamicHost.evaluate(el=>el.remove());
+ await page.locator('#ux23-hidden-wrapper-style').evaluate(el=>el.remove());
  // Feature flags may remove menu actions from the DOM entirely (not merely
  // mark them disabled). A detached item must not remain in keyboard order,
  // trigger callbacks, or strand focus when the final action disappears.
