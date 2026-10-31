@@ -22,3 +22,20 @@ test('keyboard focus reveals clipped actions without shifting visible controls',
  assert.equal(focusedToolbarDelta({left:390,right:430},viewport),36);
  assert.equal(focusedToolbarDelta({left:150,right:200},viewport),0);
 });
+
+test('toolbar overflow tolerates fractional layout measurements',()=>{
+ assert.deepEqual(toolbarOverflowState({scrollLeft:0,scrollWidth:402,clientWidth:400}),{
+  overflow:false,canScrollPrevious:false,canScrollNext:true
+ });
+ assert.deepEqual(toolbarOverflowState({scrollLeft:0,scrollWidth:401,clientWidth:400}),{
+  overflow:false,canScrollPrevious:false,canScrollNext:false
+ });
+});
+
+test('focused action respects padding on both viewport edges',()=>{
+ const viewport={left:100,right:300};
+ assert.equal(focusedToolbarDelta({left:106,right:294},viewport),0);
+ assert.equal(focusedToolbarDelta({left:105,right:295},viewport),-1);
+ assert.equal(focusedToolbarDelta({left:120,right:295},viewport),1);
+ assert.equal(focusedToolbarDelta({left:105,right:295},viewport,8),-3);
+});
