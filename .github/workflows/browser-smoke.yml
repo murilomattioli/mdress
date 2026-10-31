@@ -66,10 +66,10 @@ jobs:
           path: |
             test-results/ux-audit/*.png
             test-results/color-picker/*.png
-            test-results/header-edge-menu-*.png
-            test-results/header-pattern-*.png
-            test-results/header-typeahead-*.png
-            test-results/header-ime-native-keys-*.png
+            # Include every header QA screenshot (dynamic permissions, removed
+            # actions, typeahead, IME and viewport). Narrow globs previously
+            # dropped valid visual evidence without failing the workflow.
+            test-results/header-*.png
             test-results/ux-audit/supervised/*.png
             test-results/ux-audit/supervised/index.html
             test-results/ux-audit/supervised/*-trace.zip
