@@ -78,6 +78,16 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   // Keep the menu anchored when a responsive panel scrolls or resizes while open.
   const position=()=>{
    if(!isOpen()||!more.isConnected)return;
+   // Responsive CSS can hide the host without mutating any attribute.
+   // Window/visualViewport resize still invokes positioning: revoke the
+   // top-layer popover instead of leaving actions floating over the page.
+   if(!headerInteractive()){
+    const focusLost=menu.contains(document.activeElement)||document.activeElement===more||
+     document.activeElement===document.body;
+    menu.hidePopover();
+    if(focusLost)restoreFocusOutsideHost();
+    return;
+   }
    // A virtual keyboard or pinch zoom can shrink/offset the *visual*
    // viewport without changing innerHeight. Keep the popover inside the
    // actually visible rectangle, including its left/top offsets.
