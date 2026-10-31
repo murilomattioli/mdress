@@ -33,7 +33,17 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    menu.style.left=Math.max(8,Math.min(innerWidth-width-8,r.right-width))+'px';
    menu.style.top=Math.max(8,Math.min(innerHeight-height-8,desiredTop))+'px';
   };
-  let frame=0;
+  let frame=0,lastFocusedItem=null;
+  menu.addEventListener('focusin',event=>{
+   if(buttons.includes(event.target))lastFocusedItem=event.target;
+  });
+  menu.addEventListener('focusout',event=>{
+   if(event.target===lastFocusedItem&&event.relatedTarget&&event.relatedTarget!==document.body)
+    lastFocusedItem=null;
+  });
+  const clearOutsidePointer=event=>{
+   if(!menu.contains(event.target))lastFocusedItem=null;
+  };
   const schedulePosition=()=>{
    if(frame)return;
    frame=requestAnimationFrame(()=>{frame=0;position();});
@@ -41,25 +51,30 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   const startTracking=()=>{
    window.addEventListener('resize',schedulePosition);
    window.addEventListener('scroll',schedulePosition,true);
+   document.addEventListener('pointerdown',clearOutsidePointer,true);
    window.visualViewport?.addEventListener('resize',schedulePosition);
   };
   const stopTracking=()=>{
    window.removeEventListener('resize',schedulePosition);
    window.removeEventListener('scroll',schedulePosition,true);
+   document.removeEventListener('pointerdown',clearOutsidePointer,true);
    window.visualViewport?.removeEventListener('resize',schedulePosition);
    if(frame){cancelAnimationFrame(frame);frame=0;}
   };
   const syncAvailability=()=>{
    const items=available();
    const triggerFocused=document.activeElement===more;
+   // Chromium can blur a disabled focused button to <body> before the
+   // MutationObserver runs. Retain its prior focus ownership for recovery.
+   const lostMenuFocus=lastFocusedItem&&!items.includes(lastFocusedItem)&&document.activeElement===document.body;
    more.hidden=!items.length;
    // Hiding a focused trigger would otherwise send keyboard focus to <body>.
    if(!items.length&&triggerFocused&&toggle.isConnected)toggle.focus();
    if(!items.length&&isOpen()){
-    const focusInside=menu.contains(document.activeElement);
+    const focusInside=menu.contains(document.activeElement)||lostMenuFocus;
     menu.hidePopover();
     if(focusInside&&toggle.isConnected)toggle.focus();
-   }else if(isOpen()&&menu.contains(document.activeElement)&&!items.includes(document.activeElement)){
+   }else if(isOpen()&&(menu.contains(document.activeElement)||lostMenuFocus)&&!items.includes(document.activeElement)){
     items[0]?.focus();
    }
   };
@@ -75,7 +90,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    const open=isOpen();
    more.setAttribute('aria-expanded',String(open));
    if(open){startTracking();position();}
-   else stopTracking();
+   else{stopTracking();lastFocusedItem=null;}
   });
   menu.onkeydown=e=>{
    const items=available(),index=items.indexOf(document.activeElement);
