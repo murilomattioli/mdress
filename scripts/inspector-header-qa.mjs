@@ -79,6 +79,13 @@ try{
  assert.equal(await dynamicItems.nth(1).evaluate(el=>el===document.activeElement),true,
   'Re-enabled actions are reachable without rebuilding the inspector');
  await page.keyboard.press('Escape');
+ // Closing leaves the trigger focused. If the last action becomes unavailable
+ // at that point, focus must return to the accordion toggle rather than body.
+ assert.equal(await dynamicTrigger.evaluate(el=>el===document.activeElement),true);
+ await dynamicItems.nth(1).evaluate(el=>el.disabled=true);
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.hidden===true);
+ assert.equal(await dynamicHost.locator('button').first().evaluate(el=>el===document.activeElement),true,
+  'A focused trigger becoming unavailable returns focus to its accordion toggle');
  await dynamicHost.evaluate(el=>el.remove());
  // Exercise the top-layer menu against a genuinely short, mobile viewport.
  await page.evaluate(async()=>{
