@@ -45,6 +45,41 @@ try{
  });
  assert.equal(await page.locator('#ux23-disabled-menu-host .ds-header-menu-trigger').isHidden(),true);
  assert.equal(await page.locator('#ux23-disabled-menu-host [role=menu]').isVisible(),false);
+ // Live permission updates must not strand keyboard focus or invoke blocked actions.
+ await page.evaluate(async()=>{
+  const {createInspectorHeader}=await import('/design-system/inspector-header.js');
+  const host=document.createElement('div');host.id='ux23-dynamic-menu-host';host.className='design-inspector';
+  const toggle=document.createElement('button');toggle.type='button';toggle.textContent='Permissões dinâmicas';
+  host.append(createInspectorHeader({toggle,menuVisibility:'always',menuItems:[
+   {label:'Primeira',onSelect:()=>window.dynamicMenuSelected=true},
+   {label:'Segunda',onSelect:()=>{}}
+  ]}));
+  document.body.append(host);
+ });
+ const dynamicHost=page.locator('#ux23-dynamic-menu-host');
+ const dynamicTrigger=dynamicHost.locator('.ds-header-menu-trigger');
+ assert.equal(await dynamicTrigger.getAttribute('aria-label'),'Opções de Permissões dinâmicas',
+  'Visible toggle text names the menu when aria-label is absent');
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ const dynamicItems=dynamicHost.getByRole('menuitem');
+ assert.equal(await dynamicItems.nth(0).evaluate(el=>el===document.activeElement),true);
+ await dynamicItems.nth(0).evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Segunda',null,{timeout:3000});
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'aria-disabled menuitems cannot invoke callbacks');
+ await dynamicItems.nth(1).evaluate(el=>el.disabled=true);
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.hidden===true);
+ assert.equal(await dynamicHost.locator('button').first().evaluate(el=>el===document.activeElement),true,
+  'Disabling every action closes the popover and restores focus to the section toggle');
+ assert.equal(await dynamicHost.getByRole('menu').isVisible(),false);
+ await dynamicItems.nth(1).evaluate(el=>el.disabled=false);
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.hidden===false);
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ assert.equal(await dynamicItems.nth(1).evaluate(el=>el===document.activeElement),true,
+  'Re-enabled actions are reachable without rebuilding the inspector');
+ await page.keyboard.press('Escape');
+ await dynamicHost.evaluate(el=>el.remove());
  // Exercise the top-layer menu against a genuinely short, mobile viewport.
  await page.evaluate(async()=>{
   const {createInspectorHeader}=await import('/design-system/inspector-header.js');
@@ -64,6 +99,16 @@ try{
   const bounds=await page.locator('#ux23-edge-menu-host [role=menu]').boundingBox();
   assert.ok(bounds&&bounds.x>=7&&bounds.y>=7&&bounds.x+bounds.width<=viewport.width-7&&bounds.y+bounds.height<=viewport.height-7,
    'Menu must stay within the viewport: '+JSON.stringify({viewport,bounds}));
+  if(viewport.width===390){
+   // Browser chrome may resize a viewport while the popover is still open.
+   await page.setViewportSize({width:390,height:250});
+   await page.waitForFunction(()=>{
+    const b=document.querySelector('#ux23-edge-menu-host [role=menu]')?.getBoundingClientRect();
+    return b&&b.top>=7&&b.bottom<=innerHeight-7&&b.left>=7&&b.right<=innerWidth-7;
+   });
+   await page.screenshot({path:'test-results/header-edge-menu-resized-390.png'});
+   await page.setViewportSize(viewport);
+  }
   await page.screenshot({path:`test-results/header-edge-menu-${viewport.width}.png`});
   await page.keyboard.press('Escape');
   // Native popover toggle is dispatched asynchronously after hidePopover().
