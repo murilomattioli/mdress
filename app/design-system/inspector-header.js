@@ -99,7 +99,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    menu.style.left=Math.max(left+8,Math.min(left+width-menuWidth-8,r.right-menuWidth))+'px';
    menu.style.top=Math.max(top+8,Math.min(top+height-menuHeight-8,desiredTop))+'px';
   };
-  let frame=0,lastFocusedItem=null,menuResizeObserver=null;
+  let frame=0,lastFocusedItem=null,menuResizeObserver=null,tracking=false;
   const hostObserver=new MutationObserver(()=>{
    if(!isOpen())return;
    if(!headerInteractive()){menu.hidePopover();return;}
@@ -120,6 +120,8 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    frame=requestAnimationFrame(()=>{frame=0;position();});
   };
   const startTracking=()=>{
+   if(tracking)return;
+   tracking=true;
    window.addEventListener('resize',schedulePosition);
    window.addEventListener('scroll',schedulePosition,true);
    document.addEventListener('pointerdown',clearOutsidePointer,true);
@@ -138,6 +140,8 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    }
   };
   const stopTracking=()=>{
+   if(!tracking)return;
+   tracking=false;
    window.removeEventListener('resize',schedulePosition);
    window.removeEventListener('scroll',schedulePosition,true);
    document.removeEventListener('pointerdown',clearOutsidePointer,true);
@@ -183,7 +187,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   more.onclick=()=>{
    if(more.hidden||!headerInteractive()||!available().length)return;
    if(isOpen()){menu.hidePopover();return;}
-   menu.showPopover();position();focusItem(available()[0]);
+   menu.showPopover();startTracking();position();focusItem(available()[0]);
   };
   let typed='',lastTypedAt=0,composing=false;
   menu.addEventListener('compositionstart',()=>{composing=true;typed='';lastTypedAt=0;});
