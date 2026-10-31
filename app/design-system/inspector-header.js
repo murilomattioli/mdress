@@ -58,7 +58,8 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    for(let node=header;node;node=node.parentElement){
     if(node.hidden)return false;
     const style=getComputedStyle(node);
-    if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse')return false;
+    if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
+     style.contentVisibility==='hidden')return false;
    }
    return true;
   };
@@ -86,7 +87,8 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    for(let node=button;node&&node!==menu;node=node.parentElement){
     if(node.hidden)return false;
     const style=getComputedStyle(node);
-    if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse')return false;
+    if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
+     style.contentVisibility==='hidden')return false;
    }
    return true;
   });
