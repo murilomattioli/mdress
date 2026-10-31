@@ -502,6 +502,47 @@ try{
  await typeHost.evaluate(el=>el.remove());
  await page.setViewportSize({width:1024,height:900});
 
+ // Reparenting a live inspector must not retain observers on its former
+ // ancestors or ignore permission changes on its new container.
+ await page.evaluate(async()=>{
+  const {createInspectorHeader}=await import('/design-system/inspector-header.js');
+  const host=document.createElement('div');host.id='ux23-reparent-host';
+  const toggle=document.createElement('button');toggle.textContent='Ações reparentadas';
+  host.append(createInspectorHeader({toggle,menuVisibility:'always',menuItems:[
+   {label:'Reparentar',onSelect:()=>window.__ux23ReparentSelected=true}
+  ]}));
+  document.body.append(host);
+ });
+ const reparentTrigger=page.locator('#ux23-reparent-host .ds-header-menu-trigger');
+ await reparentTrigger.focus();await reparentTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-reparent-host [role=menu]')?.matches(':popover-open'));
+ await page.evaluate(()=>{
+  const host=document.querySelector('#ux23-reparent-host');
+  const wrapper=document.createElement('div');wrapper.id='ux23-reparent-wrapper';
+  host.before(wrapper);wrapper.append(host);
+ });
+ // Some engines dismiss a top-layer popover when its host is moved. Either
+ // way, the next open must attach observers to the current ancestor chain.
+ if(!await page.locator('#ux23-reparent-host [role=menu]').evaluate(el=>el.matches(':popover-open'))){
+  await reparentTrigger.focus();await reparentTrigger.press('Enter');
+ }
+ await page.waitForFunction(()=>document.querySelector('#ux23-reparent-host [role=menu]')?.matches(':popover-open'));
+ await page.locator('#ux23-reparent-wrapper').evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-reparent-host');
+  return !host.querySelector('[role=menu]').matches(':popover-open')&&
+   document.activeElement!==document.body&&!host.contains(document.activeElement);
+ });
+ await page.locator('#ux23-reparent-host [role=menuitem]').evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.__ux23ReparentSelected),undefined,
+  'Reparented disabled hosts cannot dispatch stale menu actions');
+ await page.screenshot({path:'test-results/header-reparented-host-revoked.png'});
+ await page.locator('#ux23-reparent-wrapper').evaluate(el=>el.removeAttribute('aria-disabled'));
+ await reparentTrigger.focus();await reparentTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-reparent-host [role=menu]')?.matches(':popover-open'));
+ await page.keyboard.press('Escape');
+ await page.locator('#ux23-reparent-wrapper').evaluate(el=>el.remove());
+
  // Exercise the top-layer menu against a genuinely short, mobile viewport.
  await page.evaluate(async()=>{
   const {createInspectorHeader}=await import('/design-system/inspector-header.js');
