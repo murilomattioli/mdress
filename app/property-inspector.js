@@ -5,10 +5,20 @@ let currentTab='document';
 const scrollPositions=new Map();
 const legacyTabs={style:'document',sections:'content',background:'document',ai:'themes'};
 let tabAvailabilityObserver=null,tabAvailabilityResize=null;
+// Disabled fieldsets revoke descendant tab interactions except in their
+// first direct-child legend, matching native HTML button semantics.
+const tabInDisabledFieldset=tab=>{
+ for(let node=tab?.parentElement;node;node=node.parentElement){
+  if(node.tagName!=='FIELDSET'||!node.disabled)continue;
+  const legend=[...node.children].find(child=>child.tagName==='LEGEND');
+  if(!legend?.contains(tab))return true;
+ }
+ return false;
+};
 // Roving tab focus must skip permission-revoked and CSS-hidden destinations.
 // A tab with tabindex=-1 is still eligible for arrow navigation.
 const keyboardTabAvailable=tab=>{
- if(!tab?.isConnected||tab.matches(':disabled,[aria-disabled="true"]')||
+ if(!tab?.isConnected||tabInDisabledFieldset(tab)||tab.matches(':disabled,[aria-disabled="true"]')||
     tab.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
     !tab.getClientRects().length)return false;
  for(let node=tab;node;node=node.parentElement){
@@ -22,7 +32,7 @@ const keyboardTabAvailable=tab=>{
 // opens. Inspect tab-local permissions without treating a collapsed inspector
 // as a disabled destination (the keyboard path remains stricter).
 const tabSelectable=tab=>{
- if(!tab?.isConnected||tab.matches(':disabled,[aria-disabled="true"]')||
+ if(!tab?.isConnected||tabInDisabledFieldset(tab)||tab.matches(':disabled,[aria-disabled="true"]')||
     tab.closest('[inert],[aria-hidden="true"],[aria-disabled="true"]'))return false;
  for(let node=tab;node;node=node.parentElement){
   if(node.hidden)return false;
