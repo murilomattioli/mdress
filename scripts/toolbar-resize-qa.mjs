@@ -83,6 +83,34 @@ try{
   document.querySelector('.markdown-toolbar')?.contains(document.activeElement)&&
   document.activeElement?.id!=='ux23-before',null,{timeout:3000});
  await toolbar.screenshot({path:'test-results/ux-audit/toolbar-disabled-action-focus-recovered.png',animations:'disabled'});
+ // content-visibility:hidden keeps a layout rectangle but must never be
+ // selected as the recovery target for a removed keyboard-focused action.
+ await toolbar.evaluate(el=>{
+  const group=document.createElement('div');group.className='tool-group';group.id='ux23-visibility-group';
+  for(const id of ['visible-before','css-hidden','focused','visible-after']){
+   const action=document.createElement('button');action.type='button';action.id='ux23-'+id;
+   action.textContent=id;group.append(action);
+  }
+  el.append(group);
+ });
+ await page.locator('#ux23-css-hidden').evaluate(el=>{el.style.contentVisibility='hidden';});
+ await page.locator('#ux23-focused').focus();
+ await page.locator('#ux23-focused').evaluate(el=>el.remove());
+ await page.waitForFunction(()=>document.activeElement?.id==='ux23-visible-after',null,{timeout:3000});
+ assert.equal(await page.evaluate(()=>document.activeElement?.id),'ux23-visible-after',
+  'Focus recovery must skip an action hidden by content-visibility');
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-content-visibility-focus-recovered.png',animations:'disabled'});
+ await page.locator('#ux23-visible-after').evaluate(el=>el.remove());
+ await page.waitForFunction(()=>document.activeElement?.id==='ux23-visible-before',null,{timeout:3000});
+ await page.locator('#ux23-visible-before').evaluate(el=>{el.closest('.tool-group').setAttribute('aria-disabled','true');});
+ await page.waitForFunction(()=>{
+  const group=document.querySelector('#ux23-visibility-group');
+  return document.activeElement!==document.body&&!group.contains(document.activeElement);
+ },null,{timeout:3000});
+ assert.equal(await page.evaluate(()=>document.activeElement?.closest('#ux23-visibility-group')===null),true,
+  'Focus must leave an aria-disabled toolbar group');
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-disabled-group-focus-recovered.png',animations:'disabled'});
+ await toolbar.locator('#ux23-visibility-group').evaluate(el=>el.remove());
  await toolbar.locator('#ux23-replaced-group').evaluate(el=>el.remove());
  // At large zoom an action may be wider than the whole toolbar viewport.
  // Repeated layout notifications must not alternate between its two edges.
