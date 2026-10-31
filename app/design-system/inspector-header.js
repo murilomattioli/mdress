@@ -183,6 +183,10 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
     return;
    }
    if(!isOpen()){
+    // A fieldset move can close a native popover *before* this observer
+    // runs. Recover focus even when the close was not initiated by us.
+    if(!headerInteractive()&&(header.contains(document.activeElement)||
+       document.activeElement===document.body))restoreFocusOutsideHost();
     // The last action may have disappeared through a media query. Keep
     // watching until CSS restores it, even while the popover is closed.
     if(more.hidden){watchHostAncestry();syncAvailability();}
@@ -352,7 +356,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
     // Reparenting into a disabled fieldset can natively close the popover
     // before MutationObserver sees the new ancestor. Recover keyboard focus
     // on the close event as well, but never steal it after normal dismissal.
-    if(!headerInteractive()&&(menu.contains(document.activeElement)||
+    if(!headerInteractive()&&(header.contains(document.activeElement)||
        document.activeElement===document.body))restoreFocusOutsideHost();
     stopTracking();lastFocusedItem=null;typed='';lastTypedAt=0;composing=false;
    }
