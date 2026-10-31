@@ -365,10 +365,21 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
     // the focused menuitem has tabindex=-1. Resolve the adjacent page stop
     // from the trigger before closing, including wrap at the document edge.
     e.preventDefault();
+    const tabStopAvailable=el=>{
+     if(el.tabIndex<0||el.matches(':disabled,[aria-disabled="true"]')||
+        el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"],[role="menu"]')||
+        !el.getClientRects().length)return false;
+     // content-visibility:hidden preserves the wrapper's layout box, but
+     // descendants must never be selected as the next keyboard stop.
+     for(let node=el;node;node=node.parentElement){
+      const style=getComputedStyle(node);
+      if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
+         style.contentVisibility==='hidden')return false;
+     }
+     return true;
+    };
     const stops=[...document.querySelectorAll('a[href],area[href],button,input,select,textarea,[tabindex]')]
-     .filter(el=>el.tabIndex>=0&&!el.matches(':disabled,[aria-disabled="true"]')&&
-      !el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"],[role="menu"]')&&
-      el.getClientRects().length&&getComputedStyle(el).visibility==='visible');
+     .filter(tabStopAvailable);
     const index=stops.indexOf(more),step=e.shiftKey?-1:1;
     const target=index>=0?stops[(index+step+stops.length)%stops.length]:toggle;
     menu.hidePopover();
