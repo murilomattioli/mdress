@@ -38,8 +38,14 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    // viewport without changing innerHeight. Keep the popover inside the
    // actually visible rectangle, including its left/top offsets.
    const viewport=window.visualViewport;
-   const left=viewport?.offsetLeft??0,top=viewport?.offsetTop??0;
-   const width=viewport?.width||innerWidth,height=viewport?.height||innerHeight;
+   // Some engines report a visualViewport resize before the layout viewport
+   // settles. Use their intersection so neither coordinate system can push
+   // the menu outside the actually visible page during that transition.
+   const offsetLeft=viewport?.offsetLeft??0,offsetTop=viewport?.offsetTop??0;
+   const left=Math.max(0,offsetLeft),top=Math.max(0,offsetTop);
+   const right=Math.min(innerWidth,offsetLeft+(viewport?.width||innerWidth));
+   const bottom=Math.min(innerHeight,offsetTop+(viewport?.height||innerHeight));
+   const width=Math.max(0,right-left),height=Math.max(0,bottom-top);
    menu.style.maxWidth=Math.max(0,width-16)+'px';
    menu.style.maxHeight=Math.max(0,height-16)+'px';
    const r=more.getBoundingClientRect(),menuHeight=menu.offsetHeight,menuWidth=menu.offsetWidth;
