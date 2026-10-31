@@ -4,6 +4,7 @@ const $=id=>document.getElementById(id);
 let currentTab='document';
 const scrollPositions=new Map();
 const legacyTabs={style:'document',sections:'content',background:'document',ai:'themes'};
+let tabAvailabilityObserver=null,tabAvailabilityResize=null;
 // Roving tab focus must skip permission-revoked and CSS-hidden destinations.
 // A tab with tabindex=-1 is still eligible for arrow navigation.
 const keyboardTabAvailable=tab=>{
@@ -20,7 +21,10 @@ const keyboardTabAvailable=tab=>{
 export function setInspectorTab(name,{focus=false}={}){
  name=legacyTabs[name]||name;
  const tabs=[...document.querySelectorAll('[data-inspector-tab]')];
- const chosen=tabs.find(x=>x.dataset.inspectorTab===name);if(!chosen)return false;
+ const chosen=tabs.find(x=>x.dataset.inspectorTab===name);
+ // Programmatic calls and synthetic clicks must obey the same permissions
+ // as keyboard navigation. Never select a hidden or disabled tab/panel.
+ if(!keyboardTabAvailable(chosen))return false;
  const scroller=document.querySelector('.inspector-scroll');
  if(currentTab!==name&&scroller)scrollPositions.set(currentTab,scroller.scrollTop);
  const changed=currentTab!==name;
@@ -78,11 +82,41 @@ export function initializeInspector(){
    if(!available.length)return;
    const current=available.indexOf(tab);
    const step=event.key==='ArrowRight'?1:-1;
+   // A programmatically focused but revoked tab is not in `available`.
+   // From that state, Right starts at the first tab and Left at the last.
    const target=event.key==='Home'?available[0]:event.key==='End'?available.at(-1):
-    available[(Math.max(current,0)+(current<0?0:step)+available.length)%available.length];
+    current<0?(step>0?available[0]:available.at(-1)):
+    available[(current+step+available.length)%available.length];
    setInspectorTab(target.dataset.inspectorTab,{focus:true});
   });
  }
+ // Permissions can be revoked while a tab or a property inside its panel
+ // owns focus. Reconcile selection rather than leaving an inaccessible
+ // aria-selected=true tab or a focused control inside a hidden panel.
+ tabAvailabilityObserver?.disconnect();
+ if(tabAvailabilityResize)window.removeEventListener('resize',tabAvailabilityResize);
+ const reconcileTabs=()=>{
+  const selected=tabs.find(tab=>tab.dataset.inspectorTab===currentTab);
+  if(keyboardTabAvailable(selected))return;
+  const available=tabs.filter(keyboardTabAvailable);
+  if(!available.length)return; // Inspector itself may be collapsed.
+  const index=Math.max(0,tabs.indexOf(selected));
+  const fallback=[...tabs.slice(index+1),...tabs.slice(0,index+1)]
+   .find(keyboardTabAvailable)||available[0];
+  const active=document.activeElement;
+  const focusLost=active===selected||active===document.body||
+   [...document.querySelectorAll('[data-inspector-panel]')]
+    .some(panel=>panel.dataset.inspectorPanel===currentTab&&panel.contains(active));
+  setInspectorTab(fallback.dataset.inspectorTab,{focus:focusLost});
+ };
+ const tablist=document.querySelector('.inspector-tabs');
+ if(tablist){
+  tabAvailabilityObserver=new MutationObserver(reconcileTabs);
+  tabAvailabilityObserver.observe(tablist,{attributes:true,childList:true,subtree:true,
+   attributeFilter:['disabled','hidden','inert','aria-disabled','aria-hidden','class','style']});
+ }
+ tabAvailabilityResize=reconcileTabs;
+ window.addEventListener('resize',tabAvailabilityResize);
  initializePropertyControls();
  setInspectorTab('document');
 }
