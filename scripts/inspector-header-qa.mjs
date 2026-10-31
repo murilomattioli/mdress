@@ -13,16 +13,63 @@ try{
  const pageTab=page.locator('[data-inspector-tab=page]');
  const themesTab=page.locator('[data-inspector-tab=themes]');
  await contentTab.evaluate(el=>el.setAttribute('aria-disabled','true'));
+ // Synthetic clicks and API calls must not activate permission-revoked tabs.
+ const denied=await page.evaluate(async()=>{
+  const {setInspectorTab}=await import('/property-inspector.js');
+  return setInspectorTab('content',{focus:true});
+ });
+ assert.equal(denied,false,'Programmatic selection must reject aria-disabled tabs');
+ await contentTab.evaluate(el=>el.click());
+ assert.equal(await documentTab.getAttribute('aria-selected'),'true',
+  'Synthetic clicks must not select aria-disabled tabs');
  await documentTab.focus();await page.keyboard.press('ArrowRight');
  assert.equal(await pageTab.evaluate(el=>document.activeElement===el),true,
   'ArrowRight must skip aria-disabled inspector tabs');
  await documentTab.click();
  await pageTab.evaluate(el=>{el.style.contentVisibility='hidden';});
+ assert.equal(await page.evaluate(async()=>{
+  const {setInspectorTab}=await import('/property-inspector.js');
+  return setInspectorTab('page',{focus:true});
+ }),false,'Programmatic selection must reject CSS-hidden tabs');
+ assert.equal(await documentTab.getAttribute('aria-selected'),'true',
+  'CSS-hidden tab requests must preserve the selected panel');
  await documentTab.focus();await page.keyboard.press('ArrowRight');
  assert.equal(await themesTab.evaluate(el=>document.activeElement===el),true,
   'ArrowRight must skip tabs hidden with content-visibility');
  await contentTab.evaluate(el=>el.removeAttribute('aria-disabled'));
  await pageTab.evaluate(el=>el.style.removeProperty('content-visibility'));
+ // Revoking the selected tab must move both selection and keyboard focus
+ // to the nearest available sibling, without leaving an inaccessible panel.
+ await pageTab.focus();
+ await pageTab.evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await page.waitForFunction(()=>document.querySelector('[data-inspector-tab=themes]')?.getAttribute('aria-selected')==='true');
+ assert.equal(await themesTab.evaluate(el=>document.activeElement===el),true,
+  'Revoking a focused selected tab must recover focus on the fallback tab');
+ assert.equal(await page.locator('#inspector-page').getAttribute('aria-hidden'),'true');
+ await page.screenshot({path:'test-results/header-revoked-tab-focus-recovery.png',animations:'disabled'});
+ await pageTab.evaluate(el=>el.removeAttribute('aria-disabled'));
+ await contentTab.click();
+ await page.evaluate(()=>{
+  const focused=document.createElement('button');focused.type='button';
+  focused.id='ux23-revoked-panel-control';focused.textContent='Revoked panel focus';
+  document.querySelector('#inspector-content').append(focused);focused.focus();
+ });
+ await contentTab.evaluate(el=>el.disabled=true);
+ await page.waitForFunction(()=>document.querySelector('[data-inspector-tab=page]')?.getAttribute('aria-selected')==='true');
+ assert.equal(await pageTab.evaluate(el=>document.activeElement===el),true,
+  'Revoking the active panel must recover focus from its child controls');
+ assert.equal(await page.locator('#inspector-content').getAttribute('aria-hidden'),'true');
+ await page.screenshot({path:'test-results/header-revoked-panel-focus-recovery.png',animations:'disabled'});
+ await contentTab.evaluate(el=>el.disabled=false);
+ await page.locator('#ux23-revoked-panel-control').evaluate(el=>el.remove());
+ // App navigation can preselect a tab while the inspector is collapsed.
+ await page.locator('#themesView').evaluate(el=>el.classList.add('hidden'));
+ assert.equal(await page.evaluate(async()=>{
+  const {setInspectorTab}=await import('/property-inspector.js');
+  return setInspectorTab('themes');
+ }),true,'Collapsed inspector must still accept an otherwise enabled tab');
+ await page.locator('#themesView').evaluate(el=>el.classList.remove('hidden'));
+ assert.equal(await themesTab.getAttribute('aria-selected'),'true');
  await documentTab.click();
  await page.evaluate(()=>{
   const focused=document.createElement('button');focused.type='button';
