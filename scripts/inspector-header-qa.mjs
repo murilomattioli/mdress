@@ -40,7 +40,7 @@ try{
  await pageTab.evaluate(el=>el.style.removeProperty('content-visibility'));
  // Revoking the selected tab must move both selection and keyboard focus
  // to the nearest available sibling, without leaving an inaccessible panel.
- await pageTab.focus();
+ await pageTab.click();await pageTab.focus();
  await pageTab.evaluate(el=>el.setAttribute('aria-disabled','true'));
  await page.waitForFunction(()=>document.querySelector('[data-inspector-tab=themes]')?.getAttribute('aria-selected')==='true');
  assert.equal(await themesTab.evaluate(el=>document.activeElement===el),true,
