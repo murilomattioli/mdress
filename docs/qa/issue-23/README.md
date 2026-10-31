@@ -1,5 +1,23 @@
 # Issue #23 — evidências duráveis
 
+## UX-023 — eventos nativos de teclado durante composição IME (31/10/2026)
+
+Os testes anteriores verificavam apenas `KeyboardEvent` sintético durante `compositionstart`. Isso não exercita os comportamentos **nativos** do navegador: Escape pode dispensar um `popover`, Tab pode mover o foco e Enter pode ativar um botão mesmo quando o handler da aplicação retorna cedo.
+
+O menu do inspetor agora cancela o comportamento padrão de **Escape e Tab** durante composição (`compositionstart`/`compositionend`, `isComposing` ou `keyCode=229`), sem cancelar o Enter necessário para confirmar candidatos do IME. A ativação do botão é protegida pelo estado de composição, impedindo que a confirmação de um candidato execute uma ação do menu.
+
+**Regressão Chromium:** `scripts/inspector-header-qa.mjs` pressiona Escape, Tab, Shift+Tab e Enter por meio de `page.keyboard.press` durante uma composição ativa. Verifica popover aberto, foco preservado e ausência de callback; após `compositionend`, verifica que Home funciona novamente. Screenshot `header-ime-native-keys-390.png` é incluído no artefato do Browser Smoke para avaliação visual humana.
+
+**Reprodução (PowerShell):**
+```powershell
+npm run dev
+# Em outro terminal:
+node scripts/inspector-header-qa.mjs
+```
+
+**Limite:** composição sintetizada + teclado real do Chromium não substitui homologação com um teclado IME real em sistema operacional móvel/desktop. Não fazer merge, release ou publicação antes da revisão humana.
+
+
 ## UX-023 — recuperação de foco após remoção dinâmica de comandos (31/10/2026)
 
 Quando uma ação da toolbar é removida enquanto possui foco (mudança de modo, permissões ou re-render), o navegador pode devolver o foco para `<body>`. A toolbar agora guarda o **índice da última ação focada** e tenta recuperar a ação seguinte na mesma posição, ou a anterior quando não existe sucessora. Antes, uma remoção podia deslocar o usuário para o primeiro comando da toolbar, mesmo quando o vizinho permanecia disponível.
