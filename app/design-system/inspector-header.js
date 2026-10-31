@@ -6,6 +6,15 @@ export function menuScrollDelta(item,viewport,padding=4){
  if(item.bottom>viewport.bottom-padding)return item.bottom-viewport.bottom+padding;
  return 0;
 }
+// Preserve the user's place in a long menu when a permission update removes
+// the currently focused action. Prefer the next action, then the previous one.
+export function nextAvailableMenuItem(allItems,availableItems,origin){
+ const index=allItems.indexOf(origin);
+ if(index<0)return availableItems[0]??null;
+ const usable=new Set(availableItems);
+ return allItems.slice(index+1).find(item=>usable.has(item))??
+  allItems.slice(0,index).reverse().find(item=>usable.has(item))??null;
+}
 export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibility='hover'}){
  const header=document.createElement('div');header.className='ds-accordion-header';header.append(toggle);
  if(actions){actions.classList.add('ds-accordion-actions');header.append(actions);}
@@ -121,7 +130,9 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
     menu.hidePopover();
     if(focusInside&&toggle.isConnected)toggle.focus();
    }else if(isOpen()&&(menu.contains(document.activeElement)||lostMenuFocus)&&!items.includes(document.activeElement)){
-    focusItem(items[0]);
+    // A disabled action can lose DOM focus before this observer fires. Keep
+    // its original index so a long menu does not jump back to the top.
+    focusItem(nextAvailableMenuItem(buttons,items,lastFocusedItem||document.activeElement));
    }
   };
   syncAvailability();
