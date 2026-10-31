@@ -1,5 +1,11 @@
 /** Shared fieldset header: title/actions, optional menu, expansion at the far edge. */
 let nextMenuId=0;
+// Pure geometry keeps keyboard scrolling local to the open popover.
+export function menuScrollDelta(item,viewport,padding=4){
+ if(item.top<viewport.top+padding)return item.top-viewport.top-padding;
+ if(item.bottom>viewport.bottom-padding)return item.bottom-viewport.bottom+padding;
+ return 0;
+}
 export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibility='hover'}){
  const header=document.createElement('div');header.className='ds-accordion-header';header.append(toggle);
  if(actions){actions.classList.add('ds-accordion-actions');header.append(actions);}
@@ -97,10 +103,8 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    // Native scrollIntoView also scrolls ancestor inspector panels and the
    // document. Only the menu itself should move when navigating its actions.
    item.focus({preventScroll:true});
-   const bounds=menu.getBoundingClientRect(),target=item.getBoundingClientRect();
-   const top=bounds.top+4,bottom=bounds.bottom-4;
-   if(target.top<top)menu.scrollTop+=target.top-top;
-   else if(target.bottom>bottom)menu.scrollTop+=target.bottom-bottom;
+   const delta=menuScrollDelta(item.getBoundingClientRect(),menu.getBoundingClientRect());
+   if(delta)menu.scrollTop+=delta;
   };
   const syncAvailability=()=>{
    const items=available();
