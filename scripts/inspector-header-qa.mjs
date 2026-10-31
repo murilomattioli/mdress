@@ -700,6 +700,28 @@ try{
   'Restoring viewport makes previously hidden actions available without rebuilding the menu');
  await page.keyboard.press('Escape');
  await page.locator('#ux23-responsive-actions-style').evaluate(el=>el.remove());
+ // content-visibility:hidden can hide a host or action without display:none.
+ // Top-layer popovers must not outlive these visibility changes.
+ await responsiveTrigger.focus();await responsiveTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host [role=menu]')?.matches(':popover-open'));
+ await responsiveMenu.locator('[role=menuitem]').first().evaluate(el=>{el.style.contentVisibility='hidden';});
+ await page.waitForFunction(()=>{
+  const items=document.querySelectorAll('#ux23-edge-menu-host [role=menuitem]');
+  return getComputedStyle(items[0]).contentVisibility==='hidden'&&document.activeElement===items[1];
+ });
+ await page.screenshot({path:'test-results/header-content-visibility-action.png'});
+ await responsiveMenu.locator('[role=menuitem]').first().evaluate(el=>{el.style.contentVisibility='';});
+ await page.keyboard.press('Escape');
+ await responsiveTrigger.focus();await responsiveTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.locator('#ux23-edge-menu-host').evaluate(el=>{el.style.contentVisibility='hidden';});
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-edge-menu-host');
+  return !host.querySelector('[role=menu]').matches(':popover-open')&&
+   document.activeElement!==document.body&&!host.contains(document.activeElement);
+ });
+ await page.screenshot({path:'test-results/header-content-visibility-host-revoked.png'});
+ await page.locator('#ux23-edge-menu-host').evaluate(el=>{el.style.contentVisibility='';});
  // Synthetic fixed fixture must not intercept the real inspector's hover test.
  await page.locator('#ux23-edge-menu-host').evaluate(el=>el.remove());
  for(const width of [1024,390]){
