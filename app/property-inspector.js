@@ -7,11 +7,15 @@ const legacyTabs={style:'document',sections:'content',background:'document',ai:'
 let tabAvailabilityObserver=null,tabAvailabilityResize=null;
 // Roving tab focus must skip permission-revoked and CSS-hidden destinations.
 // A tab with tabindex=-1 is still eligible for arrow navigation.
-const keyboardTabAvailable=tab=>{
+const keyboardTabAvailable=(tab,{allowCollapsedHost=false}={})=>{
+ const collapsed=allowCollapsedHost&&Boolean(tab?.closest('.design-inspector.hidden'));
  if(!tab?.isConnected||tab.matches(':disabled,[aria-disabled="true"]')||
     tab.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
-    !tab.getClientRects().length)return false;
+    (!collapsed&&!tab.getClientRects().length))return false;
  for(let node=tab;node;node=node.parentElement){
+  // Switching the tab before opening the inspector is a valid app flow.
+  // Ignore only the inspector's own collapsed shell, not a hidden tab.
+  if(collapsed&&node.matches('.design-inspector.hidden'))break;
   const style=getComputedStyle(node);
   if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
      style.contentVisibility==='hidden')return false;
@@ -24,7 +28,7 @@ export function setInspectorTab(name,{focus=false}={}){
  const chosen=tabs.find(x=>x.dataset.inspectorTab===name);
  // Programmatic calls and synthetic clicks must obey the same permissions
  // as keyboard navigation. Never select a hidden or disabled tab/panel.
- if(!keyboardTabAvailable(chosen))return false;
+ if(!keyboardTabAvailable(chosen,{allowCollapsedHost:true}))return false;
  const scroller=document.querySelector('.inspector-scroll');
  if(currentTab!==name&&scroller)scrollPositions.set(currentTab,scroller.scrollTop);
  const changed=currentTab!==name;
