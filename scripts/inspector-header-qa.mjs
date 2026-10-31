@@ -220,10 +220,20 @@ try{
   'A menuitem in a closed popover must not execute its callback');
  await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
  await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ // content-visibility:hidden retains a rectangle on the editor. A revoked
+ // inspector must never restore focus to that invisible fallback target.
+ await page.locator('#source').evaluate(el=>{el.style.contentVisibility='hidden';});
  await dynamicHost.evaluate(el=>el.setAttribute('aria-disabled','true'));
  await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
- await page.waitForFunction(()=>document.activeElement!==document.body&&
-  !document.querySelector('#ux23-dynamic-menu-host')?.contains(document.activeElement));
+ await page.waitForFunction(()=>{
+  const focused=document.activeElement;
+  return focused!==document.body&&focused?.id!=='source'&&
+   !document.querySelector('#ux23-dynamic-menu-host')?.contains(focused);
+ });
+ assert.notEqual(await page.evaluate(()=>document.activeElement?.id),'source',
+  'Revoking an inspector must skip a content-visibility:hidden editor');
+ await page.screenshot({path:'test-results/header-revoked-host-hidden-editor-focus.png'});
+ await page.locator('#source').evaluate(el=>{el.style.removeProperty('content-visibility');});
  await page.screenshot({path:'test-results/header-revoked-host-focus.png'});
  await dynamicItems.nth(0).evaluate(el=>el.click());
  await dynamicTrigger.evaluate(el=>el.click());
