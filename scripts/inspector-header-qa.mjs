@@ -457,8 +457,19 @@ try{
  assert.equal(await typeHost.locator('button').first().evaluate(el=>el===document.activeElement),true,
   'Shift+Tab exits to the preceding accordion toggle, not another menu action');
  assert.equal(await typeHost.getByRole('menu').isVisible(),false);
+ // An aria-disabled wrapper can contain a natively focusable button.
+ // Leaving the popover must skip that entire disabled subtree.
+ await typeHost.evaluate(host=>{
+  const wrapper=document.createElement('div');wrapper.id='ux23-disabled-tab-wrapper';
+  wrapper.setAttribute('aria-disabled','true');
+  const button=document.createElement('button');button.type='button';
+  button.textContent='Indisponível por herança';wrapper.append(button);
+  host.querySelector('.ds-header-menu-trigger').after(wrapper);
+ });
  await typeTrigger.focus();await typeTrigger.press('Enter');
  await page.keyboard.press('Tab');
+ assert.equal(await page.evaluate(()=>document.activeElement?.closest('#ux23-disabled-tab-wrapper')!==null),false,
+  'Tab must skip buttons inside an aria-disabled ancestor');
  assert.deepEqual(await page.evaluate(()=>({
   outside:!document.activeElement?.closest('[role=menu]'),
   notBody:document.activeElement!==document.body,
