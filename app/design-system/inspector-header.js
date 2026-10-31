@@ -101,21 +101,47 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    if(isOpen()){menu.hidePopover();return;}
    menu.showPopover();position();available()[0]?.focus();
   };
+  let typed='',lastTypedAt=0;
+  const focusItem=item=>{
+   if(!item)return;
+   item.focus();
+   // The popover is scrollable in short viewports: focused actions must
+   // remain visible even when the menu contains dozens of commands.
+   item.scrollIntoView({block:'nearest',inline:'nearest'});
+  };
+  const normalizeLabel=value=>value.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLocaleLowerCase('pt-BR');
   menu.addEventListener('toggle',()=>{
    const open=isOpen();
    more.setAttribute('aria-expanded',String(open));
    if(open){startTracking();position();}
-   else{stopTracking();lastFocusedItem=null;}
+   else{stopTracking();lastFocusedItem=null;typed='';lastTypedAt=0;}
   });
   menu.onkeydown=e=>{
    const items=available(),index=items.indexOf(document.activeElement);
-   if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){
+   if(['ArrowDown','ArrowUp','Home','End','PageDown','PageUp'].includes(e.key)){
     e.preventDefault();
     if(!items.length)return;
     const next=e.key==='Home'?0:e.key==='End'?items.length-1:
+     e.key==='PageDown'?Math.min(items.length-1,Math.max(0,index)+5):
+     e.key==='PageUp'?Math.max(0,(index<0?items.length-1:index)-5):
      index<0?(e.key==='ArrowDown'?0:items.length-1):
      (index+(e.key==='ArrowDown'?1:items.length-1))%items.length;
-    items[next].focus();
+    focusItem(items[next]);
+   }
+   // Printable-key typeahead is important in long inspector menus. Repeated
+   // letters cycle matches; accents are ignored for Portuguese labels. Never
+   // steal keystrokes from an active IME candidate/composition session.
+   if(e.key.length===1&&e.key!==' '&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&
+      !e.isComposing&&e.keyCode!==229&&items.length){
+    const now=performance.now(),letter=normalizeLabel(e.key);
+    typed=now-lastTypedAt>700?letter:typed+letter;
+    lastTypedAt=now;
+    const repeated=[...typed].every(char=>char===letter);
+    const query=repeated?letter:typed;
+    const find=prefix=>Array.from({length:items.length},(_,step)=>items[(Math.max(index,0)+step+1)%items.length])
+     .find(item=>normalizeLabel(item.textContent.trim()).startsWith(prefix));
+    const match=find(query)||(query.length>1?find(letter):null);
+    if(match){e.preventDefault();focusItem(match);}
    }
    if(e.key==='Escape'){e.preventDefault();menu.hidePopover();more.focus();}
    if(e.key==='Tab')menu.hidePopover();
