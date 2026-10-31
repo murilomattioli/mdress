@@ -84,5 +84,28 @@ try{
   document.activeElement?.id!=='ux23-before',null,{timeout:3000});
  await toolbar.screenshot({path:'test-results/ux-audit/toolbar-disabled-action-focus-recovered.png',animations:'disabled'});
  await toolbar.locator('#ux23-replaced-group').evaluate(el=>el.remove());
+ // At large zoom an action may be wider than the whole toolbar viewport.
+ // Repeated layout notifications must not alternate between its two edges.
+ await toolbar.evaluate(el=>{
+  const group=document.createElement('div');group.className='tool-group';group.id='ux23-oversized-group';
+  const action=document.createElement('button');action.type='button';action.id='ux23-oversized-action';
+  action.textContent='Large action';action.style.cssText='flex:0 0 280px;width:280px;min-width:280px';
+  group.append(action);el.append(group);
+ });
+ await page.locator('#ux23-oversized-action').focus();
+ await page.waitForFunction(()=>{
+  const bar=document.querySelector('.markdown-toolbar');
+  const item=document.querySelector('#ux23-oversized-action');
+  return item&&Math.abs(item.getBoundingClientRect().left-bar.getBoundingClientRect().left-6)<2;
+ });
+ const stableScroll=await toolbar.evaluate(el=>el.scrollLeft);
+ for(let attempt=0;attempt<3;attempt++){
+  await toolbar.evaluate(()=>document.dispatchEvent(new Event('studio:resized')));
+  await page.waitForTimeout(80);
+  assert.ok(Math.abs(await toolbar.evaluate(el=>el.scrollLeft)-stableScroll)<2,
+   'An oversized focused action must not bounce between its clipped edges');
+ }
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-oversized-action-stable.png',animations:'disabled'});
+ await toolbar.locator('#ux23-oversized-group').evaluate(el=>el.remove());
  console.log('Toolbar resize, manual scroll, splitter and dynamic focus recovery passed.');
 }finally{await browser.close();}
