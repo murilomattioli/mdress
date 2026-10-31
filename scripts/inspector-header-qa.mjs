@@ -145,6 +145,13 @@ try{
   // The app topbar can visually overlap a synthetic fixed fixture at 320px;
   // keyboard activation exercises the actual trigger without a false pointer interception.
   await edgeTrigger.focus();await edgeTrigger.press('Enter');
+  // Popover dimensions can settle one frame after a viewport CSS change.
+  // Validate the final anchored geometry, not a transient pre-layout rect.
+  await page.waitForFunction(()=>{
+   const b=document.querySelector('#ux23-edge-menu-host [role=menu]')?.getBoundingClientRect();
+   return b&&b.width>0&&b.height>0&&b.top>=7&&b.left>=7&&
+    b.bottom<=innerHeight-7&&b.right<=innerWidth-7;
+  });
   const bounds=await page.locator('#ux23-edge-menu-host [role=menu]').boundingBox();
   assert.ok(bounds&&bounds.x>=7&&bounds.y>=7&&bounds.x+bounds.width<=viewport.width-7&&bounds.y+bounds.height<=viewport.height-7,
    'Menu must stay within the viewport: '+JSON.stringify({viewport,bounds}));
