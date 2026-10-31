@@ -548,12 +548,21 @@ try{
   const wrapper=document.createElement('div');wrapper.id='ux23-reparent-wrapper';
   host.before(wrapper);wrapper.append(host);
  });
- // Some engines dismiss a top-layer popover when its host is moved. Either
- // way, the next open must attach observers to the current ancestor chain.
- if(!await page.locator('#ux23-reparent-host [role=menu]').evaluate(el=>el.matches(':popover-open'))){
+ // Chromium can close an auto popover asynchronously after reparenting.
+ // Inspecting its state in the same task can race that native dismissal:
+ // the menu appears open, then closes before the next waitForFunction.
+ // Allow the browser to settle, and retry the open without assuming which
+ // native behavior it chose. This is a test timing guard, not UX approval.
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>
+  requestAnimationFrame(resolve))));
+ const reparentMenu=page.locator('#ux23-reparent-host [role=menu]');
+ for(let attempt=0;attempt<3;attempt++){
+  if(await reparentMenu.evaluate(el=>el.matches(':popover-open')))break;
   await reparentTrigger.focus();await reparentTrigger.press('Enter');
+  await page.waitForTimeout(80);
  }
- await page.waitForFunction(()=>document.querySelector('#ux23-reparent-host [role=menu]')?.matches(':popover-open'));
+ await page.waitForFunction(()=>document.querySelector('#ux23-reparent-host [role=menu]')?.matches(':popover-open'),
+  null,{timeout:3000});
  await page.locator('#ux23-reparent-wrapper').evaluate(el=>el.setAttribute('aria-disabled','true'));
  await page.waitForFunction(()=>{
   const host=document.querySelector('#ux23-reparent-host');
