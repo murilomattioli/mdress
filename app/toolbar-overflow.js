@@ -178,7 +178,10 @@ export function attachToolbarOverflow(toolbar){
   // a later permission/layout change. Do not recover a stale arrow.
   if(!previous.contains(event.target)&&!next.contains(event.target))
    lastFocusedArrow=null;
-  if(!shell.contains(event.target)){
+  // A click on the toolbar background also abandons the previous action.
+  // Only retain ownership when the pointer actually targets an action.
+  const clickedAction=event.target.closest?.(actionSelector);
+  if(!clickedAction||!toolbar.contains(clickedAction)){
    lastFocusedAction=null;lastFocusedIndex=-1;
   }
  };
