@@ -58,7 +58,19 @@ export function attachToolbarOverflow(toolbar){
  const actionSelector='button,select,input,[tabindex]';
  // Conditional modes can hide groups, remove nodes or mark actions aria-disabled.
  // These are unavailable for keyboard users even when disabled=false.
+ // A disabled fieldset disables descendants even when the toolbar itself
+ // is a div (and therefore never matches :disabled). Preserve the HTML
+ // exception for controls inside the fieldset's first direct-child legend.
+ const inDisabledFieldset=el=>{
+  for(let node=el?.parentElement;node;node=node.parentElement){
+   if(node.tagName!=='FIELDSET'||!node.disabled)continue;
+   const legend=[...node.children].find(child=>child.tagName==='LEGEND');
+   if(!legend?.contains(el))return true;
+  }
+  return false;
+ };
  const visibleInTree=el=>{
+  if(inDisabledFieldset(el))return false;
   if(!el?.isConnected||!el.getClientRects().length||
      el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]'))return false;
   // A layout rectangle does not imply visibility with content-visibility.
