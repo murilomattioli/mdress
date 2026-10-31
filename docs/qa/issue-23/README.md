@@ -1,3 +1,9 @@
+## UX-023 — revogação de ações após fechamento, desativação ou desmontagem (31/10/2026)
+
+O menu compartilhado não executa callbacks de `menuitem` fora de um popover **aberto**, mesmo que um script dispare `.click()` em um botão oculto. Um cabeçalho removido do DOM também não pode executar ações antigas. Ao mudar permissões ou visibilidade de um **ancestral do cabeçalho** (`aria-disabled`, `inert`, `fieldset disabled`, `display:none`), o popover aberto é fechado; o trigger recusa cliques enquanto o host não é interativo. Ao restaurar o host, o mesmo componente pode abrir novamente.
+
+O gate obrigatório `node scripts/inspector-header-qa.mjs` verifica callbacks obsoletos, permissões herdadas, fechamento de popover top-layer, restauração sem reconstrução e saída por Tab sem focar ações em contêineres indisponíveis. Evidência visual adicional: `test-results/header-host-permissions-restored.png`, transportada no artefato temporário do Browser Smoke. **Aprovação visual e interativa humana continua obrigatória**; testes verdes não homologam UX.
+
 # Issue #23 — evidências duráveis
 
 ## UX-023 — remoção real de ações e evidências completas (31/10/2026)
