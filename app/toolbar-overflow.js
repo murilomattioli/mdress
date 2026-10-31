@@ -4,6 +4,13 @@ export function toolbarOverflowState({scrollLeft,scrollWidth,clientWidth}){
  return {overflow:max>2,canScrollPrevious:scrollLeft>1,canScrollNext:scrollLeft<max-1};
 }
 export function focusedToolbarDelta(control,viewport,padding=6){
+ // At high zoom or very narrow split panes a control can be wider than the
+ // entire scrollport. Reveal its leading edge once: trying to reveal both
+ // edges on successive resize frames would oscillate the toolbar forever.
+ if(control.right-control.left>viewport.right-viewport.left-2*padding){
+  return control.left<viewport.left+padding||control.left>=viewport.right-padding?
+   Math.round(control.left-viewport.left-padding):0;
+ }
  if(control.left<viewport.left+padding)return Math.round(control.left-viewport.left-padding);
  if(control.right>viewport.right-padding)return Math.round(control.right-viewport.right+padding);
  return 0;
