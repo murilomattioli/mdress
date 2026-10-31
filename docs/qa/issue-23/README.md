@@ -1,3 +1,13 @@
+## UX-023 — intenção do ponteiro e movimento reduzido (31/10/2026)
+
+**Correções:** o controlador de overflow não confunde um clique deliberado em espaço não focável com perda de foco causada por ocultação/desabilitação posterior. Cliques fora da toolbar **ou no fundo do shell** descartam o último comando/seta focados, evitando roubar o foco de volta quando o componente é alterado. Cliques nas próprias ações preservam o rastreamento necessário à recuperação legítima. A rolagem com `prefers-reduced-motion: reduce` agora utiliza `behavior: 'auto'` (valor padronizado), em vez de `instant` (não padronizado).
+
+**Regressões Chromium:** `scripts/toolbar-resize-qa.mjs` cria uma toolbar isolada, verifica clique real do ponteiro fora e dentro do shell, perda intencional de foco, posterior ocultação/desabilitação sem captura indevida de foco, e rolagem com movimento reduzido. Evidência: `test-results/ux-audit/toolbar-outside-pointer-reduced-motion.png`.
+
+**Aceite:** os testes automatizados comprovam comportamento, não qualidade visual. Revisar screenshot, teclado, ponteiro e os avisos informativos de overflow antes de homologar. Manter PR #27 draft e issue #23 aberta; sem merge, release, Cloudflare ou alterações no repositório legado.
+
+---
+
 ## UX-023 — fieldset disabled: toolbar, foco e reparenting (31/10/2026)
 
 **Correção:** a toolbar Markdown é um contêiner `div`, portanto não herda o pseudoestado CSS `:disabled` de um `fieldset disabled`. O controlador de overflow agora percorre os ancestrais e revoga a interatividade quando a barra pertence a um fieldset desabilitado, respeitando a exceção HTML do primeiro `legend`. Isso oculta as setas de rolagem e evita recuperar foco para comandos indisponíveis.
