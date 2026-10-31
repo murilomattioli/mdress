@@ -236,7 +236,14 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    const open=isOpen();
    more.setAttribute('aria-expanded',String(open));
    if(open){startTracking();position();}
-   else{stopTracking();lastFocusedItem=null;typed='';lastTypedAt=0;composing=false;}
+   else{
+    // Reparenting into a disabled fieldset can natively close the popover
+    // before MutationObserver sees the new ancestor. Recover keyboard focus
+    // on the close event as well, but never steal it after normal dismissal.
+    if(!headerInteractive()&&(menu.contains(document.activeElement)||
+       document.activeElement===document.body))restoreFocusOutsideHost();
+    stopTracking();lastFocusedItem=null;typed='';lastTypedAt=0;composing=false;
+   }
   });
   menu.onkeydown=e=>{
    // Escape/arrows are used by IME candidate windows. Never dismiss the
