@@ -194,7 +194,42 @@ try{
  await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
  await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Primeira');
  await page.keyboard.press('Escape');
+ // A closed popover and a disabled ancestor must never expose actions through
+ // delayed synthetic clicks. Popovers are top-layer elements: host visibility
+ // and permissions can change without changing the menuitem itself.
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'A menuitem in a closed popover must not execute its callback');
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await dynamicHost.evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ await dynamicTrigger.evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'A disabled inspector host must revoke stale menuitem callbacks');
+ assert.equal(await dynamicTrigger.getAttribute('aria-expanded'),'false',
+  'Programmatic trigger clicks must not reopen a disabled inspector host');
+ await dynamicHost.evaluate(el=>el.removeAttribute('aria-disabled'));
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ // CSS-hidden hosts must also dismiss top-layer popovers. Restoration must
+ // leave the same component usable, without rebuilding the inspector.
+ await dynamicHost.evaluate(el=>el.style.display='none');
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await dynamicHost.evaluate(el=>el.style.removeProperty('display'));
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.screenshot({path:'test-results/header-host-permissions-restored.png'});
+ await page.keyboard.press('Escape');
+ await page.evaluate(()=>{
+  window.__ux23RemovedHeaderAction=document.querySelector('#ux23-dynamic-menu-host [role=menuitem]');
+ });
  await dynamicHost.evaluate(el=>el.remove());
+ await page.evaluate(()=>window.__ux23RemovedHeaderAction.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'A menuitem from a removed inspector header must never execute');
+ await page.evaluate(()=>delete window.__ux23RemovedHeaderAction);
  await page.locator('#ux23-hidden-wrapper-style').evaluate(el=>el.remove());
  // Feature flags may remove menu actions from the DOM entirely (not merely
  // mark them disabled). A detached item must not remain in keyboard order,
