@@ -217,5 +217,25 @@ try{
   document.querySelector('#ux23-toolbar-ancestor-style').remove();
  });
  await page.waitForFunction(()=>!document.querySelector('.markdown-toolbar-shell .toolbar-scroll-button:last-child')?.hidden);
+ // Moving the shell to a different parent must refresh the watched ancestry.
+ // Revoking permissions on its *new* wrapper should recover focus, not leave
+ // a stale observer attached to the former workspace parent.
+ await shell.evaluate(el=>{
+  const wrapper=document.createElement('div');wrapper.id='ux23-toolbar-reparented';
+  el.before(wrapper);wrapper.append(el);
+ });
+ await last.focus();
+ await page.locator('#ux23-toolbar-reparented').evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-toolbar-reparented');
+  return document.activeElement!==document.body&&!host.contains(document.activeElement)&&
+   [...host.querySelectorAll('.toolbar-scroll-button')].every(el=>el.hidden);
+ },null,{timeout:3000});
+ assert.equal(await page.evaluate(()=>document.activeElement?.id),'source',
+  'Permissions on a new toolbar parent must revoke focus after reparenting');
+ await page.screenshot({path:'test-results/ux-audit/toolbar-reparented-host-focus.png',animations:'disabled'});
+ await page.locator('#ux23-toolbar-reparented').evaluate(el=>{
+  el.removeAttribute('aria-disabled');el.before(el.firstElementChild);el.remove();
+ });
  console.log('Toolbar resize, manual scroll, splitter and dynamic focus recovery passed.');
 }finally{await browser.close();}
