@@ -1,3 +1,34 @@
+## UX-023 — lifecycle da toolbar e navegação por abas (31/10/2026)
+
+**Implementação:** `app/toolbar-overflow.js` agora expõe uma função de descarte idempotente por instância, limpa `ResizeObserver`, `MutationObserver`, `requestAnimationFrame` e listeners globais, e desfaz o wrapper sem duplicar as setas. A remoção da toolbar/shell do DOM também descarta os recursos automaticamente; mover apenas a toolbar para outro pai preserva seu novo destino. Alterações de DOM sem relação com a toolbar deixam de disparar recálculo de layout. Os botões de rolagem apontam para o scrollport real via `aria-controls`.
+
+**Acessibilidade:** `app/property-inspector.js` ignora abas ocultas, desabilitadas, inertes ou revogadas por ARIA ao navegar com as setas; mudanças programáticas de aba transferem o foco de um controle no painel que ficará oculto para a aba ativa. Isso evita foco invisível e destinos de teclado indisponíveis.
+
+**Regressões Playwright:** `scripts/toolbar-resize-qa.mjs` verifica attach idempotente, `aria-controls`, descarte explícito, remoção automática, remount e movimentação do scrollport para outro pai. `scripts/inspector-header-qa.mjs` verifica ArrowRight com abas indisponíveis e recuperação de foco após troca programática de painel. Novas capturas: `test-results/ux-audit/toolbar-lifecycle-scroll-controls.png` e `test-results/header-inspector-tabs-focus-recovery.png`.
+
+**Homologação:** conferir visualmente as duas capturas e a galeria supervisionada, com teclado e viewport real. Os avisos informativos de toolbar rolável exigem avaliação humana; testes verdes não são aprovação visual. Não executar merge, release nem deploy antes da homologação.
+
+**PowerShell:**
+```powershell
+cd F:\Projects\lumu\tools\mdress
+git status --short
+git fetch origin
+git switch feat/23-property-controls-ux-qa
+git pull --ff-only origin feat/23-property-controls-ux-qa
+npm install --include=dev
+npx playwright install chromium
+npm run dev
+# Em outro terminal:
+npm test
+node scripts/toolbar-resize-qa.mjs
+node scripts/inspector-header-qa.mjs
+npm run qa:supervised
+# Se uma captura for interrompida:
+npm run qa:resume-capture
+```
+
+---
+
 ## UX-023 — toolbar: revogação de foco em shell e ancestrais (31/10/2026)
 
 A barra Markdown agora considera o **estado interativo de toda a árvore de ancestrais** antes de exibir os botões de rolagem. Quando o shell ou um wrapper é ocultado por CSS, `content-visibility:hidden` ou revogado por `aria-disabled`, as setas deixam de ser focáveis. Se uma seta ou comando já tinha foco, ele é recuperado para o editor (ou outro controle visível), sem ficar em `<body>`.
