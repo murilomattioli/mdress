@@ -37,7 +37,16 @@ export function attachToolbarOverflow(toolbar){
  // App-level state updates may disable the currently focused Markdown action.
  // Remember its origin before the browser drops focus to <body>, then recover
  // the nearest usable toolbar action without stealing focus after a real click.
- let lastFocusedAction=null,lastFocusedIndex=-1;
+ let lastFocusedAction=null,lastFocusedIndex=-1,lastFocusedArrow=null;
+ // A CSS-hidden scroll arrow can lose native focus before the next frame.
+ // Remember its ownership without stealing focus after deliberate navigation.
+ shell.addEventListener('focusin',event=>{
+  if(event.target===previous||event.target===next)lastFocusedArrow=event.target;
+ });
+ shell.addEventListener('focusout',event=>{
+  if(event.target===lastFocusedArrow&&event.relatedTarget&&
+     event.relatedTarget!==document.body)lastFocusedArrow=null;
+ });
  const actionSelector='button,select,input,[tabindex]';
  // Conditional modes can hide groups, remove nodes or mark actions aria-disabled.
  // These are unavailable for keyboard users even when disabled=false.
@@ -88,14 +97,19 @@ export function attachToolbarOverflow(toolbar){
  };
  const update=()=>{
   recoverActionFocus();
-  const state=toolbarOverflowState(toolbar);
+  // A hidden/disabled toolbar must not leave visible, tabbable scroll arrows
+  // outside it. The shell itself may be hidden by a responsive ancestor.
+  const state=visibleInTree(toolbar)?toolbarOverflowState(toolbar):
+   {overflow:false,canScrollPrevious:false,canScrollNext:false};
   // Disabling a focused scroll button at the end of its track can dump
   // keyboard users onto <body>. Capture focus before toggling disabled.
   const focusedArrow=document.activeElement===previous?previous:
-   document.activeElement===next?next:null;
+   document.activeElement===next?next:
+   document.activeElement===document.body&&!visibleInTree(toolbar)?lastFocusedArrow:null;
   previous.hidden=!state.overflow;next.hidden=!state.overflow;
   previous.disabled=!state.canScrollPrevious;next.disabled=!state.canScrollNext;
   if(focusedArrow&&(focusedArrow.disabled||focusedArrow.hidden)){
+   lastFocusedArrow=null;
    const opposite=focusedArrow===next?previous:next;
    if(!opposite.disabled&&!opposite.hidden)opposite.focus({preventScroll:true});
    else{
@@ -177,6 +191,14 @@ export function attachToolbarOverflow(toolbar){
   childList:true,subtree:true,attributes:true,
   attributeFilter:['disabled','aria-disabled','hidden','class','style']
  });
+ // Toolbar subtree observation alone misses mode changes on the wrapping
+ // shell, body or inspector workspace. Observe ancestor attributes so an
+ // already-focused action/scroll arrow is recovered when its host is hidden.
+ const ancestryObserver=new MutationObserver(scheduleReveal);
+ for(let ancestor=shell;ancestor;ancestor=ancestor.parentElement){
+  ancestryObserver.observe(ancestor,{attributes:true,
+   attributeFilter:['hidden','inert','aria-hidden','aria-disabled','disabled','class','style']});
+ }
  window.addEventListener('resize',scheduleReveal);
  document.addEventListener('studio:resized',scheduleReveal);
  schedule();
