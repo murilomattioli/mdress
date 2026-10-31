@@ -272,7 +272,16 @@ try{
   throw new Error('Fieldset reparent permission did not revoke popover: '+JSON.stringify(snapshot),{cause:error});
  });
  await page.waitForFunction(()=>document.activeElement!==document.body&&
-  !document.querySelector('#ux23-dynamic-menu-host')?.contains(document.activeElement));
+  !document.querySelector('#ux23-dynamic-menu-host')?.contains(document.activeElement),
+  null,{timeout:4000}).catch(async error=>{
+  const snapshot=await page.evaluate(()=>{
+   const host=document.querySelector('#ux23-dynamic-menu-host');
+   return {focus:document.activeElement?.outerHTML?.slice(0,180),
+    triggerDisabled:host.querySelector('.ds-header-menu-trigger').matches(':disabled'),
+    menuOpen:host.querySelector('[role=menu]').matches(':popover-open')};
+  });
+  throw new Error('Fieldset reparent failed to recover focus: '+JSON.stringify(snapshot),{cause:error});
+ });
  assert.equal(await dynamicTrigger.evaluate(el=>el.matches(':disabled')),true,
   'The inspector trigger inherits disabled state from its host fieldset');
  await dynamicItems.nth(0).evaluate(el=>el.click());
