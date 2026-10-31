@@ -61,7 +61,7 @@ try{
  assert.equal(await dynamicTrigger.getAttribute('aria-label'),'Opções de Permissões dinâmicas',
   'Visible toggle text names the menu when aria-label is absent');
  await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
- const dynamicItems=dynamicHost.getByRole('menuitem');
+ const dynamicItems=dynamicHost.locator('[role=menuitem]');
  assert.equal(await dynamicItems.nth(0).evaluate(el=>el===document.activeElement),true);
  await dynamicItems.nth(0).evaluate(el=>el.setAttribute('aria-disabled','true'));
  await page.waitForFunction(()=>document.activeElement?.textContent==='Segunda',null,{timeout:3000});
