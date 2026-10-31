@@ -100,9 +100,37 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    menu.style.top=Math.max(top+8,Math.min(top+height-menuHeight-8,desiredTop))+'px';
   };
   let frame=0,lastFocusedItem=null,menuResizeObserver=null,tracking=false;
+  // A top-layer menu can outlive the interactivity of its accordion host.
+  // Never return focus to a disabled/inert/hidden trigger when permissions
+  // change: that would strand keyboard users on <body>.
+  const restoreFocusOutsideHost=()=>{
+   const usable=el=>Boolean(el?.isConnected&&!header.contains(el)&&el.tabIndex>=0&&
+    !el.matches(':disabled,[aria-disabled="true"]')&&
+    !el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')&&
+    el.getClientRects().length&&getComputedStyle(el).visibility==='visible');
+   const editor=document.querySelector('#source');
+   const target=usable(editor)?editor:
+    [...document.querySelectorAll('button,a[href],input,select,textarea,[tabindex]')].find(usable);
+   target?.focus({preventScroll:true});
+  };
   const hostObserver=new MutationObserver(()=>{
+   if(!header.isConnected){
+    // Detaching an open header may close its popover natively without a
+    // toggle event. Release listeners/observers even in that case.
+    const focusLost=menu.contains(document.activeElement)||document.activeElement===document.body;
+    if(isOpen())menu.hidePopover();
+    stopTracking();
+    if(focusLost)restoreFocusOutsideHost();
+    return;
+   }
    if(!isOpen())return;
-   if(!headerInteractive()){menu.hidePopover();return;}
+   if(!headerInteractive()){
+    const focusLost=menu.contains(document.activeElement)||document.activeElement===more||
+     document.activeElement===document.body;
+    menu.hidePopover();
+    if(focusLost)restoreFocusOutsideHost();
+    return;
+   }
    syncAvailability();schedulePosition();
   });
   menu.addEventListener('focusin',event=>{
@@ -126,7 +154,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    window.addEventListener('scroll',schedulePosition,true);
    document.addEventListener('pointerdown',clearOutsidePointer,true);
    for(let node=header;node;node=node.parentElement){
-    hostObserver.observe(node,{attributes:true,attributeFilter:[
+    hostObserver.observe(node,{attributes:true,childList:true,attributeFilter:[
      'disabled','hidden','inert','aria-hidden','aria-disabled','class','style'
     ]});
    }
