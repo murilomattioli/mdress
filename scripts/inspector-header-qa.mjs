@@ -213,6 +213,32 @@ try{
  await dynamicHost.evaluate(el=>el.removeAttribute('aria-disabled'));
  await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
  await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await dynamicHost.evaluate(el=>el.setAttribute('inert',''));
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'Inert inspector hosts must revoke menu actions even when the popover is top-layer');
+ await dynamicHost.evaluate(el=>el.removeAttribute('inert'));
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ // A fieldset can disable the trigger without setting its own disabled attr.
+ // The observer must watch host ancestors, not just the menu subtree.
+ await dynamicHost.evaluate(host=>{
+  const fieldset=document.createElement('fieldset');fieldset.id='ux23-disabled-host-fieldset';
+  host.before(fieldset);fieldset.append(host);fieldset.disabled=true;
+ });
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ assert.equal(await dynamicTrigger.evaluate(el=>el.matches(':disabled')),true,
+  'The inspector trigger inherits disabled state from its host fieldset');
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'Inherited host fieldset disablement must revoke open menu actions');
+ await dynamicHost.evaluate(host=>{
+  const fieldset=host.parentElement;fieldset.disabled=false;
+  fieldset.before(host);fieldset.remove();
+ });
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
  // CSS-hidden hosts must also dismiss top-layer popovers. Restoration must
  // leave the same component usable, without rebuilding the inspector.
  await dynamicHost.evaluate(el=>el.style.display='none');
