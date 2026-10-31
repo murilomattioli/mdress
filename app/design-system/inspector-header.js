@@ -139,6 +139,21 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
     [...document.querySelectorAll('button,a[href],input,select,textarea,[tabindex]')].find(usable);
    target?.focus({preventScroll:true});
   };
+  // The host can be reparented into another inspector panel without closing
+  // the popover. Rebind ancestor observation so later permission changes on
+  // the *new* parent are still enforced (old ancestors must be released).
+  let watchedAncestors=[];
+  const watchHostAncestry=()=>{
+   const ancestors=[];
+   for(let node=header;node;node=node.parentElement)ancestors.push(node);
+   if(ancestors.length===watchedAncestors.length&&
+      ancestors.every((node,index)=>node===watchedAncestors[index]))return;
+   hostObserver.disconnect();watchedAncestors=ancestors;
+   for(const node of ancestors)hostObserver.observe(node,{
+    attributes:true,childList:true,
+    attributeFilter:['disabled','hidden','inert','aria-hidden','aria-disabled','class','style']
+   });
+  };
   const hostObserver=new MutationObserver(()=>{
    if(!header.isConnected){
     // Detaching an open header may close its popover natively without a
@@ -150,6 +165,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
     return;
    }
    if(!isOpen())return;
+   watchHostAncestry();
    if(!headerInteractive()){
     const focusLost=menu.contains(document.activeElement)||document.activeElement===more||
      document.activeElement===document.body;
@@ -179,11 +195,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    window.addEventListener('resize',schedulePosition);
    window.addEventListener('scroll',schedulePosition,true);
    document.addEventListener('pointerdown',clearOutsidePointer,true);
-   for(let node=header;node;node=node.parentElement){
-    hostObserver.observe(node,{attributes:true,childList:true,attributeFilter:[
-     'disabled','hidden','inert','aria-hidden','aria-disabled','class','style'
-    ]});
-   }
+   watchHostAncestry();
    window.visualViewport?.addEventListener('resize',schedulePosition);
    window.visualViewport?.addEventListener('scroll',schedulePosition);
    // A menu can grow after opening (font/layout settling, viewport CSS
@@ -199,7 +211,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    window.removeEventListener('resize',schedulePosition);
    window.removeEventListener('scroll',schedulePosition,true);
    document.removeEventListener('pointerdown',clearOutsidePointer,true);
-   hostObserver.disconnect();
+   hostObserver.disconnect();watchedAncestors=[];
    window.visualViewport?.removeEventListener('resize',schedulePosition);
    window.visualViewport?.removeEventListener('scroll',schedulePosition);
    menuResizeObserver?.disconnect();menuResizeObserver=null;
