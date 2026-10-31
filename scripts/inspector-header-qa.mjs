@@ -214,6 +214,21 @@ try{
  await page.screenshot({path:'test-results/header-typeahead-ime.png'});
  await page.keyboard.press('Escape');
  assert.equal(await typeTrigger.evaluate(el=>el===document.activeElement),true);
+ assert.deepEqual(await typeHost.locator('[role=menuitem]').evaluateAll(items=>[...new Set(items.map(item=>item.tabIndex))]),[-1],
+  'A menu is one Tab stop: its actions are reached by arrows/typeahead');
+ await typeTrigger.focus();await typeTrigger.press('Enter');
+ await page.keyboard.press('Shift+Tab');
+ assert.equal(await typeHost.locator('button').first().evaluate(el=>el===document.activeElement),true,
+  'Shift+Tab exits to the preceding accordion toggle, not another menu action');
+ assert.equal(await typeHost.getByRole('menu').isVisible(),false);
+ await typeTrigger.focus();await typeTrigger.press('Enter');
+ await page.keyboard.press('Tab');
+ assert.deepEqual(await page.evaluate(()=>({
+  outside:!document.activeElement?.closest('[role=menu]'),
+  notBody:document.activeElement!==document.body,
+  closed:!document.querySelector('#ux23-typeahead-host [role=menu]').matches(':popover-open')
+ })),{outside:true,notBody:true,closed:true},
+ 'Tab exits the menu to the next page control without stranding focus on body');
  await typeHost.evaluate(el=>el.remove());
  await page.setViewportSize({width:1024,height:900});
 
