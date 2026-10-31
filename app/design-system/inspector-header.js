@@ -1,5 +1,10 @@
 /** Shared fieldset header: title/actions, optional menu, expansion at the far edge. */
 let nextMenuId=0;
+// Accordion titles may change after creation (rename, localization, undo).
+// Keep both the trigger and the top-layer menu named by the current toggle.
+export function inspectorMenuLabel(toggle){
+ return 'Opções de '+(toggle.getAttribute('aria-label')?.trim()||toggle.textContent.trim()||'seção');
+}
 // Pure geometry keeps keyboard scrolling local to the open popover.
 export function menuScrollDelta(item,viewport,padding=4){
  // Zoom and text scaling can make one action taller than the menu viewport.
@@ -27,12 +32,23 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
  if(menuItems.length){
   const more=document.createElement('button');more.type='button';more.className='ds-header-menu-trigger ds-quick-action';more.dataset.visibility=menuVisibility;
   // Some accordion toggles are named by visible content, not aria-label.
-  const toggleName=toggle.getAttribute('aria-label')||toggle.textContent.trim()||'seção';
-  more.setAttribute('aria-label','Opções de '+toggleName);more.title=more.getAttribute('aria-label');more.setAttribute('aria-haspopup','menu');more.setAttribute('aria-expanded','false');
+  more.setAttribute('aria-label',inspectorMenuLabel(toggle));more.title=more.getAttribute('aria-label');more.setAttribute('aria-haspopup','menu');more.setAttribute('aria-expanded','false');
   const icon=document.createElement('ds-icon');icon.setAttribute('name','ellipsis-vertical');more.append(icon);
   const menu=document.createElement('div');menu.className='ds-header-menu';menu.id='ds-header-menu-'+(++nextMenuId);
   menu.setAttribute('popover','auto');menu.setAttribute('role','menu');menu.setAttribute('aria-label',more.getAttribute('aria-label'));
   more.setAttribute('aria-controls',menu.id);
+  // Renaming a section must not leave stale names on its actions menu.
+  // The observer is scoped to the title, not the whole document.
+  const syncMenuName=()=>{
+   const label=inspectorMenuLabel(toggle);
+   if(more.getAttribute('aria-label')!==label){
+    more.setAttribute('aria-label',label);more.title=label;
+    menu.setAttribute('aria-label',label);
+   }
+  };
+  new MutationObserver(syncMenuName).observe(toggle,{
+   attributes:true,attributeFilter:['aria-label'],childList:true,characterData:true,subtree:true
+  });
   // A top-layer popover is not governed by ancestor visibility. A feature
   // switch can disable or hide its host while the menu is open; late clicks
   // must not bypass the host's current interactive state.
