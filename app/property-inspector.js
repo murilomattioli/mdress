@@ -7,18 +7,29 @@ const legacyTabs={style:'document',sections:'content',background:'document',ai:'
 let tabAvailabilityObserver=null,tabAvailabilityResize=null;
 // Roving tab focus must skip permission-revoked and CSS-hidden destinations.
 // A tab with tabindex=-1 is still eligible for arrow navigation.
-const keyboardTabAvailable=(tab,{allowCollapsedHost=false}={})=>{
- const collapsed=allowCollapsedHost&&Boolean(tab?.closest('.design-inspector.hidden'));
+const keyboardTabAvailable=tab=>{
  if(!tab?.isConnected||tab.matches(':disabled,[aria-disabled="true"]')||
     tab.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
-    (!collapsed&&!tab.getClientRects().length))return false;
+    !tab.getClientRects().length)return false;
  for(let node=tab;node;node=node.parentElement){
-  // Switching the tab before opening the inspector is a valid app flow.
-  // Ignore only the inspector's own collapsed shell, not a hidden tab.
-  if(collapsed&&node.matches('.design-inspector.hidden'))break;
   const style=getComputedStyle(node);
   if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
      style.contentVisibility==='hidden')return false;
+ }
+ return true;
+};
+// Programmatic navigation can preselect a panel before its responsive shell
+// opens. Inspect tab-local permissions without treating a collapsed inspector
+// as a disabled destination (the keyboard path remains stricter).
+const tabSelectable=tab=>{
+ if(!tab?.isConnected||tab.matches(':disabled,[aria-disabled="true"]')||
+    tab.closest('[inert],[aria-hidden="true"],[aria-disabled="true"]'))return false;
+ for(let node=tab;node;node=node.parentElement){
+  if(node.hidden)return false;
+  const style=getComputedStyle(node);
+  if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
+     style.contentVisibility==='hidden')return false;
+  if(node.matches('.inspector-tabs'))break;
  }
  return true;
 };
@@ -28,7 +39,7 @@ export function setInspectorTab(name,{focus=false}={}){
  const chosen=tabs.find(x=>x.dataset.inspectorTab===name);
  // Programmatic calls and synthetic clicks must obey the same permissions
  // as keyboard navigation. Never select a hidden or disabled tab/panel.
- if(!keyboardTabAvailable(chosen,{allowCollapsedHost:true}))return false;
+ if(!tabSelectable(chosen))return false;
  const scroller=document.querySelector('.inspector-scroll');
  if(currentTab!==name&&scroller)scrollPositions.set(currentTab,scroller.scrollTop);
  const changed=currentTab!==name;
