@@ -54,3 +54,12 @@ test('stopping after capture preserves the completed viewport for safe resume',(
  assert.match(runner,/writeUxQaResumeCheckpoint\(reportPath,/,
   'Completed viewports must be saved for recovery after unexpected termination');
 });
+
+test('responsive toolbar focus QA is mandatory and its visual evidence is retained',()=>{
+ assert.match(smoke,/node scripts\/toolbar-resize-qa\.mjs/,
+  'Browser Smoke must exercise focused commands across editor resizes');
+ assert.match(smoke,/test-results\/ux-audit\/\*\.png/,
+  'Responsive toolbar screenshots must be included in the evidence bundle');
+ assert.match(packageJson.scripts.check,/node --check scripts\/toolbar-resize-qa\.mjs/,
+  'The new Playwright runner must be syntax-checked before browser execution');
+});
