@@ -432,6 +432,27 @@ try{
   const arrow=document.querySelector('#ux23-pointer-focus-fixture .toolbar-scroll-button:last-child');
   return arrow&&!arrow.hidden&&!arrow.disabled;
  });
+ // The same intentional background click must abandon a previously focused
+ // command. Disabling that command later must not yank focus to a neighbor.
+ await pointerHost.evaluate(host=>{
+  const shell=host.querySelector('.markdown-toolbar-shell');
+  const blank=document.createElement('div');blank.id='ux23-pointer-action-blank';
+  blank.style.cssText='position:absolute;left:0;top:0;width:20px;height:20px;z-index:99999';
+  shell.append(blank);
+ });
+ const pointerAction=pointerHost.locator('.markdown-toolbar button').first();
+ await pointerAction.focus();
+ await page.locator('#ux23-pointer-action-blank').click();
+ await pointerAction.evaluate(el=>el.blur());
+ await pointerAction.evaluate(el=>{el.disabled=true;});
+ await page.evaluate(()=>new Promise(resolve=>
+  requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ assert.equal(await page.evaluate(()=>document.activeElement===document.body),true,
+  'Disabling a command after a deliberate toolbar background click must not steal focus');
+ await pointerHost.evaluate(host=>{
+  host.querySelector('#ux23-pointer-action-blank').remove();
+  host.querySelector('.markdown-toolbar button').disabled=false;
+ });
  // Reduced-motion users should get an immediate, standards-compliant auto
  // scroll rather than the non-standard `instant` ScrollBehavior value.
  await pointerHost.evaluate(host=>{
