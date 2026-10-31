@@ -34,12 +34,20 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   // Keep the menu anchored when a responsive panel scrolls or resizes while open.
   const position=()=>{
    if(!isOpen()||!more.isConnected)return;
-   const r=more.getBoundingClientRect(),height=menu.offsetHeight,width=menu.offsetWidth;
-   const below=innerHeight-r.bottom-8,above=r.top-8;
-   const openAbove=below<Math.min(height,160)&&above>below;
-   const desiredTop=openAbove?r.top-height-4:r.bottom+4;
-   menu.style.left=Math.max(8,Math.min(innerWidth-width-8,r.right-width))+'px';
-   menu.style.top=Math.max(8,Math.min(innerHeight-height-8,desiredTop))+'px';
+   // A virtual keyboard or pinch zoom can shrink/offset the *visual*
+   // viewport without changing innerHeight. Keep the popover inside the
+   // actually visible rectangle, including its left/top offsets.
+   const viewport=window.visualViewport;
+   const left=viewport?.offsetLeft??0,top=viewport?.offsetTop??0;
+   const width=viewport?.width||innerWidth,height=viewport?.height||innerHeight;
+   menu.style.maxWidth=Math.max(0,width-16)+'px';
+   menu.style.maxHeight=Math.max(0,height-16)+'px';
+   const r=more.getBoundingClientRect(),menuHeight=menu.offsetHeight,menuWidth=menu.offsetWidth;
+   const below=top+height-r.bottom-8,above=r.top-top-8;
+   const openAbove=below<Math.min(menuHeight,160)&&above>below;
+   const desiredTop=openAbove?r.top-menuHeight-4:r.bottom+4;
+   menu.style.left=Math.max(left+8,Math.min(left+width-menuWidth-8,r.right-menuWidth))+'px';
+   menu.style.top=Math.max(top+8,Math.min(top+height-menuHeight-8,desiredTop))+'px';
   };
   let frame=0,lastFocusedItem=null,menuResizeObserver=null;
   menu.addEventListener('focusin',event=>{
@@ -61,6 +69,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    window.addEventListener('scroll',schedulePosition,true);
    document.addEventListener('pointerdown',clearOutsidePointer,true);
    window.visualViewport?.addEventListener('resize',schedulePosition);
+   window.visualViewport?.addEventListener('scroll',schedulePosition);
    // A menu can grow after opening (font/layout settling, viewport CSS
    // max-height, dynamic labels). Window resize alone misses that reflow.
    if(typeof ResizeObserver==='function'){
@@ -73,6 +82,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    window.removeEventListener('scroll',schedulePosition,true);
    document.removeEventListener('pointerdown',clearOutsidePointer,true);
    window.visualViewport?.removeEventListener('resize',schedulePosition);
+   window.visualViewport?.removeEventListener('scroll',schedulePosition);
    menuResizeObserver?.disconnect();menuResizeObserver=null;
    if(frame){cancelAnimationFrame(frame);frame=0;}
   };
@@ -117,6 +127,9 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    else{stopTracking();lastFocusedItem=null;typed='';lastTypedAt=0;}
   });
   menu.onkeydown=e=>{
+   // Escape/arrows are used by IME candidate windows. Never dismiss the
+   // menu or change the selected action while composition is in progress.
+   if(e.isComposing||e.keyCode===229)return;
    const items=available(),index=items.indexOf(document.activeElement);
    if(['ArrowDown','ArrowUp','Home','End','PageDown','PageUp'].includes(e.key)){
     e.preventDefault();
