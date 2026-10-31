@@ -361,6 +361,71 @@ try{
   reattached:true,automaticCleanup:true,remounted:true,
   movedClean:true,movedReattached:true
  },'Toolbar must dispose observers and restore a clean DOM across mounts: '+JSON.stringify(lifecycle));
+ // A deliberate pointer click on blank, non-focusable workspace space can
+ // blur a scroll arrow to <body>. A later responsive hide must NOT steal that
+ // intentionally abandoned focus back into the editor.
+ await page.evaluate(async()=>{
+  const {attachToolbarOverflow}=await import('/toolbar-overflow.js');
+  const host=document.createElement('div');host.id='ux23-pointer-focus-fixture';
+  host.style.cssText='position:fixed;left:48px;top:120px;width:240px;z-index:9999;background:white';
+  const bar=document.createElement('div');bar.className='markdown-toolbar';
+  bar.style.cssText='display:flex;flex-wrap:nowrap;overflow-x:auto;width:180px';
+  for(let i=0;i<8;i++){
+   const action=document.createElement('button');action.type='button';
+   action.textContent='Action '+i;action.style.cssText='min-width:100px;flex-shrink:0';
+   bar.append(action);
+  }
+  host.append(bar);document.body.append(host);
+  window.__ux23PointerDispose=attachToolbarOverflow(bar);
+  const outside=document.createElement('div');outside.id='ux23-pointer-outside';
+  outside.style.cssText='position:fixed;left:0;top:0;width:36px;height:36px;z-index:2147483647';
+  document.body.append(outside);
+ });
+ const pointerHost=page.locator('#ux23-pointer-focus-fixture');
+ const pointerArrow=pointerHost.locator('.toolbar-scroll-button').last();
+ await page.waitForFunction(()=>{
+  const arrow=document.querySelector('#ux23-pointer-focus-fixture .toolbar-scroll-button:last-child');
+  return arrow&&!arrow.hidden&&!arrow.disabled;
+ });
+ await pointerArrow.focus();
+ await page.locator('#ux23-pointer-outside').click();
+ // Explicitly model browsers that blur the arrow to body on a blank click.
+ await pointerArrow.evaluate(el=>el.blur());
+ assert.equal(await page.evaluate(()=>document.activeElement===document.body),true,
+  'Blank pointer click leaves focus on the document rather than the toolbar');
+ await pointerHost.evaluate(el=>{el.style.display='none';});
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-pointer-focus-fixture');
+  return [...host.querySelectorAll('.toolbar-scroll-button')].every(arrow=>arrow.hidden);
+ },null,{timeout:3000});
+ assert.equal(await page.evaluate(()=>document.activeElement===document.body),true,
+  'A later toolbar hide must not steal focus after a deliberate outside pointer click');
+ await pointerHost.evaluate(el=>{el.style.removeProperty('display');});
+ await page.waitForFunction(()=>{
+  const arrow=document.querySelector('#ux23-pointer-focus-fixture .toolbar-scroll-button:last-child');
+  return arrow&&!arrow.hidden&&!arrow.disabled;
+ });
+ // Reduced-motion users should get an immediate, standards-compliant auto
+ // scroll rather than the non-standard `instant` ScrollBehavior value.
+ await pointerHost.evaluate(host=>{
+  const bar=host.querySelector('.markdown-toolbar');
+  const nativeScrollBy=bar.scrollBy.bind(bar);
+  bar.scrollBy=options=>{window.__ux23ScrollBehavior=options.behavior;nativeScrollBy(options);};
+ });
+ await pointerArrow.click();
+ await page.waitForFunction(()=>
+  document.querySelector('#ux23-pointer-focus-fixture .markdown-toolbar')?.scrollLeft>30);
+ assert.equal(await page.evaluate(()=>window.__ux23ScrollBehavior),'auto',
+  'Reduced-motion toolbar scrolling must use standard auto behavior');
+ await pointerHost.screenshot({
+  path:'test-results/ux-audit/toolbar-outside-pointer-reduced-motion.png',animations:'disabled'
+ });
+ await page.evaluate(()=>{
+  window.__ux23PointerDispose();
+  document.querySelector('#ux23-pointer-focus-fixture').remove();
+  document.querySelector('#ux23-pointer-outside').remove();
+  delete window.__ux23PointerDispose;delete window.__ux23ScrollBehavior;
+ });
  // Touch devices need a genuinely tappable arrow, not a 28px icon
  // surrounded by dead space. Use a real Chromium touch context and a
  // deterministic overflow fixture independent of the current workspace mode.
