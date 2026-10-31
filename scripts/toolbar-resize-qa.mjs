@@ -143,5 +143,33 @@ try{
  }
  await toolbar.screenshot({path:'test-results/ux-audit/toolbar-oversized-action-stable.png',animations:'disabled'});
  await toolbar.locator('#ux23-oversized-group').evaluate(el=>el.remove());
+ // A workspace switch can hide the toolbar and editor while a command is
+ // focused. Their layout boxes may survive content-visibility:hidden.
+ // Focus must move to an actual visible control outside those regions.
+ await toolbar.evaluate(el=>{
+  const group=document.createElement('div');group.className='tool-group';group.id='ux23-hidden-fallback-group';
+  const action=document.createElement('button');action.type='button';
+  action.id='ux23-hidden-fallback-action';action.textContent='Temporary command';
+  group.append(action);el.append(group);
+ });
+ await page.locator('#ux23-hidden-fallback-action').focus();
+ await page.evaluate(()=>{
+  document.querySelector('#source').style.contentVisibility='hidden';
+  const bar=document.querySelector('.markdown-toolbar');
+  bar.style.contentVisibility='hidden';
+  document.querySelector('#ux23-hidden-fallback-action').disabled=true;
+ });
+ await page.waitForFunction(()=>{
+  const focused=document.activeElement,bar=document.querySelector('.markdown-toolbar');
+  return focused!==document.body&&focused?.id!=='source'&&!bar.contains(focused);
+ },null,{timeout:3000});
+ assert.equal(await page.evaluate(()=>document.activeElement?.id==='source'),false,
+  'Hidden editor must not receive focus when the toolbar becomes unavailable');
+ await page.screenshot({path:'test-results/ux-audit/toolbar-hidden-workspace-focus-recovered.png',animations:'disabled'});
+ await page.evaluate(()=>{
+  document.querySelector('#source').style.removeProperty('content-visibility');
+  document.querySelector('.markdown-toolbar').style.removeProperty('content-visibility');
+  document.querySelector('#ux23-hidden-fallback-group').remove();
+ });
  console.log('Toolbar resize, manual scroll, splitter and dynamic focus recovery passed.');
 }finally{await browser.close();}
