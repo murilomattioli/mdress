@@ -29,7 +29,7 @@ export function attachToolbarOverflow(toolbar){
  // App-level state updates may disable the currently focused Markdown action.
  // Remember its origin before the browser drops focus to <body>, then recover
  // the nearest usable toolbar action without stealing focus after a real click.
- let lastFocusedAction=null;
+ let lastFocusedAction=null,lastFocusedIndex=-1;
  const actionSelector='button,select,input,[tabindex]';
  // Conditional modes can hide groups, remove nodes or mark actions aria-disabled.
  // These are unavailable for keyboard users even when disabled=false.
@@ -41,10 +41,15 @@ export function attachToolbarOverflow(toolbar){
   if(!origin||focusable(origin)||
    (document.activeElement!==document.body&&document.activeElement!==origin))return;
   const actions=[...toolbar.querySelectorAll(actionSelector)];
-  const index=actions.indexOf(origin);
-  const next=actions.slice(Math.max(index+1,0)).find(focusable)||
+  // A removed focused node is no longer in querySelectorAll. Keep its
+  // former position so focus goes to the adjacent action, not the first
+  // unrelated command in the toolbar.
+  const currentIndex=actions.indexOf(origin);
+  const index=currentIndex>=0?currentIndex+1:Math.min(lastFocusedIndex,actions.length);
+  const next=actions.slice(Math.max(index,0)).find(focusable)||
    actions.slice(0,Math.max(index,0)).reverse().find(focusable);
-  if(next){next.focus({preventScroll:true});lastFocusedAction=next;}
+  if(next){next.focus({preventScroll:true});lastFocusedAction=next;
+   lastFocusedIndex=actions.indexOf(next);}
   else{
    // A workspace-mode change can hide the whole toolbar. Do not focus it.
    const editor=document.querySelector('#source');
@@ -52,7 +57,7 @@ export function attachToolbarOverflow(toolbar){
    else if(toolbar.getClientRects().length&&!toolbar.closest('[hidden],[inert],[aria-hidden="true"]')){
     toolbar.tabIndex=-1;toolbar.focus({preventScroll:true});
    }
-   lastFocusedAction=null;
+   lastFocusedAction=null;lastFocusedIndex=-1;
   }
  };
  const update=()=>{
@@ -112,27 +117,40 @@ export function attachToolbarOverflow(toolbar){
  // A pointer interaction outside the toolbar is intentional; never pull
  // its focus back when a subsequent toolbar mutation arrives.
  document.addEventListener('pointerdown',event=>{
-  if(!shell.contains(event.target))lastFocusedAction=null;
+  if(!shell.contains(event.target)){lastFocusedAction=null;lastFocusedIndex=-1;}
  },{capture:true});
  toolbar.addEventListener('focusin',event=>{
   const target=event.target;
-  if(target.matches?.(actionSelector))lastFocusedAction=target;
+  if(target.matches?.(actionSelector)){
+   lastFocusedAction=target;
+   lastFocusedIndex=[...toolbar.querySelectorAll(actionSelector)].indexOf(target);
+  }
   if(!toolbar.contains(target)||typeof target.getBoundingClientRect!=='function')return;
   const delta=focusedToolbarDelta(target.getBoundingClientRect(),toolbar.getBoundingClientRect());
   if(delta)toolbar.scrollBy({left:delta,behavior:'auto'});
   schedule();
  });
  let resize=null;
+ const observedGroups=new Set();
+ const syncObservedGroups=()=>{
+  if(!resize)return;
+  const current=new Set(toolbar.children);
+  for(const group of observedGroups)if(!current.has(group)){
+   resize.unobserve(group);observedGroups.delete(group);
+  }
+  for(const group of current)if(!observedGroups.has(group)){
+   resize.observe(group);observedGroups.add(group);
+  }
+ };
  if(typeof ResizeObserver==='function'){
   resize=new ResizeObserver(scheduleReveal);
   resize.observe(toolbar);
-  for(const group of toolbar.children)resize.observe(group);
+  syncObservedGroups();
  }
- // ResizeObserver only tracks the groups present during setup. Watch live
- // actions and newly inserted groups as editor modes/permissions change.
+ // Observe new groups, but release detached groups on mode switches. Keeping
+ // removed DOM nodes observed leaks them across repeated editor transitions.
  new MutationObserver(records=>{
-  if(resize&&records.some(record=>record.type==='childList'))
-   for(const group of toolbar.children)resize.observe(group);
+  if(records.some(record=>record.type==='childList'))syncObservedGroups();
   scheduleReveal();
  }).observe(toolbar,{
   childList:true,subtree:true,attributes:true,
