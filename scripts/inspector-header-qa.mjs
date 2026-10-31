@@ -42,6 +42,23 @@ try{
  assert.equal(await pageTab.evaluate(el=>document.activeElement===el),true);
  await page.locator('#ux23-legend-tab-fieldset').evaluate(fieldset=>fieldset.replaceWith(fieldset.firstElementChild.firstElementChild));
  await documentTab.click();
+ // A portalled select cannot outlive an ancestor hidden via
+ // content-visibility, and synthetic clicks must not reopen a revoked control.
+ const fontTrigger=page.locator('#fontChoice').locator('..').locator('.ds-select-trigger');
+ await fontTrigger.click();
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')?.matches(':popover-open'));
+ await page.locator('#inspector-document').evaluate(el=>{el.style.contentVisibility='hidden';});
+ await page.waitForFunction(()=>!document.querySelector('.ds-select-popover'));
+ assert.equal(await page.evaluate(()=>{
+  const panel=document.querySelector('#inspector-document');
+  return document.activeElement!==document.body&&!panel.contains(document.activeElement);
+ }),true,'Hiding an inspector ancestor must close the portal and recover focus outside it');
+ await page.screenshot({path:'test-results/header-select-hidden-ancestor-focus.png',animations:'disabled'});
+ await page.locator('#inspector-document').evaluate(el=>{el.style.contentVisibility='';el.setAttribute('aria-disabled','true');});
+ await fontTrigger.evaluate(el=>el.click());
+ assert.equal(await page.locator('.ds-select-popover').count(),0,
+  'Synthetic clicks must not open a combobox in an aria-disabled ancestor');
+ await page.locator('#inspector-document').evaluate(el=>el.removeAttribute('aria-disabled'));
  await contentTab.evaluate(el=>el.setAttribute('aria-disabled','true'));
  // Synthetic clicks and API calls must not activate permission-revoked tabs.
  const denied=await page.evaluate(async()=>{
