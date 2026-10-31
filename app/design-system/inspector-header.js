@@ -132,7 +132,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    menu.style.left=Math.max(left+8,Math.min(left+width-menuWidth-8,r.right-menuWidth))+'px';
    menu.style.top=Math.max(top+8,Math.min(top+height-menuHeight-8,desiredTop))+'px';
   };
-  let frame=0,lastFocusedItem=null,menuResizeObserver=null,tracking=false;
+  let frame=0,lastFocusedItem=null,menuResizeObserver=null,tracking=false,hiddenResizeWatching=false;
   // A top-layer menu can outlive the interactivity of its accordion host.
   // Never return focus to a disabled/inert/hidden trigger when permissions
   // change: that would strand keyboard users on <body>.
@@ -167,11 +167,17 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
     // toggle event. Release listeners/observers even in that case.
     const focusLost=menu.contains(document.activeElement)||document.activeElement===document.body;
     if(isOpen())menu.hidePopover();
-    stopTracking();
+    stopTracking();stopHiddenActionsWatcher();
+    hostObserver.disconnect();watchedAncestors=[];
     if(focusLost)restoreFocusOutsideHost();
     return;
    }
-   if(!isOpen())return;
+   if(!isOpen()){
+    // The last action may have disappeared through a media query. Keep
+    // watching until CSS restores it, even while the popover is closed.
+    if(more.hidden){watchHostAncestry();syncAvailability();}
+    return;
+   }
    watchHostAncestry();
    if(!headerInteractive()){
     const focusLost=menu.contains(document.activeElement)||document.activeElement===more||
@@ -218,11 +224,39 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    window.removeEventListener('resize',schedulePosition);
    window.removeEventListener('scroll',schedulePosition,true);
    document.removeEventListener('pointerdown',clearOutsidePointer,true);
-   hostObserver.disconnect();watchedAncestors=[];
+   if(!more.hidden){hostObserver.disconnect();watchedAncestors=[];}
    window.visualViewport?.removeEventListener('resize',schedulePosition);
    window.visualViewport?.removeEventListener('scroll',schedulePosition);
    menuResizeObserver?.disconnect();menuResizeObserver=null;
    if(frame){cancelAnimationFrame(frame);frame=0;}
+  };
+  // A CSS-only breakpoint can remove the last menu action. The trigger
+  // must reappear when the viewport grows, without reopening the popover or
+  // retaining listeners after its header is detached.
+  const stopHiddenActionsWatcher=()=>{
+   if(!hiddenResizeWatching)return;
+   window.removeEventListener('resize',refreshHiddenActions);
+   hiddenResizeWatching=false;
+  };
+  const refreshHiddenActions=()=>{
+   if(!header.isConnected){
+    stopHiddenActionsWatcher();hostObserver.disconnect();watchedAncestors=[];
+    return;
+   }
+   syncAvailability();
+  };
+  const watchHiddenActions=()=>{
+   if(!more.hidden){
+    stopHiddenActionsWatcher();
+    if(!tracking){hostObserver.disconnect();watchedAncestors=[];}
+    return;
+   }
+   if(!header.isConnected)return;
+   if(!hiddenResizeWatching){
+    window.addEventListener('resize',refreshHiddenActions);
+    hiddenResizeWatching=true;
+   }
+   watchHostAncestry();
   };
   const focusItem=item=>{
    if(!item)return;
@@ -239,6 +273,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    // MutationObserver runs. Retain its prior focus ownership for recovery.
    const lostMenuFocus=lastFocusedItem&&!items.includes(lastFocusedItem)&&document.activeElement===document.body;
    more.hidden=!items.length;
+   watchHiddenActions();
    // Hiding a focused trigger would otherwise send keyboard focus to <body>.
    if(!items.length&&triggerFocused&&toggle.isConnected)toggle.focus();
    if(!items.length&&isOpen()){
