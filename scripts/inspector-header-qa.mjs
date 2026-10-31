@@ -136,7 +136,7 @@ try{
   const host=document.createElement('div');host.id='ux23-typeahead-host';host.className='design-inspector';
   host.style.cssText='position:fixed;top:4px;right:4px;width:220px;z-index:2147483000';
   const toggle=document.createElement('button');toggle.type='button';toggle.textContent='Menu longo';
-  const labels=['Alpha','Árvore','Beta','Bravo','Brisa','Omega',...Array.from({length:18},(_,i)=>'Item '+i)];
+  const labels=['Alpha','Árvore','Beta','Bravo','Brisa','Ritmo',...Array.from({length:18},(_,i)=>'Item '+i)];
   host.append(createInspectorHeader({toggle,menuVisibility:'always',menuItems:labels.map(label=>({label,onSelect:()=>{}}))}));
   document.body.append(host);
  });
@@ -157,6 +157,15 @@ try{
  await page.screenshot({path:'test-results/header-typeahead-focused.png'});
  await page.keyboard.press('PageDown');assert.equal(await focusedLabel(),'Item 0');
  await page.keyboard.press('PageUp');assert.equal(await focusedLabel(),'Árvore');
+ // Typeahead must restart after explicit keyboard navigation, even within
+ // its 700ms timeout. Otherwise "b" + ArrowDown + "r" wrongly finds Brisa.
+ await page.waitForTimeout(750);
+ await page.keyboard.press('Home');
+ await page.keyboard.press('b');assert.equal(await focusedLabel(),'Beta');
+ await page.keyboard.press('ArrowDown');assert.equal(await focusedLabel(),'Bravo');
+ await page.keyboard.press('r');assert.equal(await focusedLabel(),'Ritmo',
+  'Arrow navigation clears stale typeahead prefixes before the next printable key');
+ await page.screenshot({path:'test-results/header-typeahead-after-arrow.png'});
  // Live permission changes must be excluded from typeahead just as they are
  // from Arrow/Home/End navigation and native click dispatch.
  await typeHost.getByRole('menuitem',{name:'Brisa'}).evaluate(el=>el.disabled=true);
