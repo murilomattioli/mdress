@@ -174,6 +174,15 @@ try{
   focused.dispatchEvent(new KeyboardEvent('keydown',{key:'b',bubbles:true,keyCode:229}));
   return document.activeElement===focused;
  }),true,'IME composition must not trigger menu typeahead');
+ assert.deepEqual(await page.evaluate(()=>{
+  const focused=document.activeElement,menu=focused.closest('[role=menu]');
+  for(const key of ['Escape','ArrowDown','ArrowUp','Home','End','PageDown','PageUp','Tab']){
+   focused.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true,isComposing:true}));
+   focused.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true,keyCode:229}));
+  }
+  return {focused:document.activeElement===focused,open:menu.matches(':popover-open')};
+ }),{focused:true,open:true},'IME navigation and Escape must not dismiss the menu or move focus');
+ await page.screenshot({path:'test-results/header-typeahead-ime.png'});
  await page.keyboard.press('Escape');
  assert.equal(await typeTrigger.evaluate(el=>el===document.activeElement),true);
  await typeHost.evaluate(el=>el.remove());
@@ -221,6 +230,43 @@ try{
   await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host .ds-header-menu-trigger')?.getAttribute('aria-expanded')==='false');
  }
 
+ // Mobile keyboards and pinch zoom change the visual viewport independently
+ // from innerHeight. Simulate both a smaller rectangle and its scroll offset.
+ await page.setViewportSize({width:390,height:320});
+ await page.evaluate(()=>{
+  window.__ux23OriginalVisualViewport=Object.getOwnPropertyDescriptor(window,'visualViewport');
+  const fake=new EventTarget();
+  Object.assign(fake,{offsetLeft:24,offsetTop:28,width:330,height:220});
+  Object.defineProperty(window,'visualViewport',{configurable:true,value:fake});
+  window.__ux23FakeViewport=fake;
+ });
+ const visualTrigger=page.locator('#ux23-edge-menu-host .ds-header-menu-trigger');
+ await visualTrigger.focus();await visualTrigger.press('Enter');
+ const withinVisualViewport=()=>page.waitForFunction(()=>{
+  const menu=document.querySelector('#ux23-edge-menu-host [role=menu]');
+  const rect=menu?.getBoundingClientRect(),v=window.visualViewport;
+  return rect&&menu.matches(':popover-open')&&rect.width>0&&rect.height>0&&
+   rect.left>=v.offsetLeft+7&&rect.right<=v.offsetLeft+v.width-7&&
+   rect.top>=v.offsetTop+7&&rect.bottom<=v.offsetTop+v.height-7;
+ });
+ await withinVisualViewport();
+ await page.screenshot({path:'test-results/header-edge-menu-visual-390.png'});
+ await page.evaluate(()=>{
+  const v=window.__ux23FakeViewport;
+  Object.assign(v,{offsetLeft:45,offsetTop:60,width:260,height:170});
+  v.dispatchEvent(new Event('scroll'));
+ });
+ await withinVisualViewport();
+ await page.screenshot({path:'test-results/header-edge-menu-visual-scrolled-390.png'});
+ await page.keyboard.press('Escape');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host .ds-header-menu-trigger')?.getAttribute('aria-expanded')==='false');
+ await page.evaluate(()=>{
+  const descriptor=window.__ux23OriginalVisualViewport;
+  if(descriptor)Object.defineProperty(window,'visualViewport',descriptor);
+  else delete window.visualViewport;
+  delete window.__ux23FakeViewport;
+  delete window.__ux23OriginalVisualViewport;
+ });
  // Synthetic fixed fixture must not intercept the real inspector's hover test.
  await page.locator('#ux23-edge-menu-host').evaluate(el=>el.remove());
  for(const width of [1024,390]){
@@ -230,5 +276,5 @@ try{
   await page.locator('#toast.show').waitFor({state:'hidden'});
   await page.locator('.design-inspector').first().screenshot({path:`test-results/header-pattern-${width}.png`});
  }
- console.log('Header layout, accessible menu linkage, keyboard wrap, empty actions, viewport bounds, screenshots and Escape passed.');
+ console.log('Header layout, accessible menu linkage, keyboard/IME, dynamic actions, visual viewport offsets, screenshots and Escape passed.');
 }finally{await browser.close();}
