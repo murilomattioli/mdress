@@ -487,19 +487,27 @@ try{
  assert.equal(await typeHost.locator('button').first().evaluate(el=>el===document.activeElement),true,
   'Shift+Tab exits to the preceding accordion toggle, not another menu action');
  assert.equal(await typeHost.getByRole('menu').isVisible(),false);
- // An aria-disabled wrapper can contain a natively focusable button.
- // Leaving the popover must skip that entire disabled subtree.
+ // Hidden/disabled wrappers can contain natively focusable buttons.
+ // Leaving a popover must skip those descendants, even if the wrapper
+ // retains a layout rectangle with content-visibility:hidden.
  await typeHost.evaluate(host=>{
-  const wrapper=document.createElement('div');wrapper.id='ux23-disabled-tab-wrapper';
-  wrapper.setAttribute('aria-disabled','true');
-  const button=document.createElement('button');button.type='button';
-  button.textContent='Indisponível por herança';wrapper.append(button);
-  host.querySelector('.ds-header-menu-trigger').after(wrapper);
+  const trigger=host.querySelector('.ds-header-menu-trigger');
+  const disabled=document.createElement('div');disabled.id='ux23-disabled-tab-wrapper';
+  disabled.setAttribute('aria-disabled','true');
+  const disabledButton=document.createElement('button');disabledButton.type='button';
+  disabledButton.textContent='Indisponível por herança';disabled.append(disabledButton);
+  const hidden=document.createElement('div');hidden.id='ux23-css-hidden-tab-wrapper';
+  hidden.style.contentVisibility='hidden';
+  const hiddenButton=document.createElement('button');hiddenButton.type='button';
+  hiddenButton.textContent='Indisponível por CSS';hidden.append(hiddenButton);
+  trigger.after(disabled,hidden);
  });
  await typeTrigger.focus();await typeTrigger.press('Enter');
  await page.keyboard.press('Tab');
  assert.equal(await page.evaluate(()=>document.activeElement?.closest('#ux23-disabled-tab-wrapper')!==null),false,
   'Tab must skip buttons inside an aria-disabled ancestor');
+ assert.equal(await page.evaluate(()=>document.activeElement?.closest('#ux23-css-hidden-tab-wrapper')!==null),false,
+  'Tab must skip buttons under content-visibility:hidden');
  assert.deepEqual(await page.evaluate(()=>({
   outside:!document.activeElement?.closest('[role=menu]'),
   notBody:document.activeElement!==document.body,
@@ -507,6 +515,7 @@ try{
  })),{outside:true,notBody:true,closed:true},
  'Tab exits the menu to the next page control without stranding focus on body');
  await page.screenshot({path:'test-results/header-typeahead-tab-exit.png'});
+ await page.screenshot({path:'test-results/header-css-hidden-tab-stop-skipped.png'});
  await typeHost.evaluate(el=>el.remove());
  await page.setViewportSize({width:1024,height:900});
 
