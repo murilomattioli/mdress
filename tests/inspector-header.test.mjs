@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {menuScrollDelta} from '../app/design-system/inspector-header.js';
+import {menuScrollDelta,nextAvailableMenuItem} from '../app/design-system/inspector-header.js';
 
 const viewport={top:20,bottom:220};
 
@@ -15,4 +15,19 @@ test('menu focus respects its inner padding at both boundaries',()=>{
  assert.equal(menuScrollDelta({top:180,bottom:216},viewport),0);
  assert.equal(menuScrollDelta({top:23,bottom:60},viewport),-1);
  assert.equal(menuScrollDelta({top:180,bottom:217},viewport),1);
+});
+
+test('dynamic menu permissions restore the closest following item before wrapping',()=>{
+ const all=['A','B','C','D','E'];
+ assert.equal(nextAvailableMenuItem(all,['A','C','E'],'B'),'C');
+ assert.equal(nextAvailableMenuItem(all,['A','B','D','E'],'C'),'D');
+ assert.equal(nextAvailableMenuItem(all,['A','B','C','D'],'E'),'D');
+ assert.equal(nextAvailableMenuItem(all,['A'],'E'),'A');
+});
+
+test('menu focus fallback is safe for removed or entirely unavailable items',()=>{
+ const all=['A','B','C'];
+ assert.equal(nextAvailableMenuItem(all,['B'],'removed'),'B');
+ assert.equal(nextAvailableMenuItem(all,[],'B'),null);
+ assert.equal(nextAvailableMenuItem(all,[],'removed'),null);
 });
