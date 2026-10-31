@@ -361,5 +361,59 @@ try{
   reattached:true,automaticCleanup:true,remounted:true,
   movedClean:true,movedReattached:true
  },'Toolbar must dispose observers and restore a clean DOM across mounts: '+JSON.stringify(lifecycle));
+ // Touch devices need a genuinely tappable arrow, not a 28px icon
+ // surrounded by dead space. Use a real Chromium touch context and a
+ // deterministic overflow fixture independent of the current workspace mode.
+ const touchPage=await browser.newPage({
+  viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'reduce'
+ });
+ await touchPage.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173');
+ await touchPage.evaluate(async()=>{
+  const {attachToolbarOverflow}=await import('/toolbar-overflow.js');
+  const host=document.createElement('section');host.id='ux23-touch-toolbar-fixture';
+  host.className='editor-panel';
+  host.style.cssText='position:fixed;left:12px;top:90px;width:320px;max-width:calc(100vw - 24px);z-index:100000;display:block;background:var(--ds-panel)';
+  const bar=document.createElement('div');bar.className='markdown-toolbar';
+  bar.style.cssText='display:flex;flex-wrap:nowrap;overflow-x:auto;width:100%;min-height:58px';
+  for(let i=0;i<8;i++){
+   const action=document.createElement('button');action.type='button';
+   action.textContent='Ferramenta '+i;action.style.cssText='flex:0 0 110px;min-width:110px';
+   bar.append(action);
+  }
+  host.append(bar);document.body.append(host);
+  window.__ux23TouchDispose=attachToolbarOverflow(bar);
+ });
+ for(const width of [390,320]){
+  await touchPage.setViewportSize({width,height:844});
+  await touchPage.waitForFunction(()=>{
+   const host=document.querySelector('#ux23-touch-toolbar-fixture');
+   const arrows=[...host?.querySelectorAll('.toolbar-scroll-button')||[]];
+   return arrows.length===2&&!arrows[1].hidden&&!arrows[1].disabled;
+  });
+  const targets=await touchPage.locator('#ux23-touch-toolbar-fixture .toolbar-scroll-button')
+   .evaluateAll(arrows=>arrows.map(el=>{
+    const rect=el.getBoundingClientRect();
+    return {width:rect.width,height:rect.height,hidden:el.hidden};
+   }));
+  assert.equal(await touchPage.evaluate(()=>matchMedia('(pointer:coarse)').matches),true,
+   'Touch regression must run with coarse pointer emulation');
+  assert.ok(targets.every(target=>target.width>=44&&target.height>=44),
+   'Both toolbar scroll arrows need at least 44x44px touch targets: '+JSON.stringify({width,targets}));
+  await touchPage.locator('#ux23-touch-toolbar-fixture').screenshot({
+   path:'test-results/ux-audit/toolbar-touch-targets-'+width+'.png',animations:'disabled'
+  });
+ }
+ await touchPage.locator('#ux23-touch-toolbar-fixture .toolbar-scroll-button').last().tap();
+ await touchPage.waitForFunction(()=>
+  document.querySelector('#ux23-touch-toolbar-fixture .markdown-toolbar')?.scrollLeft>30);
+ await touchPage.locator('#ux23-touch-toolbar-fixture').screenshot({
+  path:'test-results/ux-audit/toolbar-touch-after-tap.png',animations:'disabled'
+ });
+ await touchPage.evaluate(()=>{
+  window.__ux23TouchDispose();
+  document.querySelector('#ux23-touch-toolbar-fixture').remove();
+  delete window.__ux23TouchDispose;
+ });
+ await touchPage.close();
  console.log('Toolbar resize, manual scroll, splitter and dynamic focus recovery passed.');
 }finally{await browser.close();}
