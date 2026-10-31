@@ -1625,6 +1625,21 @@ try {
   // expanded when focus leaves via keyboard or assistive technology.
   const mobileThemeTrigger=ux.locator('#inspector-document .ds-property-select')
    .filter({has:ux.locator('#bgKind')}).locator('.ds-select-trigger');
+  // Surface the actual panel/permission state instead of waiting 30 seconds
+  // on a hidden combobox if a responsive tab transition regresses.
+  if(!await mobileThemeTrigger.isVisible()){
+   const snapshot=await ux.evaluate(()=>({
+    inspectorClass:document.querySelector('#themesView')?.className,
+    selected:[...document.querySelectorAll('[data-inspector-tab]')]
+     .map(tab=>({name:tab.dataset.inspectorTab,selected:tab.getAttribute('aria-selected'),
+      disabled:tab.matches(':disabled'),ariaDisabled:tab.getAttribute('aria-disabled'),
+      display:getComputedStyle(tab).display,rects:tab.getClientRects().length})),
+    panels:[...document.querySelectorAll('[data-inspector-panel]')]
+     .map(panel=>({name:panel.dataset.inspectorPanel,hidden:panel.classList.contains('hidden'),
+      ariaHidden:panel.getAttribute('aria-hidden')}))
+   }));
+   throw new Error('Mobile inspector combobox hidden after selecting Document: '+JSON.stringify(snapshot));
+  }
   await mobileThemeTrigger.click();
   const mobilePopup=ux.locator('.ds-select-popover');
   const popupBounds=await mobilePopup.evaluate(el=>{
