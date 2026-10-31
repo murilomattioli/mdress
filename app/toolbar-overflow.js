@@ -173,10 +173,13 @@ export function attachToolbarOverflow(toolbar){
  // A pointer interaction outside the toolbar is intentional; never pull
  // its focus back when a subsequent toolbar mutation arrives.
  const onDocumentPointerDown=event=>{
-  // A deliberate click on a non-focusable area may blur the arrow to <body>.
-  // Do not treat that as lost focus from a later permission/layout change.
+  // Clicking a non-focusable area (including empty toolbar space) can
+  // blur a scroll arrow to <body>. This is deliberate, not focus loss from
+  // a later permission/layout change. Do not recover a stale arrow.
+  if(!previous.contains(event.target)&&!next.contains(event.target))
+   lastFocusedArrow=null;
   if(!shell.contains(event.target)){
-   lastFocusedAction=null;lastFocusedIndex=-1;lastFocusedArrow=null;
+   lastFocusedAction=null;lastFocusedIndex=-1;
   }
  };
  document.addEventListener('pointerdown',onDocumentPointerDown,true);
