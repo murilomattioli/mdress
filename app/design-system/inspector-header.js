@@ -137,10 +137,20 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   // Never return focus to a disabled/inert/hidden trigger when permissions
   // change: that would strand keyboard users on <body>.
   const restoreFocusOutsideHost=()=>{
-   const usable=el=>Boolean(el?.isConnected&&!header.contains(el)&&el.tabIndex>=0&&
-    !el.matches(':disabled,[aria-disabled="true"]')&&
-    !el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')&&
-    el.getClientRects().length&&getComputedStyle(el).visibility==='visible');
+   const usable=el=>{
+    if(!el?.isConnected||header.contains(el)||el.tabIndex<0||
+       el.matches(':disabled,[aria-disabled="true"]')||
+       el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
+       !el.getClientRects().length)return false;
+    // content-visibility:hidden preserves layout rectangles; computed styles
+    // on the candidate alone also miss hidden or collapsed ancestors.
+    for(let node=el;node;node=node.parentElement){
+     const style=getComputedStyle(node);
+     if(style.display==='none'||style.visibility==='hidden'||
+        style.visibility==='collapse'||style.contentVisibility==='hidden')return false;
+    }
+    return true;
+   };
    const editor=document.querySelector('#source');
    const target=usable(editor)?editor:
     [...document.querySelectorAll('button,a[href],input,select,textarea,[tabindex]')].find(usable);
@@ -280,11 +290,17 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    more.hidden=!items.length;
    watchHiddenActions();
    // Hiding a focused trigger would otherwise send keyboard focus to <body>.
-   if(!items.length&&triggerFocused&&toggle.isConnected)toggle.focus();
+   if(!items.length&&triggerFocused){
+    if(headerInteractive()&&toggle.isConnected)toggle.focus();
+    else restoreFocusOutsideHost();
+   }
    if(!items.length&&isOpen()){
     const focusInside=menu.contains(document.activeElement)||lostMenuFocus;
     menu.hidePopover();
-    if(focusInside&&toggle.isConnected)toggle.focus();
+    if(focusInside){
+     if(headerInteractive()&&toggle.isConnected)toggle.focus();
+     else restoreFocusOutsideHost();
+    }
    }else if(isOpen()&&(menu.contains(document.activeElement)||lostMenuFocus)&&!items.includes(document.activeElement)){
     // A disabled action can lose DOM focus before this observer fires. Keep
     // its original index so a long menu does not jump back to the top.
