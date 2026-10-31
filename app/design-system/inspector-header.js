@@ -243,8 +243,8 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
     e.preventDefault();
     const stops=[...document.querySelectorAll('a[href],area[href],button,input,select,textarea,[tabindex]')]
      .filter(el=>el.tabIndex>=0&&!el.matches(':disabled,[aria-disabled="true"]')&&
-      !el.closest('[hidden],[inert],[aria-hidden="true"],[role="menu"]')&&
-      el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');
+      !el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"],[role="menu"]')&&
+      el.getClientRects().length&&getComputedStyle(el).visibility==='visible');
     const index=stops.indexOf(more),step=e.shiftKey?-1:1;
     const target=index>=0?stops[(index+step+stops.length)%stops.length]:toggle;
     menu.hidePopover();
