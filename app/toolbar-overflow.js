@@ -1,4 +1,6 @@
 // Make overflowed Markdown actions discoverable without hiding keyboard focus.
+const overflowInstances=new WeakMap();
+let nextToolbarId=0;
 export function toolbarOverflowState({scrollLeft,scrollWidth,clientWidth}){
  const max=Math.max(0,scrollWidth-clientWidth);
  const overflow=max>2;
@@ -17,14 +19,18 @@ export function focusedToolbarDelta(control,viewport,padding=6){
  return 0;
 }
 export function attachToolbarOverflow(toolbar){
- if(!toolbar||toolbar.closest('.markdown-toolbar-shell'))return;
+ if(!toolbar)return ()=>{};
+ if(overflowInstances.has(toolbar))return overflowInstances.get(toolbar);
+ if(toolbar.closest('.markdown-toolbar-shell'))return ()=>{};
+ const generatedId=!toolbar.id;
+ if(generatedId)toolbar.id='mdress-markdown-toolbar-'+(++nextToolbarId);
  const shell=document.createElement('div');
  shell.className='markdown-toolbar-shell';
  toolbar.before(shell);shell.append(toolbar);
  const button=(direction,label,icon)=>{
   const node=document.createElement('button');
   node.type='button';node.className='toolbar-scroll-button';
-  node.setAttribute('aria-label',label);node.title=label;
+  node.setAttribute('aria-label',label);node.setAttribute('aria-controls',toolbar.id);node.title=label;
   const glyph=document.createElement('ds-icon');
   glyph.setAttribute('name',icon);glyph.setAttribute('aria-hidden','true');
   node.append(glyph);node.hidden=true;
@@ -40,13 +46,15 @@ export function attachToolbarOverflow(toolbar){
  let lastFocusedAction=null,lastFocusedIndex=-1,lastFocusedArrow=null;
  // A CSS-hidden scroll arrow can lose native focus before the next frame.
  // Remember its ownership without stealing focus after deliberate navigation.
- shell.addEventListener('focusin',event=>{
+ const onShellFocusIn=event=>{
   if(event.target===previous||event.target===next)lastFocusedArrow=event.target;
- });
- shell.addEventListener('focusout',event=>{
+ };
+ shell.addEventListener('focusin',onShellFocusIn);
+ const onShellFocusOut=event=>{
   if(event.target===lastFocusedArrow&&event.relatedTarget&&
      event.relatedTarget!==document.body)lastFocusedArrow=null;
- });
+ };
+ shell.addEventListener('focusout',onShellFocusOut);
  const actionSelector='button,select,input,[tabindex]';
  // Conditional modes can hide groups, remove nodes or mark actions aria-disabled.
  // These are unavailable for keyboard users even when disabled=false.
@@ -142,19 +150,21 @@ export function attachToolbarOverflow(toolbar){
  };
  const scheduleReveal=()=>{revealOnNextFrame=true;schedule();};
  toolbar.addEventListener('scroll',schedule,{passive:true});
- toolbar.addEventListener('focusout',event=>{
+ const onToolbarFocusOut=event=>{
   // A focused action can blur *before* the DOM removal/hidden mutation.
   // A null relatedTarget is not proof of deliberate keyboard navigation.
   if(event.target===lastFocusedAction&&event.relatedTarget&&
    event.relatedTarget!==document.body&&
    !toolbar.contains(event.relatedTarget))lastFocusedAction=null;
- });
+ };
+ toolbar.addEventListener('focusout',onToolbarFocusOut);
  // A pointer interaction outside the toolbar is intentional; never pull
  // its focus back when a subsequent toolbar mutation arrives.
- document.addEventListener('pointerdown',event=>{
+ const onDocumentPointerDown=event=>{
   if(!shell.contains(event.target)){lastFocusedAction=null;lastFocusedIndex=-1;}
- },{capture:true});
- toolbar.addEventListener('focusin',event=>{
+ };
+ document.addEventListener('pointerdown',onDocumentPointerDown,true);
+ const onToolbarFocusIn=event=>{
   const target=event.target;
   if(target.matches?.(actionSelector)){
    lastFocusedAction=target;
@@ -164,7 +174,8 @@ export function attachToolbarOverflow(toolbar){
   const delta=focusedToolbarDelta(target.getBoundingClientRect(),toolbar.getBoundingClientRect());
   if(delta)toolbar.scrollBy({left:delta,behavior:'auto'});
   schedule();
- });
+ };
+ toolbar.addEventListener('focusin',onToolbarFocusIn);
  let resize=null;
  const observedGroups=new Set();
  const syncObservedGroups=()=>{
@@ -184,10 +195,11 @@ export function attachToolbarOverflow(toolbar){
  }
  // Observe new groups, but release detached groups on mode switches. Keeping
  // removed DOM nodes observed leaks them across repeated editor transitions.
- new MutationObserver(records=>{
+ const toolbarObserver=new MutationObserver(records=>{
   if(records.some(record=>record.type==='childList'))syncObservedGroups();
   scheduleReveal();
- }).observe(toolbar,{
+ });
+ toolbarObserver.observe(toolbar,{
   childList:true,subtree:true,attributes:true,
   attributeFilter:['disabled','aria-disabled','hidden','class','style']
  });
@@ -195,9 +207,16 @@ export function attachToolbarOverflow(toolbar){
  // shell, body or inspector workspace. Observe ancestor attributes so an
  // already-focused action/scroll arrow is recovered when its host is hidden.
  let watchedAncestors=[];
- const ancestryObserver=new MutationObserver(()=>{
-  // Reparenting a toolbar into another workspace changes which ancestor
-  // permissions apply. Drop stale observers and bind the new ancestry.
+ let disposed=false;
+ const ancestryObserver=new MutationObserver(records=>{
+  if(!shell.isConnected){dispose();return;}
+  // Ignore unrelated document child changes: only a changed permission or
+  // a DOM move involving this shell requires a toolbar layout pass.
+  const relevant=records.some(record=>record.type==='attributes'||
+   [...record.addedNodes,...record.removedNodes].some(node=>
+    node===shell||node.contains?.(shell)));
+  if(!relevant)return;
+  // Reparenting changes which ancestor permissions apply.
   syncAncestry();scheduleReveal();
  });
  const syncAncestry=()=>{
@@ -211,8 +230,30 @@ export function attachToolbarOverflow(toolbar){
    attributeFilter:['hidden','inert','aria-hidden','aria-disabled','disabled','class','style']
   });
  };
+ const dispose=()=>{
+  if(disposed)return;
+  disposed=true;
+  if(frame)cancelAnimationFrame(frame);
+  resize?.disconnect();toolbarObserver.disconnect();ancestryObserver.disconnect();
+  observedGroups.clear();watchedAncestors=[];
+  toolbar.removeEventListener('scroll',schedule);
+  toolbar.removeEventListener('focusout',onToolbarFocusOut);
+  toolbar.removeEventListener('focusin',onToolbarFocusIn);
+  shell.removeEventListener('focusin',onShellFocusIn);
+  shell.removeEventListener('focusout',onShellFocusOut);
+  document.removeEventListener('pointerdown',onDocumentPointerDown,true);
+  document.removeEventListener('studio:resized',scheduleReveal);
+  window.removeEventListener('resize',scheduleReveal);
+  if(shell.parentNode)shell.replaceWith(toolbar);
+  else if(toolbar.parentNode===shell)shell.removeChild(toolbar);
+  if(generatedId)toolbar.removeAttribute('id');
+  lastFocusedAction=null;lastFocusedArrow=null;
+  overflowInstances.delete(toolbar);
+ };
  syncAncestry();
  window.addEventListener('resize',scheduleReveal);
  document.addEventListener('studio:resized',scheduleReveal);
+ overflowInstances.set(toolbar,dispose);
  schedule();
+ return dispose;
 }
