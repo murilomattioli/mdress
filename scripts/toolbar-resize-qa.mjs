@@ -171,5 +171,51 @@ try{
   document.querySelector('.markdown-toolbar').style.removeProperty('content-visibility');
   document.querySelector('#ux23-hidden-fallback-group').remove();
  });
+ // The toolbar shell sits outside the scrollport. Hiding it through a
+ // responsive ancestor must revoke both its actions and its scroll arrows.
+ // Chromium may blur the focused element to <body> before mutation observers
+ // fire; the toolbar should restore focus to a visible workspace control.
+ await toolbar.evaluate(el=>{el.scrollLeft=0;});
+ await page.waitForFunction(()=>{
+  const shell=document.querySelector('.markdown-toolbar-shell');
+  const arrow=shell?.querySelector('.toolbar-scroll-button:last-child');
+  return arrow&&!arrow.hidden&&!arrow.disabled;
+ },null,{timeout:3000});
+ const forwardArrow=shell.locator('.toolbar-scroll-button').last();
+ await forwardArrow.focus();
+ assert.equal(await forwardArrow.evaluate(el=>document.activeElement===el),true);
+ await shell.evaluate(el=>{el.style.contentVisibility='hidden';});
+ await page.waitForFunction(()=>{
+  const shell=document.querySelector('.markdown-toolbar-shell');
+  return document.activeElement!==document.body&&!shell.contains(document.activeElement)&&
+   [...shell.querySelectorAll('.toolbar-scroll-button')].every(el=>el.hidden);
+ },null,{timeout:3000});
+ assert.equal(await page.evaluate(()=>document.activeElement?.id),'source',
+  'Hiding the toolbar shell must recover focus to the editor, not <body>');
+ await page.screenshot({path:'test-results/ux-audit/toolbar-hidden-shell-arrow-focus.png',animations:'disabled'});
+ await shell.evaluate(el=>{el.style.removeProperty('content-visibility');});
+ await page.waitForFunction(()=>!document.querySelector('.markdown-toolbar-shell .toolbar-scroll-button:last-child')?.hidden);
+ // A workspace mode class can hide an ancestor without touching the toolbar
+ // subtree. Observe ancestor attributes, not only toolbar mutations.
+ await page.evaluate(()=>{
+  const style=document.createElement('style');style.id='ux23-toolbar-ancestor-style';
+  style.textContent='body.ux23-toolbar-ancestor-hidden .markdown-toolbar-shell{display:none!important}';
+  document.head.append(style);
+ });
+ await last.focus();
+ await page.evaluate(()=>document.body.classList.add('ux23-toolbar-ancestor-hidden'));
+ await page.waitForFunction(()=>{
+  const shell=document.querySelector('.markdown-toolbar-shell');
+  return document.activeElement!==document.body&&!shell.contains(document.activeElement)&&
+   [...shell.querySelectorAll('.toolbar-scroll-button')].every(el=>el.hidden);
+ },null,{timeout:3000});
+ assert.equal(await page.evaluate(()=>document.activeElement?.id),'source',
+  'A CSS-only ancestor mode change must recover focus outside the hidden toolbar');
+ await page.screenshot({path:'test-results/ux-audit/toolbar-hidden-ancestor-action-focus.png',animations:'disabled'});
+ await page.evaluate(()=>{
+  document.body.classList.remove('ux23-toolbar-ancestor-hidden');
+  document.querySelector('#ux23-toolbar-ancestor-style').remove();
+ });
+ await page.waitForFunction(()=>!document.querySelector('.markdown-toolbar-shell .toolbar-scroll-button:last-child')?.hidden);
  console.log('Toolbar resize, manual scroll, splitter and dynamic focus recovery passed.');
 }finally{await browser.close();}
