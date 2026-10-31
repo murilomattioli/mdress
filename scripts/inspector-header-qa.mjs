@@ -155,6 +155,44 @@ try{
  await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Primeira');
  assert.equal(await dynamicItems.nth(0).evaluate(el=>el===document.activeElement),true,
   'Restoring the ancestor must restore the action to keyboard navigation');
+ // If a parent hides every action, the trigger must disappear and focus must
+ // return to the accordion toggle. Restoring the group must reopen normally.
+ await page.evaluate(()=>{
+  const menu=document.querySelector('#ux23-dynamic-menu-host [role=menu]');
+  const group=document.createElement('div');group.className='ux23-hidden-wrapper';
+  group.id='ux23-hidden-all-wrapper';
+  menu.prepend(group);
+  for(const item of [...menu.querySelectorAll('[role=menuitem]')])group.append(item);
+ });
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-dynamic-menu-host');
+  return host.querySelector('.ds-header-menu-trigger').hidden&&
+   !host.querySelector('[role=menu]').matches(':popover-open')&&
+   document.activeElement===host.querySelector('button');
+ });
+ await page.screenshot({path:'test-results/header-hidden-all-menu-actions.png'});
+ await page.evaluate(()=>document.querySelector('#ux23-hidden-all-wrapper').classList.remove('ux23-hidden-wrapper'));
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger').hidden);
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Primeira');
+ await page.keyboard.press('Escape');
+ // Disabled fieldsets propagate native disabled state to descendant buttons.
+ // button.disabled alone is false in that case, but :disabled must exclude it.
+ await page.evaluate(()=>{
+  const host=document.querySelector('#ux23-dynamic-menu-host');
+  const menu=host.querySelector('[role=menu]');
+  const fieldset=document.createElement('fieldset');fieldset.id='ux23-disabled-fieldset';
+  menu.prepend(fieldset);
+  for(const item of [...menu.querySelectorAll('[role=menuitem]')])fieldset.append(item);
+  fieldset.disabled=true;
+ });
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger').hidden);
+ assert.equal(await dynamicItems.nth(0).evaluate(el=>el.matches(':disabled')),true,
+  'Fieldset-disabled actions must be unavailable even without a disabled attribute');
+ await page.evaluate(()=>document.querySelector('#ux23-disabled-fieldset').disabled=false);
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger').hidden);
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Primeira');
  await page.keyboard.press('Escape');
  await dynamicHost.evaluate(el=>el.remove());
  await page.locator('#ux23-hidden-wrapper-style').evaluate(el=>el.remove());
