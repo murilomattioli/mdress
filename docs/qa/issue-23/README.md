@@ -1,5 +1,30 @@
 # Issue #23 — evidências duráveis
 
+## UX-023 — navegação em menus extensos (30/10/2026)
+
+Menus do inspetor com muitas ações agora oferecem **typeahead** por prefixo, ignorando acentos (ex.: `arvore` alcança **Árvore**), repetição de letras para alternar resultados, expiração de sequência após 700 ms e navegação por `PageUp`/`PageDown` (5 ações). `Home`, `End` e setas continuam disponíveis. A ação focada rola para a área visível do popover sem aumentar a altura do cabeçalho; itens do menu passam a ter alvo mínimo de 36 px. A composição IME (`isComposing`/`keyCode=229`) não ativa a busca por teclas.
+
+**Regressão obrigatória:** `node scripts/inspector-header-qa.mjs` valida sequência de prefixo, diacríticos, letras repetidas, PageUp/PageDown, rolagem em 390×320, Escape e composição IME. Nova evidência `test-results/header-typeahead-focused.png`. Esse PNG é evidência técnica, **não homologação humana**. Os checks válidos são os do commit HEAD da branch; não inferir aprovação a partir de resultados de commits anteriores.
+
+**PowerShell (sem merge):**
+```powershell
+cd F:\\Projects\\lumu\\tools\\mdress
+git status --short
+git fetch origin
+git switch feat/23-property-controls-ux-qa
+git pull --ff-only origin feat/23-property-controls-ux-qa
+npm install --include=dev
+npx playwright install chromium
+npm run dev
+# Em outro terminal:
+node scripts/inspector-header-qa.mjs
+npm run qa:supervised
+# Para retomar a captura interrompida:
+npm run qa:resume-capture
+```
+
+**Pendente:** avaliação visual e interativa humana da galeria e dos controles. PR draft e issue aberta; não realizar merge, release ou publicação Cloudflare antes da homologação.
+
 ## UX-023 — menus do cabeçalho do inspetor (30/10/2026)
 
 O menu de ações de cada acordeão agora possui `aria-controls` estável, ignora ações desabilitadas na navegação por setas/Home/End e não exibe um trigger sem nenhuma ação disponível. O popover abre acima do gatilho quando falta espaço inferior, limita a altura a `100dvh - 16px` e permite rolagem interna sem ultrapassar a janela.
