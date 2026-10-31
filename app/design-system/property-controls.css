@@ -411,7 +411,7 @@
 .design-inspector .ds-header-menu-trigger[data-visibility=hover]{opacity:0;pointer-events:none}
 .design-inspector .ds-accordion-header:hover .ds-header-menu-trigger,.design-inspector .ds-accordion-header:focus-within .ds-header-menu-trigger,.design-inspector .ds-header-menu-trigger[aria-expanded=true]{opacity:1;pointer-events:auto}
 .ds-header-menu{position:fixed;inset:auto;margin:0;padding:4px;min-width:160px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow-y:auto;overscroll-behavior:contain;border:1px solid var(--ds-border);border-radius:8px;background:var(--ds-panel);color:var(--ds-text);box-shadow:var(--ds-shadow-pop)}
-.ds-header-menu button{display:block;width:100%;border:0;background:transparent;color:inherit;text-align:left;padding:8px;font:12px var(--ds-font)}
+.ds-header-menu button{display:block;width:100%;min-height:36px;border:0;background:transparent;color:inherit;text-align:left;padding:8px 10px;font:12px/1.35 var(--ds-font)}
 /* Explicit states outrank the generic button display rule (which otherwise
    overrides the browser's [hidden] default and exposes unavailable actions). */
 .ds-header-menu button[hidden],.ds-header-menu button[aria-hidden="true"]{display:none}
