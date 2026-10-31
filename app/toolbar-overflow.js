@@ -142,7 +142,7 @@ export function attachToolbarOverflow(toolbar){
  };
  let frame=0,revealOnNextFrame=false;
  const schedule=()=>{
-  if(frame)return;
+  if(disposed||frame)return;
   frame=requestAnimationFrame(()=>{
    frame=0;update();
    if(revealOnNextFrame){revealOnNextFrame=false;revealFocusedAction();}
@@ -209,7 +209,7 @@ export function attachToolbarOverflow(toolbar){
  let watchedAncestors=[];
  let disposed=false;
  const ancestryObserver=new MutationObserver(records=>{
-  if(!shell.isConnected){dispose();return;}
+  if(!shell.isConnected||!shell.contains(toolbar)){dispose();return;}
   // Ignore unrelated document child changes: only a changed permission or
   // a DOM move involving this shell requires a toolbar layout pass.
   const relevant=records.some(record=>record.type==='attributes'||
@@ -244,8 +244,10 @@ export function attachToolbarOverflow(toolbar){
   document.removeEventListener('pointerdown',onDocumentPointerDown,true);
   document.removeEventListener('studio:resized',scheduleReveal);
   window.removeEventListener('resize',scheduleReveal);
-  if(shell.parentNode)shell.replaceWith(toolbar);
-  else if(toolbar.parentNode===shell)shell.removeChild(toolbar);
+  if(toolbar.parentNode===shell){
+   if(shell.parentNode)shell.replaceWith(toolbar);
+   else shell.removeChild(toolbar);
+  }else shell.remove();
   if(generatedId)toolbar.removeAttribute('id');
   lastFocusedAction=null;lastFocusedArrow=null;
   overflowInstances.delete(toolbar);
