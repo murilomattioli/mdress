@@ -1,5 +1,24 @@
 # Issue #23 — evidências duráveis
 
+## UX-023 — toolbar responsiva e busca de menu após navegação (31/10/2026)
+
+A toolbar do editor mantém o comando que já tinha foco visível quando o painel encolhe ou quando o splitter dispara `studio:resized`. A recuperação ocorre apenas após mudanças de layout (`ResizeObserver`, mutações e resize), **não** durante rolagem manual do usuário. A atualização é coalescida em um `requestAnimationFrame` para não multiplicar reposicionamentos. Ações desabilitadas/ocultas continuam usando a recuperação de foco existente.
+
+O typeahead dos menus do inspetor reinicia ao usar Home/End, setas ou PageUp/PageDown. Uma pesquisa anterior não interfere na primeira tecla digitada após navegar por ações. O Playwright cobre a sequência `b → ArrowDown → r`, que deve alcançar **Ritmo**, e não reutilizar o prefixo anterior.
+
+**Validação reproduzível (PowerShell, app iniciado com `npm run dev`):**
+```powershell
+node scripts/inspector-header-qa.mjs
+node scripts/toolbar-resize-qa.mjs
+node scripts/e2e.mjs
+npm run qa:supervised
+# Se a captura supervisionada foi interrompida:
+npm run qa:resume-capture
+```
+
+**Evidências adicionais no Browser Smoke:** `header-typeahead-after-arrow.png`, `ux-audit/toolbar-resized-focused-action.png`, `ux-audit/toolbar-manual-scroll-with-focus.png` e `ux-audit/toolbar-splitter-focused-action.png`. Os testes novos são obrigatórios no CI; aprovação visual e interativa permanece humana. Não fazer merge, release nem publicação Cloudflare antes da homologação.
+
+
 ## UX-023 — navegação confinada e saída de menus por teclado (31/10/2026)
 
 O menu de ações do inspetor mantém a rolagem **dentro do popover** durante Home/End, PageUp/PageDown, setas e typeahead: foco com `preventScroll` e deslocamento calculado somente para `menu.scrollTop`. A função pura `menuScrollDelta` tem regressões Node para visibilidade e padding; o Playwright verifica que a navegação não move a página nem outro painel. `scrollIntoView` nativo não é utilizado nos itens do menu.
