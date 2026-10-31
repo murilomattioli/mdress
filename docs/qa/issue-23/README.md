@@ -1,3 +1,30 @@
+## UX-023 — recuperação de foco com content-visibility e revogação (31/10/2026)
+
+A recuperação de foco do menu do inspetor agora valida a visibilidade de **todos os ancestrais** do destino, inclusive `content-visibility:hidden`, `visibility:collapse` e `display:none`. A remoção da última ação em um cabeçalho desabilitado não tenta focar seu toggle inacessível: usa um controle realmente disponível fora do host. A toolbar aplica a mesma regra quando o editor e a barra estão simultaneamente ocultos por CSS, evitando mover o foco para elementos invisíveis.
+
+**Regressões Chromium:** `node scripts/inspector-header-qa.mjs` verifica revogação do host com o editor oculto; `node scripts/toolbar-resize-qa.mjs` verifica recuperação após ocultação simultânea do editor e toolbar. Capturas: `header-revoked-host-hidden-editor-focus.png` e `ux-audit/toolbar-hidden-workspace-focus-recovered.png`. A inspeção visual e interativa humana continua obrigatória.
+
+**Comandos PowerShell:**
+```powershell
+git fetch origin
+git switch feat/23-property-controls-ux-qa
+git pull --ff-only origin feat/23-property-controls-ux-qa
+npm install --include=dev
+npx playwright install chromium
+npm run dev
+# Em outro PowerShell:
+npm test
+node scripts/inspector-header-qa.mjs
+node scripts/toolbar-resize-qa.mjs
+npm run qa:supervised
+# Retomar:
+npm run qa:resume-capture
+```
+
+PR #27 permanece draft; issue #23 aberta. Sem merge, release, Cloudflare ou alteração no repositório legado.
+
+---
+
 ## UX-023 — permissões visuais responsivas sem mutação de DOM (31/10/2026)
 
 O menu de ações agora reconcilia sua disponibilidade durante atualizações de geometria e viewport, além das mutações de atributos. Isso cobre regras `@media` que ocultam **itens individuais** sem modificar seus nós: ao ocultar a ação focada, o foco passa para a próxima; ao ocultar todas, o popover fecha, o gatilho desaparece e o foco retorna ao toggle. Quando a largura é restaurada, as ações reaparecem sem recriar o cabeçalho.
