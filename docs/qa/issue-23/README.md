@@ -1,3 +1,13 @@
+## UX-023 — fieldset disabled: toolbar, foco e reparenting (31/10/2026)
+
+**Correção:** a toolbar Markdown é um contêiner `div`, portanto não herda o pseudoestado CSS `:disabled` de um `fieldset disabled`. O controlador de overflow agora percorre os ancestrais e revoga a interatividade quando a barra pertence a um fieldset desabilitado, respeitando a exceção HTML do primeiro `legend`. Isso oculta as setas de rolagem e evita recuperar foco para comandos indisponíveis.
+
+**Regressões Chromium:** `scripts/toolbar-resize-qa.mjs` verifica (1) desabilitação com comando focado, (2) desabilitação com seta focada e (3) reparenting de um comando focado para um fieldset previamente desabilitado. Em todos os casos, o foco deve sair do fieldset para o editor e as setas devem ficar ocultas. Evidências: `test-results/ux-audit/toolbar-disabled-fieldset-focus.png`, `toolbar-disabled-fieldset-arrow-focus.png` e `toolbar-reparent-disabled-fieldset.png`.
+
+**Homologação:** avaliar as screenshots e testar navegação real por teclado. CI verde não equivale a aprovação visual. Manter PR #27 draft, issue #23 aberta e nenhum merge/release/Cloudflare.
+
+---
+
 ## UX-023 — permissões dinâmicas nas abas e deep links (31/10/2026)
 
 **Implementação:** a seleção de abas do inspetor agora recusa cliques sintéticos e chamadas programáticas direcionadas a abas desabilitadas, inertes ou ocultas por CSS. Quando a aba ativa perde permissão, o inspetor escolhe a próxima disponível, atualiza `aria-selected` e os painéis, e recupera o foco do tab ou de um controle do painel anterior. A navegação por ArrowLeft a partir de uma aba revogada começa pela última aba disponível; ArrowRight, pela primeira. O fluxo legítimo de pré-selecionar abas enquanto o painel inteiro está recolhido continua funcionando. Atalhos `revealInspectorControl` não expandem nem rolam controles de uma aba revogada.
