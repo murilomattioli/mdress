@@ -34,6 +34,8 @@ jobs:
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173 >/dev/null && exit 0; sleep 1; done
           cat /tmp/mdress-server.log; exit 1
       - run: node scripts/e2e.mjs
+      - name: Toolbar resize — focus visibility and independent manual scrolling
+        run: node scripts/toolbar-resize-qa.mjs
       - name: Inspector header menus — keyboard, disabled actions and viewport fit
         run: node scripts/inspector-header-qa.mjs
       - name: Quick actions — dynamic focus handoff and mobile hit targets
