@@ -31,3 +31,11 @@ test('menu focus fallback is safe for removed or entirely unavailable items',()=
  assert.equal(nextAvailableMenuItem(all,[],'B'),null);
  assert.equal(nextAvailableMenuItem(all,[],'removed'),null);
 });
+
+test('oversized menu actions align once and never bounce between edges',()=>{
+ const viewport={top:20,bottom:100};
+ assert.equal(menuScrollDelta({top:130,bottom:260},viewport),106);
+ assert.equal(menuScrollDelta({top:24,bottom:154},viewport),0);
+ assert.equal(menuScrollDelta({top:-20,bottom:110},viewport),-44);
+ assert.equal(menuScrollDelta({top:24,bottom:154},viewport),0);
+});
