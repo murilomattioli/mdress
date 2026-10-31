@@ -157,12 +157,21 @@ try{
  await page.screenshot({path:'test-results/header-typeahead-focused.png'});
  await page.keyboard.press('PageDown');assert.equal(await focusedLabel(),'Item 0');
  await page.keyboard.press('PageUp');assert.equal(await focusedLabel(),'Árvore');
+ // Live permission changes must be excluded from typeahead just as they are
+ // from Arrow/Home/End navigation and native click dispatch.
+ await typeHost.getByRole('menuitem',{name:'Brisa'}).evaluate(el=>el.disabled=true);
+ await page.waitForTimeout(750);
+ await page.keyboard.press('b');assert.equal(await focusedLabel(),'Beta');
+ await page.keyboard.press('b');assert.equal(await focusedLabel(),'Bravo');
+ await page.keyboard.press('b');assert.equal(await focusedLabel(),'Beta',
+  'Repeated-key typeahead skips dynamically disabled actions');
  await page.keyboard.press('End');assert.equal(await focusedLabel(),'Item 17');
  assert.ok(await typeHost.getByRole('menu').evaluate(el=>el.scrollTop)>0,
   'Keyboard navigation scrolls the focused action into view on a short screen');
  assert.equal(await page.evaluate(()=>{
   const focused=document.activeElement;
   focused.dispatchEvent(new KeyboardEvent('keydown',{key:'b',bubbles:true,isComposing:true}));
+  focused.dispatchEvent(new KeyboardEvent('keydown',{key:'b',bubbles:true,keyCode:229}));
   return document.activeElement===focused;
  }),true,'IME composition must not trigger menu typeahead');
  await page.keyboard.press('Escape');
