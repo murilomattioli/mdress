@@ -19,6 +19,12 @@ try{
   return setInspectorTab('content',{focus:true});
  });
  assert.equal(denied,false,'Programmatic selection must reject aria-disabled tabs');
+ const deepLinkDenied=await page.evaluate(async()=>{
+  const {revealInspectorControl}=await import('/property-inspector.js');
+  return revealInspectorControl('sectionStyleTarget');
+ });
+ assert.equal(deepLinkDenied,false,'Deep links must not open revoked inspector panels');
+ assert.equal(await documentTab.getAttribute('aria-selected'),'true');
  await contentTab.evaluate(el=>el.click());
  assert.equal(await documentTab.getAttribute('aria-selected'),'true',
   'Synthetic clicks must not select aria-disabled tabs');
