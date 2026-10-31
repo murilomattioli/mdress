@@ -47,7 +47,8 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   // A native hidden/disabled check alone leaves invisible menuitems in the
   // roving keyboard order and may dispatch actions that are no longer offered.
   const available=()=>buttons.filter(button=>{
-   if(button.disabled||button.hidden||button.getAttribute('aria-disabled')==='true'||
+   if(!menu.contains(button)||button.disabled||button.hidden||
+      button.getAttribute('aria-disabled')==='true'||
       button.closest('[inert],[aria-hidden="true"]'))return false;
    const style=getComputedStyle(button);
    return style.display!=='none'&&style.visibility!=='hidden'&&style.visibility!=='collapse';
@@ -143,7 +144,10 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   };
   syncAvailability();
   // Consumers can disable or hide actions after the header has been created.
-  new MutationObserver(syncAvailability).observe(menu,{subtree:true,attributes:true,attributeFilter:['disabled','hidden','aria-disabled','aria-hidden','inert','class','style']});
+  // Actions may be removed/reinserted by permission-driven UI updates. A
+  // detached button must never remain keyboard-reachable or executable; DOM
+  // removal can also blur the focused item before the observer callback.
+  new MutationObserver(syncAvailability).observe(menu,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled','hidden','aria-disabled','aria-hidden','inert','class','style']});
   more.onclick=()=>{
    if(more.hidden||!available().length)return;
    if(isOpen()){menu.hidePopover();return;}
