@@ -62,10 +62,10 @@ try{
  // accessible name of both the trigger and its associated top-layer menu.
  await dynamicHost.locator('button').first().evaluate(el=>el.textContent='Seção atualizada');
  await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.getAttribute('aria-label')==='Opções de Seção atualizada');
- assert.equal(await dynamicHost.getByRole('menu').getAttribute('aria-label'),'Opções de Seção atualizada');
+ assert.equal(await dynamicHost.locator('[role=menu]').getAttribute('aria-label'),'Opções de Seção atualizada');
  await dynamicHost.locator('button').first().evaluate(el=>el.setAttribute('aria-label','Título acessível'));
  await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.getAttribute('aria-label')==='Opções de Título acessível');
- assert.equal(await dynamicHost.getByRole('menu').getAttribute('aria-label'),'Opções de Título acessível');
+ assert.equal(await dynamicHost.locator('[role=menu]').getAttribute('aria-label'),'Opções de Título acessível');
  await dynamicHost.locator('button').first().evaluate(el=>{el.removeAttribute('aria-label');el.textContent='Permissões dinâmicas';});
  await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.getAttribute('aria-label')==='Opções de Permissões dinâmicas');
  assert.equal(await dynamicTrigger.getAttribute('aria-label'),'Opções de Permissões dinâmicas',
