@@ -780,14 +780,17 @@ export function selectPopoverLayout(anchor,viewport,contentHeight){
 function visibleFocusTree(el){
  if(!el?.isConnected||el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
     !el.getClientRects().length)return false;
+ // visibility is inherited but can be explicitly overridden by descendants.
+ // Inspect the effective value on the target, not each ancestor in isolation.
+ const visibility=getComputedStyle(el).visibility;
+ if(visibility==='hidden'||visibility==='collapse')return false;
  for(let node=el;node;node=node.parentElement){
   if(node.tagName==='FIELDSET'&&node.disabled){
    const legend=[...node.children].find(child=>child.tagName==='LEGEND');
    if(!legend?.contains(el))return false;
   }
   const style=getComputedStyle(node);
-  if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
-     style.contentVisibility==='hidden')return false;
+  if(style.display==='none'||style.contentVisibility==='hidden')return false;
  }
  return true;
 }
