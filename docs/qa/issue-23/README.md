@@ -1,3 +1,34 @@
+## UX-023 — toolbar: revogação de foco em shell e ancestrais (31/10/2026)
+
+A barra Markdown agora considera o **estado interativo de toda a árvore de ancestrais** antes de exibir os botões de rolagem. Quando o shell ou um wrapper é ocultado por CSS, `content-visibility:hidden` ou revogado por `aria-disabled`, as setas deixam de ser focáveis. Se uma seta ou comando já tinha foco, ele é recuperado para o editor (ou outro controle visível), sem ficar em `<body>`.
+
+O observador também acompanha **reparenting do shell**: deixa de observar os ancestrais antigos e passa a verificar os novos, incluindo alterações de `class`, `style` e permissões. Isso evita que mudanças de modo de workspace preservem comandos inacessíveis.
+
+**Regressões Playwright:** `node scripts/toolbar-resize-qa.mjs` cobre ocultação do shell com seta focada, classe CSS aplicada em `body` com comando focado e revogação no novo wrapper após reparenting. Capturas: `ux-audit/toolbar-hidden-shell-arrow-focus.png`, `ux-audit/toolbar-hidden-ancestor-action-focus.png` e `ux-audit/toolbar-reparented-host-focus.png`. **CI verifica comportamento, não aprova UX visual:** revisar as três capturas e o teclado real antes da homologação.
+
+**PowerShell (sem merge):**
+```powershell
+cd F:\\Projects\\lumu\\tools\\mdress
+git status --short
+git fetch origin
+git switch feat/23-property-controls-ux-qa
+git pull --ff-only origin feat/23-property-controls-ux-qa
+npm install --include=dev
+npx playwright install chromium
+npm run dev
+# Em outro PowerShell:
+npm test
+node scripts/toolbar-resize-qa.mjs
+node scripts/inspector-header-qa.mjs
+npm run qa:supervised
+# Retomar captura interrompida:
+npm run qa:resume-capture
+```
+
+PR #27 permanece draft e issue #23 aberta. Sem merge, release, Cloudflare ou alteração no repositório legado.
+
+---
+
 ## UX-023 — recuperação de foco com content-visibility e revogação (31/10/2026)
 
 A recuperação de foco do menu do inspetor agora valida a visibilidade de **todos os ancestrais** do destino, inclusive `content-visibility:hidden`, `visibility:collapse` e `display:none`. A remoção da última ação em um cabeçalho desabilitado não tenta focar seu toggle inacessível: usa um controle realmente disponível fora do host. A toolbar aplica a mesma regra quando o editor e a barra estão simultaneamente ocultos por CSS, evitando mover o foco para elementos invisíveis.
