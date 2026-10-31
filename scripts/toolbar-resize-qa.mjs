@@ -241,7 +241,7 @@ try{
  // ancestry observers across repeated editor mounts. Explicit disposal must
  // also unwrap the toolbar and allow a fresh attachment without duplicate UI.
  await page.evaluate(async()=>{
-  const {attachToolbarOverflow}=await import('/app/toolbar-overflow.js');
+  const {attachToolbarOverflow}=await import('/toolbar-overflow.js');
   const host=document.createElement('div');host.id='ux23-toolbar-lifecycle';
   host.style.cssText='width:210px;max-width:210px;position:relative';
   const bar=document.createElement('div');bar.className='markdown-toolbar';
@@ -263,7 +263,7 @@ try{
   path:'test-results/ux-audit/toolbar-lifecycle-scroll-controls.png',animations:'disabled'
  });
  const lifecycle=await page.evaluate(async()=>{
-  const {attachToolbarOverflow}=await import('/app/toolbar-overflow.js');
+  const {attachToolbarOverflow}=await import('/toolbar-overflow.js');
   const host=document.querySelector('#ux23-toolbar-lifecycle');
   const bar=host.querySelector('.markdown-toolbar');
   const arrows=[...host.querySelectorAll('.toolbar-scroll-button')];
