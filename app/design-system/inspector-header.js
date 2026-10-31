@@ -92,6 +92,16 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    menuResizeObserver?.disconnect();menuResizeObserver=null;
    if(frame){cancelAnimationFrame(frame);frame=0;}
   };
+  const focusItem=item=>{
+   if(!item)return;
+   // Native scrollIntoView also scrolls ancestor inspector panels and the
+   // document. Only the menu itself should move when navigating its actions.
+   item.focus({preventScroll:true});
+   const bounds=menu.getBoundingClientRect(),target=item.getBoundingClientRect();
+   const top=bounds.top+4,bottom=bounds.bottom-4;
+   if(target.top<top)menu.scrollTop+=target.top-top;
+   else if(target.bottom>bottom)menu.scrollTop+=target.bottom-bottom;
+  };
   const syncAvailability=()=>{
    const items=available();
    const triggerFocused=document.activeElement===more;
@@ -106,7 +116,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
     menu.hidePopover();
     if(focusInside&&toggle.isConnected)toggle.focus();
    }else if(isOpen()&&(menu.contains(document.activeElement)||lostMenuFocus)&&!items.includes(document.activeElement)){
-    items[0]?.focus();
+    focusItem(items[0]);
    }
   };
   syncAvailability();
@@ -115,27 +125,23 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   more.onclick=()=>{
    if(more.hidden||!available().length)return;
    if(isOpen()){menu.hidePopover();return;}
-   menu.showPopover();position();available()[0]?.focus();
+   menu.showPopover();position();focusItem(available()[0]);
   };
-  let typed='',lastTypedAt=0;
-  const focusItem=item=>{
-   if(!item)return;
-   item.focus();
-   // The popover is scrollable in short viewports: focused actions must
-   // remain visible even when the menu contains dozens of commands.
-   item.scrollIntoView({block:'nearest',inline:'nearest'});
-  };
+  let typed='',lastTypedAt=0,composing=false;
+  menu.addEventListener('compositionstart',()=>{composing=true;typed='';lastTypedAt=0;});
+  menu.addEventListener('compositionend',()=>{composing=false;typed='';lastTypedAt=0;});
+
   const normalizeLabel=value=>value.normalize('NFD').replace(/\p{M}/gu,'').toLocaleLowerCase('pt-BR');
   menu.addEventListener('toggle',()=>{
    const open=isOpen();
    more.setAttribute('aria-expanded',String(open));
    if(open){startTracking();position();}
-   else{stopTracking();lastFocusedItem=null;typed='';lastTypedAt=0;}
+   else{stopTracking();lastFocusedItem=null;typed='';lastTypedAt=0;composing=false;}
   });
   menu.onkeydown=e=>{
    // Escape/arrows are used by IME candidate windows. Never dismiss the
    // menu or change the selected action while composition is in progress.
-   if(e.isComposing||e.keyCode===229)return;
+   if(composing||e.isComposing||e.keyCode===229)return;
    const items=available(),index=items.indexOf(document.activeElement);
    if(['ArrowDown','ArrowUp','Home','End','PageDown','PageUp'].includes(e.key)){
     e.preventDefault();
