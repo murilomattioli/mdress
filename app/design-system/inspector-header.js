@@ -104,6 +104,11 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
     if(focusLost)restoreFocusOutsideHost();
     return;
    }
+   // Media queries can hide individual menu actions without changing DOM
+   // attributes. Re-evaluate availability on viewport/layout updates as well
+   // as on MutationObserver callbacks, before positioning the popover.
+   syncAvailability();
+   if(!isOpen())return;
    // A virtual keyboard or pinch zoom can shrink/offset the *visual*
    // viewport without changing innerHeight. Keep the popover inside the
    // actually visible rectangle, including its left/top offsets.
