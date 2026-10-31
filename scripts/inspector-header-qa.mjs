@@ -256,9 +256,17 @@ try{
    return b&&b.width>0&&b.height>0&&b.top>=7&&b.left>=7&&
     b.bottom<=innerHeight-7&&b.right<=innerWidth-7;
   });
+  // ResizeObserver and visualViewport can settle on the next animation
+  // frame. Require a stable post-layout rectangle, not a transient pass.
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  await page.waitForFunction(()=>{
+   const b=document.querySelector('#ux23-edge-menu-host [role=menu]')?.getBoundingClientRect();
+   return b&&b.width>0&&b.height>0&&b.top>=7&&b.left>=7&&
+    b.bottom<=innerHeight-7&&b.right<=innerWidth-7;
+  });
   const bounds=await page.locator('#ux23-edge-menu-host [role=menu]').boundingBox();
   assert.ok(bounds&&bounds.x>=7&&bounds.y>=7&&bounds.x+bounds.width<=viewport.width-7&&bounds.y+bounds.height<=viewport.height-7,
-   'Menu must stay within the viewport: '+JSON.stringify({viewport,bounds}));
+   'Menu must stay within the settled viewport: '+JSON.stringify({viewport,bounds}));
   if(viewport.width===390){
    // Browser chrome may resize a viewport while the popover is still open.
    await page.setViewportSize({width:390,height:250});
