@@ -52,7 +52,7 @@ try{
   const toggle=document.createElement('button');toggle.type='button';toggle.textContent='Permissões dinâmicas';
   host.append(createInspectorHeader({toggle,menuVisibility:'always',menuItems:[
    {label:'Primeira',onSelect:()=>window.dynamicMenuSelected=true},
-   {label:'Segunda',onSelect:()=>{}}
+   {label:'Segunda',onSelect:()=>window.dynamicSecondCalled=true}
   ]}));
   document.body.append(host);
  });
@@ -86,6 +86,41 @@ try{
  await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.hidden===true);
  assert.equal(await dynamicHost.locator('button').first().evaluate(el=>el===document.activeElement),true,
   'A focused trigger becoming unavailable returns focus to its accordion toggle');
+ // CSS, aria-hidden and inert permission changes must behave like disabled.
+ // These are common when a feature flag or responsive inspector mode changes.
+ await page.evaluate(()=>{
+  const style=document.createElement('style');
+  style.textContent='#ux23-dynamic-menu-host .ux23-hidden-action{display:none}';
+  document.head.append(style);
+  const items=document.querySelectorAll('#ux23-dynamic-menu-host [role=menuitem]');
+  items[0].removeAttribute('aria-disabled');items[1].disabled=false;
+ });
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger').hidden);
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ assert.equal(await dynamicItems.nth(0).evaluate(el=>el===document.activeElement),true);
+ await dynamicItems.nth(0).evaluate(el=>el.classList.add('ux23-hidden-action'));
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Segunda');
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'CSS-hidden menu actions cannot dispatch callbacks');
+ await page.screenshot({path:'test-results/header-dynamic-css-hidden.png'});
+ await dynamicItems.nth(0).evaluate(el=>el.classList.remove('ux23-hidden-action'));
+ await dynamicItems.nth(1).evaluate(el=>el.setAttribute('aria-hidden','true'));
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Primeira');
+ await dynamicItems.nth(1).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicSecondCalled),undefined,
+  'aria-hidden menu actions cannot dispatch callbacks');
+ await dynamicItems.nth(0).evaluate(el=>el.setAttribute('inert',''));
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger').hidden);
+ assert.equal(await dynamicHost.locator('button').first().evaluate(el=>el===document.activeElement),true,
+  'When CSS/ARIA/inert remove all menu actions, keyboard focus returns to the toggle');
+ await dynamicItems.nth(0).evaluate(el=>el.removeAttribute('inert'));
+ await dynamicItems.nth(1).evaluate(el=>el.removeAttribute('aria-hidden'));
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger').hidden);
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ assert.equal(await dynamicItems.nth(0).evaluate(el=>el===document.activeElement),true,
+  'Restored actions remain keyboard reachable without recreating the header');
+ await page.keyboard.press('Escape');
  await dynamicHost.evaluate(el=>el.remove());
  // Exercise the top-layer menu against a genuinely short, mobile viewport.
  await page.evaluate(async()=>{
