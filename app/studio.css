@@ -348,6 +348,12 @@ button,select,input,textarea{font:inherit}
 .editor-panel .toolbar-scroll-button:focus-visible{outline:2px solid var(--ds-brand);outline-offset:-2px}
 .editor-panel .toolbar-scroll-button:disabled{opacity:.35;cursor:default}
 .editor-panel .toolbar-scroll-button[hidden]{display:none}
+/* On touch hardware the 28px desktop arrows are too small to tap reliably.
+ * Increase the actual hit area, not only the icon, while retaining a
+ * single-row scrollport and the native hidden/disabled behavior. */
+@media (pointer:coarse){
+ .editor-panel .toolbar-scroll-button{flex-basis:44px;width:44px;min-width:44px;min-height:44px;touch-action:manipulation}
+}
 
 /* UX-023: the design inspector must remain reachable on compact screens.
  * The preview canvas is hidden in split/edit mode, but it owns the inspector.
