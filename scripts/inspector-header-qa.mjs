@@ -59,6 +59,17 @@ try{
  assert.equal(await page.locator('.ds-select-popover').count(),0,
   'Synthetic clicks must not open a combobox in an aria-disabled ancestor');
  await page.locator('#inspector-document').evaluate(el=>el.removeAttribute('aria-disabled'));
+ // visibility:hidden on a layout host may be explicitly overridden
+ // by the inspector (mobile overlay). The visible child remains interactive.
+ await page.locator('.preview-body').evaluate(el=>{el.style.visibility='hidden';});
+ await page.locator('#themesView').evaluate(el=>{el.style.visibility='visible';});
+ await documentTab.focus();await page.keyboard.press('ArrowRight');
+ assert.equal(await contentTab.evaluate(el=>document.activeElement===el),true,
+  'Roving tabs must respect effective descendant visibility, not hidden ancestors');
+ await page.screenshot({path:'test-results/header-visibility-override-navigation.png',animations:'disabled'});
+ await page.locator('.preview-body').evaluate(el=>{el.style.visibility='';});
+ await page.locator('#themesView').evaluate(el=>{el.style.visibility='';});
+ await documentTab.click();
  await contentTab.evaluate(el=>el.setAttribute('aria-disabled','true'));
  // Synthetic clicks and API calls must not activate permission-revoked tabs.
  const denied=await page.evaluate(async()=>{
