@@ -57,11 +57,14 @@ export function inspectorPageSummary(count,diagnostics=[]){
  if(warnings)warnings.textContent=diagnostics.length?diagnostics.length+' aviso(s)':'Sem avisos';
 }
 export function revealInspectorControl(id){
- const control=$(id);if(!control)return;
- const panel=control.closest('[data-inspector-panel]');if(panel)setInspectorTab(panel.dataset.inspectorPanel);
+ const control=$(id);if(!control)return false;
+ const panel=control.closest('[data-inspector-panel]');
+ // A deep link must not expand or scroll a property inside a revoked tab.
+ if(panel&&!setInspectorTab(panel.dataset.inspectorPanel))return false;
  const group=control.closest('.ds-accordion');const toggle=group?.querySelector('.ds-accordion-toggle');
  if(toggle?.getAttribute('aria-expanded')==='false')toggle.click();
  control.closest('.property-row')?.scrollIntoView({block:'nearest'});
+ return true;
 }
 export function updatePropertyReadouts(){
  const kind=$('bgKind')?.value;
