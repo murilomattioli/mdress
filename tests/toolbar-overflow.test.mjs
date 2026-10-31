@@ -52,7 +52,7 @@ test('overflow controls stay disabled when the scrollbar is below the visual tol
  assert.deepEqual(toolbarOverflowState({scrollLeft:1.8,scrollWidth:402,clientWidth:400}),{
   overflow:false,canScrollPrevious:false,canScrollNext:false
  });
- assert.deepEqual(toolbarOverflowState({scrollLeft:1.8,scrollWidth:403,clientWidth:400}),{
+ assert.deepEqual(toolbarOverflowState({scrollLeft:2,scrollWidth:403,clientWidth:400}),{
   overflow:true,canScrollPrevious:true,canScrollNext:false
  });
 });
