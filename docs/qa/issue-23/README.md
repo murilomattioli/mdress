@@ -1,5 +1,15 @@
 # Issue #23 — evidências duráveis
 
+## UX-023 — navegação confinada e saída de menus por teclado (31/10/2026)
+
+O menu de ações do inspetor mantém a rolagem **dentro do popover** durante Home/End, PageUp/PageDown, setas e typeahead: foco com `preventScroll` e deslocamento calculado somente para `menu.scrollTop`. A função pura `menuScrollDelta` tem regressões Node para visibilidade e padding; o Playwright verifica que a navegação não move a página nem outro painel. `scrollIntoView` nativo não é utilizado nos itens do menu.
+
+O estado de composição IME agora acompanha `compositionstart`/`compositionend`, além de `isComposing` e `keyCode=229`: Escape/Tab/setas não encerram a interação durante composição, mesmo quando o navegador emite `keydown` sem flags. Ao concluir a composição, a navegação volta a funcionar.
+
+Itens `role=menuitem` têm `tabIndex=-1`, preservando um único ponto de entrada na ordem de Tab; as setas e typeahead continuam alcançando cada ação. Tab e Shift+Tab fecham o popover e retomam a sequência de foco a partir do botão de opções, sem percorrer todos os comandos.
+
+**Regressões:** `tests/inspector-header.test.mjs` e `scripts/inspector-header-qa.mjs`. Capturas para revisão: `header-typeahead-scroll-contained.png`, `header-typeahead-composition-lifecycle.png` e `header-typeahead-tab-exit.png` no pacote do Browser Smoke. Revisão visual/interativa humana continua obrigatória; não efetuar merge, release ou Cloudflare sem homologação.
+
 ## UX-023 — viewport visual móvel e composição IME (31/10/2026)
 
 O menu compartilhado do inspetor usa o retângulo de `window.visualViewport` (largura, altura e deslocamentos), e não apenas `innerHeight`, para limitar altura/largura e posicionar ações quando teclado virtual, zoom ou deslocamento do viewport reduzem a área visível. Eventos `visualViewport.scroll` e `resize` reposicionam o popover aberto; os listeners são removidos ao fechar. Teclas de navegação e Escape com `isComposing` ou `keyCode=229` não alteram foco nem fecham o menu durante composição IME.
