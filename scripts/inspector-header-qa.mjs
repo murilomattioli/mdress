@@ -107,6 +107,8 @@ try{
  await dynamicItems.nth(0).evaluate(el=>el.classList.remove('ux23-hidden-action'));
  await dynamicItems.nth(1).evaluate(el=>el.setAttribute('aria-hidden','true'));
  await page.waitForFunction(()=>document.activeElement?.textContent==='Primeira');
+ assert.equal(await dynamicItems.nth(1).evaluate(el=>getComputedStyle(el).display),'none',
+  'ARIA-hidden actions must also disappear visually, not only from screen readers');
  await dynamicItems.nth(1).evaluate(el=>el.click());
  assert.equal(await page.evaluate(()=>window.dynamicSecondCalled),undefined,
   'aria-hidden menu actions cannot dispatch callbacks');
@@ -120,6 +122,11 @@ try{
  await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
  assert.equal(await dynamicItems.nth(0).evaluate(el=>el===document.activeElement),true,
   'Restored actions remain keyboard reachable without recreating the header');
+ await dynamicItems.nth(0).evaluate(el=>el.hidden=true);
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Segunda');
+ assert.equal(await dynamicItems.nth(0).evaluate(el=>getComputedStyle(el).display),'none',
+  'Native hidden must override the menu button display:block styling');
+ await dynamicItems.nth(0).evaluate(el=>el.hidden=false);
  await page.keyboard.press('Escape');
  await dynamicHost.evaluate(el=>el.remove());
  // Exercise the top-layer menu against a genuinely short, mobile viewport.
