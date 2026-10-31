@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {menuScrollDelta,nextAvailableMenuItem} from '../app/design-system/inspector-header.js';
+import {menuScrollDelta,nextAvailableMenuItem,inspectorMenuLabel} from '../app/design-system/inspector-header.js';
 
 const viewport={top:20,bottom:220};
 
@@ -38,4 +38,15 @@ test('oversized menu actions align once and never bounce between edges',()=>{
  assert.equal(menuScrollDelta({top:24,bottom:154},viewport),0);
  assert.equal(menuScrollDelta({top:-20,bottom:110},viewport),-44);
  assert.equal(menuScrollDelta({top:24,bottom:154},viewport),0);
+});
+
+test('inspector action menu names follow aria-label, visible text and empty fallback',()=>{
+ const toggle={label:null,textContent:'  Título inicial  ',getAttribute(name){return name==='aria-label'?this.label:null;}};
+ assert.equal(inspectorMenuLabel(toggle),'Opções de Título inicial');
+ toggle.label='  Seção renomeada  ';
+ assert.equal(inspectorMenuLabel(toggle),'Opções de Seção renomeada');
+ toggle.label='';toggle.textContent='  Outro nome  ';
+ assert.equal(inspectorMenuLabel(toggle),'Opções de Outro nome');
+ toggle.textContent='  ';
+ assert.equal(inspectorMenuLabel(toggle),'Opções de seção');
 });
