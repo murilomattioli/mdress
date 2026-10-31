@@ -41,7 +41,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    menu.style.left=Math.max(8,Math.min(innerWidth-width-8,r.right-width))+'px';
    menu.style.top=Math.max(8,Math.min(innerHeight-height-8,desiredTop))+'px';
   };
-  let frame=0,lastFocusedItem=null;
+  let frame=0,lastFocusedItem=null,menuResizeObserver=null;
   menu.addEventListener('focusin',event=>{
    if(buttons.includes(event.target))lastFocusedItem=event.target;
   });
@@ -61,12 +61,19 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    window.addEventListener('scroll',schedulePosition,true);
    document.addEventListener('pointerdown',clearOutsidePointer,true);
    window.visualViewport?.addEventListener('resize',schedulePosition);
+   // A menu can grow after opening (font/layout settling, viewport CSS
+   // max-height, dynamic labels). Window resize alone misses that reflow.
+   if(typeof ResizeObserver==='function'){
+    menuResizeObserver=new ResizeObserver(schedulePosition);
+    menuResizeObserver.observe(menu);menuResizeObserver.observe(more);
+   }
   };
   const stopTracking=()=>{
    window.removeEventListener('resize',schedulePosition);
    window.removeEventListener('scroll',schedulePosition,true);
    document.removeEventListener('pointerdown',clearOutsidePointer,true);
    window.visualViewport?.removeEventListener('resize',schedulePosition);
+   menuResizeObserver?.disconnect();menuResizeObserver=null;
    if(frame){cancelAnimationFrame(frame);frame=0;}
   };
   const syncAvailability=()=>{
