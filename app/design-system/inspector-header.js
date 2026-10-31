@@ -51,7 +51,10 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   };
   const syncAvailability=()=>{
    const items=available();
+   const triggerFocused=document.activeElement===more;
    more.hidden=!items.length;
+   // Hiding a focused trigger would otherwise send keyboard focus to <body>.
+   if(!items.length&&triggerFocused&&toggle.isConnected)toggle.focus();
    if(!items.length&&isOpen()){
     const focusInside=menu.contains(document.activeElement);
     menu.hidePopover();
