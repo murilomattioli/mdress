@@ -1,5 +1,31 @@
 # Issue #23 — evidências duráveis
 
+## UX-023 — remoção real de ações e evidências completas (31/10/2026)
+
+Menus do inspetor agora excluem explicitamente **botões desconectados do DOM** da lista de ações disponíveis. O `MutationObserver` observa também `childList`: quando uma atualização de permissões remove a ação focada, o foco passa à próxima ação ainda presente (ou à anterior); ao remover a última ação, o popover fecha, o gatilho desaparece e o foco retorna ao toggle. Reinserir uma ação torna-a novamente utilizável sem reconstruir o cabeçalho. Um callback de botão removido é bloqueado mesmo que outro código invoque `.click()` na referência antiga.
+
+**Regressão Chromium obrigatória:** `node scripts/inspector-header-qa.mjs` cobre remoção sequencial com foco, callbacks de ações desconectadas, fechamento sem ações e reinserção. Captura adicional: `test-results/header-removed-menu-actions-focus.png`.
+
+**Correção do pacote de evidências:** o Browser Smoke agora inclui `test-results/header-*.png`, e não apenas alguns padrões específicos. Isso garante que capturas de permissões dinâmicas, remoção, IME, typeahead e viewport sejam transportadas para a revisão humana. A validação técnica da captura não equivale a aprovação visual.
+
+**PowerShell (sem merge):**
+```powershell
+git fetch origin
+git switch feat/23-property-controls-ux-qa
+git pull --ff-only origin feat/23-property-controls-ux-qa
+npm install --include=dev
+npx playwright install chromium
+npm run dev
+# Em outro terminal:
+node scripts/inspector-header-qa.mjs
+npm run qa:supervised
+# Retomar captura interrompida:
+npm run qa:resume-capture
+```
+
+**Homologação visual/interativa humana pendente.** PR draft e issue aberta; não efetuar merge, release ou publicação Cloudflare.
+
+
 ## UX-023 — eventos nativos de teclado durante composição IME (31/10/2026)
 
 Os testes anteriores verificavam apenas `KeyboardEvent` sintético durante `compositionstart`. Isso não exercita os comportamentos **nativos** do navegador: Escape pode dispensar um `popover`, Tab pode mover o foco e Enter pode ativar um botão mesmo quando o handler da aplicação retorna cedo.
