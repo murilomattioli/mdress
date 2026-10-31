@@ -137,7 +137,7 @@ try{
   host.style.cssText='position:fixed;top:4px;right:4px;width:220px;z-index:2147483000';
   const toggle=document.createElement('button');toggle.type='button';toggle.textContent='Menu longo';
   const labels=['Alpha','Árvore','Beta','Bravo','Brisa','Ritmo',...Array.from({length:18},(_,i)=>'Item '+i)];
-  host.append(createInspectorHeader({toggle,menuVisibility:'always',menuItems:labels.map(label=>({label,onSelect:()=>{}}))}));
+  host.append(createInspectorHeader({toggle,menuVisibility:'always',menuItems:labels.map(label=>({label,onSelect:()=>{window.__ux23TypeaheadSelected=label;}}))}));
   document.body.append(host);
  });
  await page.setViewportSize({width:390,height:320});
@@ -217,6 +217,25 @@ try{
   focused.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'あ'}));
   return state;
  }),{focused:true,open:true},'IME lifecycle protects menu focus even without keydown composition flags');
+ // Dispatching synthetic keydown alone cannot prove native browser behavior:
+ // Escape dismisses popovers, Tab moves focus, and Enter activates buttons.
+ // Exercise real keyboard defaults during an active IME lifecycle.
+ await page.evaluate(()=>{
+  document.activeElement.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true,data:'あ'}));
+ });
+ for(const key of ['Escape','Tab','Shift+Tab','Enter']){
+  await page.keyboard.press(key);
+  assert.deepEqual(await page.evaluate(()=>({
+   open:document.querySelector('#ux23-typeahead-host [role=menu]')?.matches(':popover-open'),
+   focused:document.activeElement?.closest('#ux23-typeahead-host [role=menu]')!==null,
+   selected:window.__ux23TypeaheadSelected??null
+  })),{open:true,focused:true,selected:null},
+  'Real '+key+' during IME must not dismiss, move focus or execute an action');
+ }
+ await page.screenshot({path:'test-results/header-ime-native-keys-390.png'});
+ await page.evaluate(()=>{
+  document.activeElement.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'あ'}));
+ });
  await page.keyboard.press('Home');assert.equal(await focusedLabel(),'Alpha',
   'Keyboard navigation resumes after compositionend');
  await page.screenshot({path:'test-results/header-typeahead-composition-lifecycle.png'});
