@@ -191,6 +191,20 @@ try{
   page:window.scrollY,inspector:document.querySelector('#inspector-themes')?.scrollTop||0
  })),outerScrollBefore,'Navigating a long menu must not scroll outer panels or the page');
  await page.screenshot({path:'test-results/header-typeahead-scroll-contained.png'});
+ // A permission change must keep a keyboard user near their position in a
+ // long menu, not unexpectedly return to the first action.
+ await typeHost.getByRole('menuitem',{name:'Item 17'}).evaluate(el=>el.disabled=true);
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Item 16');
+ assert.equal(await focusedLabel(),'Item 16','Disabling the last action focuses its nearest predecessor');
+ await typeHost.getByRole('menuitem',{name:'Item 16'}).evaluate(el=>el.disabled=true);
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Item 15');
+ assert.equal(await focusedLabel(),'Item 15','Repeated permission updates preserve the local keyboard position');
+ await page.keyboard.press('Home');await page.keyboard.press('ArrowDown');
+ assert.equal(await focusedLabel(),'Árvore');
+ await typeHost.getByRole('menuitem',{name:'Árvore'}).evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Beta');
+ assert.equal(await focusedLabel(),'Beta','Disabling a middle action focuses the next available action');
+ await page.screenshot({path:'test-results/header-typeahead-permission-neighbor-390.png'});
  assert.equal(await page.evaluate(()=>{
   const focused=document.activeElement;
   focused.dispatchEvent(new KeyboardEvent('keydown',{key:'b',bubbles:true,isComposing:true}));
