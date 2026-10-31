@@ -74,10 +74,13 @@ export function attachToolbarOverflow(toolbar){
   if(!el?.isConnected||!el.getClientRects().length||
      el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]'))return false;
   // A layout rectangle does not imply visibility with content-visibility.
+  // A descendant may override visibility:hidden on its ancestor; CSS
+  // content-visibility:hidden and display:none cannot be overridden.
+  const visibility=getComputedStyle(el).visibility;
+  if(visibility==='hidden'||visibility==='collapse')return false;
   for(let node=el;node;node=node.parentElement){
    const style=getComputedStyle(node);
-   if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
-      style.contentVisibility==='hidden')return false;
+   if(style.display==='none'||style.contentVisibility==='hidden')return false;
   }
   return true;
  };
