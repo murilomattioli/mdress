@@ -123,3 +123,15 @@ O combobox de fontes mantém o popover e o foco no campo de busca quando uma atu
 O E2E Chromium cobre buscas vazias durante inserção de optgroup, filtro com opção desabilitada e atualização enquanto o botão de paginação está focado. PNGs: `inspector-font-search-live-empty.png`, `inspector-font-search-live-disabled.png` e `inspector-font-pagination-live-focus.png`. A matriz supervisionada exige mais quatro estados (`select-live-search-empty`, `select-live-search-disabled`, `select-live-pagination-focus`, `select-live-search-scroll`) em todos os temas e viewports: **109 estados × 2 temas × 4 larguras = 872 screenshots**. São evidências automatizadas para revisão humana, não homologação visual.
 
 **PowerShell, sem merge:** `git fetch origin; git switch feat/23-property-controls-ux-qa; git pull --ff-only origin feat/23-property-controls-ux-qa; npm install --include=dev; npx playwright install chromium; npm run dev`. Em outro terminal: `node scripts/e2e.mjs; npm run qa:supervised`. Para retomar uma captura interrompida: `npm run qa:resume-capture`. Galeria: `test-results/ux-audit/supervised/index.html`.
+
+## UX-023 — menus de acordeão com permissões dinâmicas e resize (30/10/2026)
+
+O menu compartilhado de cabeçalhos do inspetor agora acompanha alterações de `disabled`, `hidden` e `aria-disabled` nas ações após a renderização. Quando a ação focada fica indisponível, o foco migra para uma ação habilitada; quando todas ficam indisponíveis, o popover fecha e o foco retorna ao toggle do acordeão. O mesmo retorno de foco ocorre quando o trigger está focado e perde sua última ação. Atributos `aria-disabled` bloqueiam também o callback, não apenas a navegação por teclado.
+
+O popover reposiciona-se em `resize`, `scroll` e resize do `visualViewport` enquanto aberto, evitando coordenadas obsoletas em layouts responsivos. O nome acessível utiliza o texto do toggle quando não há `aria-label` explícito.
+
+**Gate Chromium:** `node scripts/inspector-header-qa.mjs`. Testa atualização de permissões sem reconstrução do cabeçalho, recuperação de foco, bloqueio de callback, fallback do nome acessível e resize com popover aberto. Evidência adicional: `test-results/header-edge-menu-resized-390.png` (além das capturas existentes). A matriz supervisionada permanece com **115 estados × 2 temas × 4 larguras = 920 capturas**; estas evidências do gate são complementares, não contam como aprovação visual humana.
+
+**PowerShell para homologação:** `git fetch origin; git switch feat/23-property-controls-ux-qa; git pull --ff-only origin feat/23-property-controls-ux-qa; npm install --include=dev; npx playwright install chromium; npm run dev`. Em outro terminal: `node scripts/inspector-header-qa.mjs; npm run qa:supervised`. Retomada: `npm run qa:resume-capture`. Galeria: `test-results/ux-audit/supervised/index.html`.
+
+Não há aprovação automática da UX, merge, release ou publicação Cloudflare.
