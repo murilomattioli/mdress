@@ -1,0 +1,73 @@
+/* Scoped to the top-layer dialog: document and inspector rules cannot style it. */
+.mdress-color-picker{position:fixed;inset:auto;z-index:110;box-sizing:border-box;width:min(300px,calc(100vw - 24px));max-width:none;max-height:calc(100dvh - 24px);margin:0;padding:16px;border:1px solid var(--ds-border);border-radius:14px;background:var(--ds-panel);color:var(--ds-text);box-shadow:var(--ds-shadow-pop);font:13px/1.4 var(--ds-font);overflow:auto;color-scheme:inherit}
+.mdress-color-picker *{box-sizing:border-box}
+.mdress-color-picker ds-icon{width:18px;height:18px;font-size:18px}
+.mdress-color-picker button{font:inherit;cursor:pointer;color:inherit;min-width:0;margin:0}
+.mdress-color-picker button:hover{filter:none}
+.mdress-color-picker button:disabled{opacity:.4;cursor:default}
+/* Keep the eyedropper keyboard-focusable while its native request is pending. */
+.mdress-color-picker .cp-button[aria-busy=true]{opacity:.55;cursor:progress;background:var(--ds-panel-hover)}
+.mdress-color-picker :focus-visible{outline:2px solid var(--ds-focus);outline-offset:3px}
+.cp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.cp-header h2{font:650 16px/1.3 var(--ds-font);margin:0;color:inherit}
+.mdress-color-picker .cp-button{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:9px;min-height:32px;min-width:32px;padding:6px;background:transparent}
+.mdress-color-picker .cp-button:hover{background:var(--ds-panel-hover)}
+.cp-tabs{display:flex;gap:3px;padding:3px;background:var(--ds-panel-raised);border-radius:10px;margin-bottom:16px}
+.cp-tabs .cp-button{flex:1;font-size:12px;font-weight:600}
+.mdress-color-picker .cp-tabs .cp-button[aria-selected=true]{background:var(--ds-panel);box-shadow:0 1px 5px #0002;font-weight:750}
+.cp-panel{height:224px}
+.cp-panel[hidden]{display:none!important}
+.cp-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-template-rows:repeat(8,1fr);gap:1px;height:100%;border:1px solid var(--ds-border);border-radius:10px;overflow:hidden;background:var(--ds-border)}
+.mdress-color-picker .cp-cell{position:relative;min-height:0;border:0;border-radius:0;padding:0;width:100%;height:100%}
+.cp-cell[aria-pressed=true]::after{content:'';position:absolute;inset:2px;border:2px solid white;box-shadow:0 0 0 1px #0009;border-radius:2px}
+.mdress-color-picker .cp-cell:focus-visible{outline:2px solid white;outline-offset:-3px;z-index:1;box-shadow:inset 0 0 0 4px #000}
+.cp-spectrum{height:176px;border-radius:10px;position:relative;touch-action:none;background-image:linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,transparent);cursor:crosshair;border:1px solid var(--ds-border)}
+.cp-cursor{position:absolute;width:14px;height:14px;border:2px solid white;border-radius:50%;box-shadow:0 0 0 1px #0008;transform:translate(-50%,-50%);pointer-events:none}
+.cp-hue-label{display:flex;align-items:center;gap:12px;margin-top:16px;font-size:12px;color:var(--ds-text-secondary)}
+.mdress-color-picker input[type=range]{appearance:none;height:16px;min-height:16px;border:0;border-radius:20px;min-width:0;width:100%;margin:0;padding:0;cursor:pointer}
+.mdress-color-picker input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;border-radius:50%;border:3px solid #fff;background:transparent;box-shadow:0 0 0 1px #0005,0 1px 3px #0005}
+.mdress-color-picker input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;border:3px solid #fff;background:transparent;box-shadow:0 0 0 1px #0005}
+.mdress-color-picker .cp-hue{background:linear-gradient(to right,red,#ff0,#0f0,#0ff,#00f,#f0f,red)}
+.cp-channel{display:grid;grid-template-columns:1fr 60px;gap:8px 14px;align-items:center;margin:0 0 14px}
+.cp-channel>span{grid-column:1/-1;font-size:12px;color:var(--ds-text-secondary)}
+.mdress-color-picker input[type=number],.mdress-color-picker input[type=text]{width:100%;min-width:0;height:34px;padding:6px 8px;border:1px solid var(--ds-border);border-radius:7px;background:var(--ds-panel-raised);color:var(--ds-text);font:12px var(--ds-mono)}
+.mdress-color-picker input[aria-invalid=true]{border-color:var(--ds-danger)}
+.cp-value{display:flex;align-items:center;gap:14px;padding-top:16px;margin-top:16px;border-top:1px solid var(--ds-border-subtle)}
+.cp-preview{width:52px;height:52px;flex:none;border-radius:12px;border:1px solid #80808066;box-shadow:inset 0 0 0 2px #ffffff33}
+.cp-value label{display:grid;gap:5px;flex:1;font-size:11px;color:var(--ds-text-secondary)}
+.cp-hex{text-transform:uppercase}
+.cp-saved{margin-top:16px;padding-top:10px;border-top:1px solid var(--ds-border-subtle)}
+.cp-saved-title{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--ds-text-secondary);margin-bottom:8px}
+.cp-swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.mdress-color-picker .cp-saved-color{width:28px;height:28px;min-height:28px;padding:0;justify-self:center;border:1px solid #80808066;box-shadow:inset 0 0 0 2px #ffffff22;border-radius:50%}
+.cp-status{font-size:11px;color:var(--ds-text-secondary);margin:8px 0 0}
+.cp-status:empty{display:none}
+.cp-status[data-error="true"]{color:var(--ds-danger)}
+@media(prefers-reduced-motion:no-preference){.mdress-color-picker[open]{animation:cp-enter .15s ease-out}@keyframes cp-enter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}}
+
+.mdress-color-picker .cp-opacity{display:grid;grid-template-columns:auto minmax(0,1fr) 42px auto;align-items:center;gap:7px;margin-top:10px;font-size:11px;color:var(--ds-text-secondary)}
+.mdress-color-picker .cp-opacity input[type=range]{width:100%;min-width:0;height:14px;margin:0;border-radius:7px;accent-color:var(--ds-brand);background:linear-gradient(to right,transparent,var(--cp-opacity-color)),repeating-conic-gradient(#aaa 0% 25%,#fff 0% 50%) 0/8px 8px}
+.mdress-color-picker .cp-opacity input[type=number]{width:42px;min-width:0;height:28px;padding:2px;border:1px solid var(--ds-border);border-radius:5px;background:var(--ds-panel);color:var(--ds-text);font:500 11px var(--ds-font);text-align:center;appearance:textfield}
+.mdress-color-picker .cp-opacity input::-webkit-inner-spin-button{appearance:none}
+
+/* A 12-column palette makes each mobile swatch ~22px wide. Give touch
+   users a real 44px target, keeping the popup compact with inner scrolling. */
+@media(max-width:600px){
+ .mdress-color-picker{width:min(340px,calc(100vw - 24px))}
+ .mdress-color-picker .cp-grid{grid-template-columns:repeat(6,minmax(0,1fr));grid-template-rows:repeat(16,44px);overflow-y:auto;overscroll-behavior:contain}
+ .mdress-color-picker .cp-cell{min-height:44px}
+ .mdress-color-picker .cp-header .cp-button{min-width:44px;min-height:44px}
+ .mdress-color-picker .cp-tabs .cp-button{min-height:44px}
+ .mdress-color-picker .cp-saved-color{width:44px;height:44px;min-height:44px}
+ .mdress-color-picker .cp-swatches{gap:2px}
+ .mdress-color-picker input[type=number],.mdress-color-picker input[type=text]{height:44px}
+ .mdress-color-picker .cp-opacity{grid-template-columns:auto minmax(0,1fr) 44px auto}
+ .mdress-color-picker .cp-opacity input[type=number]{width:44px;height:44px}
+ .mdress-color-picker input[type=range]{height:44px;min-height:44px;background-size:100% 16px;background-position:center;background-repeat:no-repeat}
+ .mdress-color-picker .cp-opacity input[type=range]{height:44px;min-height:44px;background-size:100% 14px,8px 8px;background-position:center;background-repeat:no-repeat,repeat-x}
+ .mdress-color-picker .cp-spectrum{height:164px}
+}
+@media(max-width:360px){
+ .mdress-color-picker .cp-grid{grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:repeat(20,44px)}
+ .mdress-color-picker .cp-swatches{grid-template-columns:repeat(5,1fr)}
+}

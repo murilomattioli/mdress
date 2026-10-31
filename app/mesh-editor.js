@@ -1,3 +1,4 @@
+import {confirmAlert} from './design-system/alert-dialog.js';
 import {validateTheme,backgroundCSS,backgroundSize} from './resume-themes.js';
 import {meshSeed} from './mesh-background.js';
 
@@ -52,16 +53,19 @@ export function drawMeshEditor(themeInput,onApply,onPreview){
   });
   canvas.append(handle);
   const row=make('div',{class:'mesh-point'});
-  row.append(make('strong',{text:'Ponto '+(i+1)}));
+  const heading=make('div',{class:'mesh-point-heading'});heading.append(make('strong',{text:'Ponto '+(i+1)}));row.append(heading);
   const color=make('input',{type:'color',value:point.color,'aria-label':'Cor do ponto '+(i+1)});
-  color.value=point.color;color.onchange=e=>{points[i]={...points[i],color:e.target.value};commitPoints(points);};row.append(color);
-  const remove=make('button',{type:'button','aria-label':'Remover ponto '+(i+1),title:'Remover ponto',text:'×'});
-  remove.disabled=points.length<=2;remove.onclick=()=>commitPoints(points.filter((_,index)=>index!==i));row.append(remove);
+  color.id='meshPointColor'+i;color.dataset.opacity=point.opacity??1;
+  color.addEventListener('coloropacitychange',e=>{points[i]={...points[i],opacity:e.detail};commitPoints(points);});
+  color.value=point.color;color.onchange=e=>{points[i]={...points[i],color:e.target.value};commitPoints(points);};
+  const colorRow=make('label',{class:'property-row',text:'Cor'});colorRow.append(color);row.append(colorRow);
+  const remove=make('button',{type:'button','aria-label':'Remover ponto '+(i+1),title:'Remover ponto'});
+  remove.innerHTML='<ds-icon name="trash-2" size="14"></ds-icon>';remove.disabled=points.length<=2;remove.onclick=async()=>{if(await confirmAlert('Remover o ponto '+(i+1)+' do fundo? Sua cor e posição serão removidas da composição.'))commitPoints(points.filter((_,index)=>index!==i));};heading.append(remove);
   const sliders=make('div',{class:'mesh-sliders'});
   for(const [key,label,min,max,step] of [['x','X',0,100,1],['y','Y',0,100,1],['radius','Raio',15,120,1],['strength','Intensidade',0.05,1,0.05]]){
-   const labelNode=make('label',{text:label+' · '+point[key]});
+   const labelNode=make('label',{class:'property-row',text:label});
    const input=make('input',{type:'range',min,max,step,'aria-label':label+' do ponto '+(i+1)});
-   input.value=point[key];input.oninput=e=>{labelNode.firstChild.textContent=label+' · '+e.target.value;};
+   input.id='meshPoint'+i+key;input.value=point[key];if(key==='x'||key==='y')input.dataset.unit='%';
    input.onchange=e=>{points[i]={...points[i],[key]:Number(e.target.value)};commitPoints(points);};
    labelNode.append(input);sliders.append(labelNode);
   }

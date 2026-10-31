@@ -1,0 +1,414 @@
+/** Local-only HTML gallery for reviewing the complete UX-023 screenshot matrix. */
+import {UX_QA_MATRIX,UX_QA_REQUIRED_SCREENSHOTS,UX_QA_VIEWPORT_HEIGHT} from './ux-qa-coverage.mjs';
+
+const escapeHtml=value=>String(value).replace(/[&<>"']/g,char=>({
+ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+})[char]);
+
+export function renderUxQaGallery(screenshots,coverage,sessionId='unassigned'){
+ const index=new Map(screenshots.map(entry=>[
+  entry.theme+':'+entry.width+':'+entry.state,entry
+ ]));
+ const sections=UX_QA_REQUIRED_SCREENSHOTS.map((state,number)=>{
+  const images=UX_QA_MATRIX.map(({theme,width})=>{
+   const filename=theme+'-'+width+'-'+state+'.png';
+   const entry=index.get(theme+':'+width+':'+state);
+   const actual=typeof entry?.path==='string'?entry.path.split(/[\\/]/).pop():'';
+   const label=escapeHtml(theme+' · '+width+'px');
+   if(actual!==filename)return '<figure class="missing"><figcaption>'+label+'</figcaption><p>Captura ausente ou inválida</p></figure>';
+   return '<figure data-theme="'+escapeHtml(theme)+'" data-viewport-width="'+width+'" data-viewport-height="'+UX_QA_VIEWPORT_HEIGHT+'"><figcaption>'+label+'</figcaption><a href="'+escapeHtml(filename)+'" target="_blank" rel="noopener"><img loading="lazy" src="'+escapeHtml(filename)+'" alt="'+escapeHtml(state+' — '+theme+' '+width)+'"></a></figure>';
+  }).join('\n');
+  return '<details class="state" data-name="'+escapeHtml(state)+'"'+(number===0?' open':'')+'><summary>'+escapeHtml(state)+' <span class="badge" aria-label="Revisão pendente">Pendente</span></summary><div class="grid">'+images+'</div><p class="image-warning" role="alert" hidden>Não foi possível validar as '+UX_QA_MATRIX.length+' capturas (ausentes, ilegíveis ou com dimensões incorretas). Corrija os arquivos antes de aprovar este estado.</p><div class="review-controls"><label>Revisão do estado <select class="review-status" disabled aria-label="Revisão '+escapeHtml(state)+'"><option value="pending">Pendente</option><option value="approved">Aprovado</option><option value="rejected">Reprovado</option></select></label><label>Observações <textarea class="review-note" aria-label="Observações '+escapeHtml(state)+'" placeholder="Contraste, clipping, foco, hierarquia, ergonomia…"></textarea></label></div></details>';
+ }).join('\n');
+ const css=':root{color-scheme:dark;font-family:system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:#101218;color:#e9ebf3}header{position:sticky;top:0;z-index:2;background:#191d27;padding:16px 24px;border-bottom:1px solid #454c5a}h1{font-size:21px;margin:0 0 8px}p{margin:4px 0;color:#bfc6d6}nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}input,button,select,textarea{background:#2b3040;color:white;border:1px solid #737c92;border-radius:7px;padding:9px 12px;font:inherit}input{min-width:220px}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #b2a0ff;outline-offset:2px}main{padding:14px 24px}.state{margin:12px 0;background:#1a1e28;border:1px solid #424858;border-radius:10px}.state>summary{cursor:pointer;padding:15px;font-weight:700}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px;padding:12px}figure{margin:0;min-width:0;background:#0c0e14;border:1px solid #3a4050;border-radius:7px;overflow:hidden}figcaption{padding:9px 12px;color:#d7dceb;font-size:13px}figure img{display:block;width:100%;height:auto}figure a:focus-visible{outline:3px solid #b2a0ff;outline-offset:-3px}.missing{padding-bottom:20px;text-align:center}.missing p{color:#ffb4b4}.review-controls{display:flex;gap:12px;align-items:start;flex-wrap:wrap;padding:12px;border-top:1px solid #424858}.review-controls label{display:flex;flex-direction:column;gap:5px;font-size:13px;flex:1 1 200px}.review-controls label:last-child{flex:3 1 360px}.review-controls textarea{min-height:60px;resize:vertical}.badge{margin-left:8px;padding:3px 7px;border-radius:6px;font-size:11px;background:#383e50;color:#f0f0f0}.state[data-verdict="approved"] .badge{background:#215940;color:#d2ffe3}.state[data-verdict="rejected"] .badge{background:#702f38;color:#ffe1e1}#review-progress{font-weight:600}#review-warning{color:#ffce8b}.image-warning{padding:0 12px 10px;color:#ffb4b4}.image-warning[hidden]{display:none}.review-status:disabled{cursor:wait;opacity:.65}figure a{cursor:zoom-in}#review-confirm{width:min(92vw,430px);max-width:92vw;padding:22px;border:1px solid #737c92;border-radius:12px;background:#191d27;color:#e9ebf3}#review-confirm::backdrop{background:rgba(0,0,0,.72)}#review-confirm h2{margin:0 0 10px;font-size:18px}#review-confirm p{margin-bottom:20px}#review-confirm footer{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}#image-viewer{width:min(96vw,1480px);max-width:96vw;max-height:96vh;padding:14px;border:1px solid #737c92;border-radius:12px;background:#161b27;color:#e9ebf3}#image-viewer::backdrop{background:rgba(0,0,0,.82)}.viewer-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}#viewer-label{flex:1 1 240px;font-weight:650}#viewer-image{display:block;max-width:100%;max-height:calc(96vh - 285px);width:auto;height:auto;margin:auto;object-fit:contain}.viewer-review{display:grid;grid-template-columns:minmax(125px,1fr) minmax(180px,2fr) minmax(0,2fr);gap:10px;align-items:end;margin-top:12px;padding-top:12px;border-top:1px solid #454c5a}.viewer-review label{display:flex;flex-direction:column;gap:5px;font-size:12px}.viewer-review textarea{min-height:46px;max-height:110px;resize:vertical} .viewer-review select{width:100%}.viewer-state-nav{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}.viewer-state-nav span{font-size:12px;color:#bfc6d6} .viewer-state-nav button{white-space:normal;min-width:0}@media(max-width:700px){header,main{padding:12px}.viewer-review{grid-template-columns:1fr}.viewer-review textarea{min-height:36px}#viewer-image{max-height:calc(96vh - 360px)}}';
+ const script=String.raw`
+const sessionId=JSON.parse(document.querySelector("#review-session").textContent);
+const storageKey="mdress-ux023-review:"+sessionId;
+const states=[...document.querySelectorAll(".state")];
+const variantCount=${UX_QA_MATRIX.length};
+const search=document.querySelector("#filter");
+const progress=document.querySelector("#review-progress");
+const warning=document.querySelector("#review-warning");
+const importStatus=document.querySelector("#review-import-status");
+const importButton=document.querySelector("#import-review-button");
+const importInput=document.querySelector("#import-review");
+let onlyPending=false;
+let saved={};
+let storageFailure=false;
+// Use an accessible dialog rather than browser-native confirm() for review decisions.
+const confirmDialog=document.querySelector("#review-confirm");
+function askReviewConfirmation(message,actionLabel="Confirmar"){
+ return new Promise(resolve=>{
+  const origin=document.activeElement;
+  const cancel=confirmDialog.querySelector("[data-confirm-cancel]");
+  const accept=confirmDialog.querySelector("[data-confirm-accept]");
+  confirmDialog.querySelector("#review-confirm-message").textContent=message;
+  accept.textContent=actionLabel;
+  confirmDialog.returnValue="cancel";
+  cancel.onclick=()=>confirmDialog.close("cancel");
+  accept.onclick=()=>confirmDialog.close("confirm");
+  confirmDialog.addEventListener("close",()=>{
+   cancel.onclick=null;accept.onclick=null;
+   if(origin?.isConnected&&origin.getClientRects().length)origin.focus({preventScroll:true});
+   resolve(confirmDialog.returnValue==="confirm");
+  },{once:true});
+  confirmDialog.showModal();
+  cancel.focus();
+ });
+}
+const imageChecks=new WeakMap();
+// Fresh export checks supersede any slower validation still decoding images.
+// A stale success must never re-enable approval after a newer check fails.
+const imageCheckVersions=new WeakMap();
+let verificationNonce=0;
+try{saved=JSON.parse(localStorage.getItem(storageKey)||"{}");if(!saved||typeof saved!=="object"||Array.isArray(saved))saved={};}catch{saved={};storageFailure=true;}
+function persist(){
+ try{
+  localStorage.setItem(storageKey,JSON.stringify(saved));
+  const wasUnavailable=storageFailure;
+  storageFailure=false;
+  if(wasUnavailable)refresh();
+ }catch{
+  storageFailure=true;
+  warning.textContent="Armazenamento indisponível. Exporte antes de fechar a página.";
+ }
+}
+async function verifyImages(section,{fresh=false}={}){
+ if(fresh)imageChecks.delete(section);
+ if(imageChecks.has(section))return imageChecks.get(section);
+ const version=(imageCheckVersions.get(section)||0)+1;
+ imageCheckVersions.set(section,version);
+ const isCurrent=()=>imageCheckVersions.get(section)===version;
+ const select=section.querySelector(".review-status");
+ const warningEl=section.querySelector(".image-warning");
+ const check=(async()=>{
+  const images=[...section.querySelectorAll("figure img")];
+  if(images.length!==variantCount)throw Error("Matriz incompleta");
+  // Decode one screenshot at a time. For HTTP origins, fetch uncached bytes
+  // and close ImageBitmaps explicitly: Chromium may retain a prior 404 in
+  // its image decoder even after the file has been restored. Local file://
+  // galleries use Image.decode(), since browsers often block file:// fetch.
+  for(const img of images){
+   const figure=img.closest("figure");
+   const expectedWidth=Number(figure?.dataset.viewportWidth);
+   const expectedHeight=Number(figure?.dataset.viewportHeight);
+   let actualWidth=0,actualHeight=0;
+   if(fresh&&location.protocol!=="file:"&&typeof createImageBitmap==="function"){
+    const source=new URL(img.src,location.href);
+    source.searchParams.set("mdress-verify",String(++verificationNonce));
+    let response;
+    try{response=await fetch(source.href,{cache:"no-store"});}
+    catch{throw Error(img.alt+": arquivo indisponível ou ilegível");}
+    if(!response.ok)throw Error(img.alt+": arquivo indisponível ou ilegível");
+    let bitmap;
+    try{bitmap=await createImageBitmap(await response.blob());}
+    catch{throw Error(img.alt+": arquivo indisponível ou ilegível");}
+    actualWidth=bitmap.width;actualHeight=bitmap.height;
+    bitmap.close();
+   }else{
+    for(let attempt=0;attempt<(fresh?2:1);attempt++){
+     const candidate=fresh?new Image():img;
+     if(fresh){
+      const source=new URL(img.src,location.href);
+      source.searchParams.set("mdress-verify",String(++verificationNonce));
+      candidate.src=source.href;
+     }else img.loading="eager";
+     let decoded=false;
+     try{await candidate.decode();decoded=true;}
+     catch{}
+     if(!decoded){
+      if(fresh)candidate.removeAttribute("src");
+      if(attempt+1<(fresh?2:1))continue;
+      throw Error(img.alt+": arquivo indisponível ou ilegível");
+     }
+     actualWidth=candidate.naturalWidth;actualHeight=candidate.naturalHeight;
+     if(fresh)candidate.removeAttribute("src");
+     break;
+    }
+   }
+   if(actualWidth!==expectedWidth||actualHeight!==expectedHeight)
+    throw Error(img.alt+": esperado "+expectedWidth+"×"+expectedHeight+
+     ", recebido "+actualWidth+"×"+actualHeight);
+  }
+  if(isCurrent()){
+   select.disabled=false;
+   warningEl.hidden=true;
+   if(viewerSection===section)syncViewerReview();
+  }
+  return isCurrent();
+ })().catch(error=>{
+  if(!isCurrent())return false;
+  select.disabled=true;
+  warningEl.textContent="Não foi possível validar as "+variantCount+" capturas: "+(error?.message||"erro desconhecido");
+  warningEl.hidden=false;
+  const key=section.dataset.name;
+  if(saved[key]?.status==="approved"){
+   saved[key]={...saved[key],status:"pending"};
+   select.value="pending";
+   persist();
+  }
+  refresh();
+  // The dialog has a separate verdict control; never leave it enabled after
+  // evidence fails while the reviewer is inspecting this same state.
+  if(viewerSection===section)syncViewerReview();
+  return false;
+ });
+ imageChecks.set(section,check);
+ const result=await check;
+ if(!result&&imageChecks.get(section)===check)imageChecks.delete(section); // Permit retry after files are restored.
+ return result;
+}
+function refresh(){
+ let approved=0,rejected=0;
+ for(const section of states){
+  const key=section.dataset.name;
+  const entry=saved[key]||{};
+  const status=["approved","rejected"].includes(entry.status)?entry.status:"pending";
+  section.dataset.verdict=status;
+  const badge=section.querySelector(".badge");
+  badge.textContent=status==="approved"?"Aprovado":status==="rejected"?"Reprovado":"Pendente";
+  badge.setAttribute("aria-label",status==="approved"?"Revisão aprovada":status==="rejected"?"Revisão reprovada":"Revisão pendente");
+  if(status==="approved")approved++;
+  if(status==="rejected")rejected++;
+  section.hidden=(onlyPending&&status==="approved")||!key.includes(search.value.trim().toLowerCase());
+ }
+ progress.textContent=approved+"/"+states.length+" estados aprovados · "+rejected+" reprovados · "+(states.length-approved-rejected)+" pendentes";
+ warning.textContent=storageFailure?"Armazenamento indisponível. Exporte antes de fechar a página.":
+  rejected?"Há estados reprovados: não aprove a UX.":approved===states.length?"Todos os estados revisados. Exporte o registro para homologação.":"A aprovação exige revisão explícita de todos os estados.";
+ if(viewerSection)syncViewerReview();
+}
+for(const section of states){
+ const key=section.dataset.name;
+ const select=section.querySelector(".review-status");
+ const note=section.querySelector(".review-note");
+ select.value=["approved","rejected"].includes(saved[key]?.status)?saved[key].status:"pending";
+ note.value=typeof saved[key]?.note==="string"?saved[key].note:"";
+ section.addEventListener("toggle",()=>{if(section.open)void verifyImages(section);});
+ if(section.open)void verifyImages(section);
+ select.addEventListener("change",()=>{saved[key]={status:select.value,note:note.value};persist();refresh();});
+ note.addEventListener("input",()=>{saved[key]={status:select.value,note:note.value};persist();});
+}
+search.addEventListener("input",()=>{refresh();if(search.value.trim())for(const s of states)if(!s.hidden)s.open=true;});
+document.querySelector("#only-pending").addEventListener("click",event=>{onlyPending=!onlyPending;event.currentTarget.setAttribute("aria-pressed",String(onlyPending));refresh();});
+document.querySelector("#expand").addEventListener("click",()=>states.forEach(s=>{if(!s.hidden)s.open=true;}));
+document.querySelector("#collapse").addEventListener("click",()=>states.forEach(s=>s.open=false));
+document.querySelector("#export-review").addEventListener("click",async event=>{
+ const exportButton=event.currentTarget;
+ exportButton.disabled=true;
+ warning.textContent="Verificando as "+variantCount+" capturas de cada estado antes da exportação…";
+ try{
+  // Decode in bounded batches: 300 full-viewport PNGs at once can exhaust
+  // memory on the laptops used for headed visual review.
+  for(let offset=0;offset<states.length;offset++){
+   warning.textContent="Verificando capturas: "+(offset+1)+"/"+states.length+" estados…";
+   await verifyImages(states[offset],{fresh:true});
+  }
+ }finally{exportButton.disabled=false;}
+ const review={schema:1,sessionId,exportedAt:new Date().toISOString(),states:Object.fromEntries(states.map(section=>{
+  const key=section.dataset.name,entry=saved[key]||{};
+  return [key,{status:entry.status||"pending",note:entry.note||""}];
+ }))};
+ const url=URL.createObjectURL(new Blob([JSON.stringify(review,null,2)+"\n"],{type:"application/json"}));
+ const a=document.createElement("a");a.href=url;a.download="mdress-ux023-review.json";document.body.append(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+ refresh();
+});
+// A reviewer can recover an exported draft after storage eviction or move it
+// to another browser. Import is strictly session-bound: a verdict from a
+// different screenshot run can never silently approve the current evidence.
+async function importReview(file){
+ if(!file)return;
+ importButton.disabled=true;
+ importStatus.textContent="Validando revisão importada…";
+ try{
+  if(file.size>1_000_000)throw Error("Arquivo maior que 1 MB.");
+  const review=JSON.parse(await file.text());
+  if(review?.schema!==1||review.sessionId!==sessionId||
+   !review.states||typeof review.states!=="object"||Array.isArray(review.states))
+   throw Error("Arquivo incompatível ou pertencente a outra sessão.");
+  const expected=new Set(states.map(section=>section.dataset.name));
+  const keys=Object.keys(review.states);
+  if(keys.length!==states.length||keys.some(key=>!expected.has(key)))
+   throw Error("O arquivo não contém exatamente os estados desta sessão.");
+  const imported={};
+  for(const key of keys){
+   const entry=review.states[key];
+   if(!entry||!["pending","approved","rejected"].includes(entry.status)||
+    typeof entry.note!=="string"||entry.note.length>4000)
+    throw Error("Veredito ou observação inválida: "+key);
+   imported[key]={status:entry.status,note:entry.note};
+  }
+  if(Object.values(saved).some(entry=>entry?.status!=="pending"||entry?.note)&&
+   !await askReviewConfirmation("Substituir as avaliações atuais pelo arquivo importado?","Substituir")){
+   importStatus.textContent="Importação cancelada. Avaliações preservadas.";
+   return;
+  }
+  // Recheck approved states against the actual local image files before
+  // restoring their verdicts. An imported JSON is not visual evidence.
+  for(const section of states){
+   if(imported[section.dataset.name].status!=="approved")continue;
+   importStatus.textContent="Verificando capturas de "+section.dataset.name+"…";
+   if(!await verifyImages(section,{fresh:true}))
+    throw Error("Capturas inválidas para "+section.dataset.name+". Nenhuma aprovação importada.");
+  }
+  saved=imported;
+  for(const section of states){
+   const entry=imported[section.dataset.name];
+   section.querySelector(".review-status").value=entry.status;
+   section.querySelector(".review-note").value=entry.note;
+  }
+  persist();refresh();
+  importStatus.textContent="Revisão recuperada para esta sessão. Confira os vereditos antes de exportar.";
+ }catch(error){
+  importStatus.textContent="Importação recusada: "+(error?.message||"arquivo inválido");
+ }finally{
+  importInput.value="";
+  importButton.disabled=false;
+ }
+}
+importButton.addEventListener("click",()=>importInput.click());
+importInput.addEventListener("change",event=>{void importReview(event.target.files?.[0]);});
+document.querySelector("#reset-review").addEventListener("click",async()=>{
+ if(!await askReviewConfirmation("Apagar avaliações deste conjunto de capturas?","Limpar revisão"))return;
+ saved={};persist();
+ for(const s of states){s.querySelector(".review-status").value="pending";s.querySelector(".review-note").value="";}
+ refresh();
+});
+// Review all variants in one accessible dialog, without opening six tabs.
+// Modified clicks retain the original image link for pixel-level inspection.
+const viewer=document.querySelector("#image-viewer");
+const viewerImage=document.querySelector("#viewer-image");
+const viewerLabel=document.querySelector("#viewer-label");
+const viewerOriginal=document.querySelector("#viewer-original");
+let viewerImages=[],viewerIndex=0,viewerOrigin=null,viewerSection=null;
+const viewerStatus=document.querySelector("#viewer-status");
+const viewerNote=document.querySelector("#viewer-note");
+const viewerNextState=document.querySelector("#viewer-next-state");
+const viewerPrevState=document.querySelector("#viewer-prev-state");
+const viewerStatePosition=document.querySelector("#viewer-state-position");
+function syncViewerReview(){
+ if(!viewerSection)return;
+ const select=viewerSection.querySelector(".review-status");
+ const note=viewerSection.querySelector(".review-note");
+ viewerStatus.value=select.value;
+ viewerStatus.disabled=select.disabled;
+ viewerNote.value=note.value;
+ const visibleStates=states.filter(section=>!section.hidden);
+ const position=visibleStates.indexOf(viewerSection);
+ viewerStatePosition.textContent=position<0?"Estado filtrado":
+  "Estado "+(position+1)+"/"+visibleStates.length;
+ const hasDestination=visibleStates.some(section=>section!==viewerSection);
+ viewerNextState.disabled=!hasDestination;
+ viewerPrevState.disabled=!hasDestination;
+}
+function setViewerSection(section,anchor,{preserveVariant=false}={}){
+ // Match by theme + viewport identity, not array index: if one capture
+ // is missing, the remaining images shift positions in the DOM.
+ const previous=viewerImages[viewerIndex]?.closest("figure");
+ const previousTheme=previous?.dataset.theme;
+ const previousWidth=previous?.dataset.viewportWidth;
+ viewerSection=section;
+ section.open=true;
+ viewerImages=[...section.querySelectorAll("figure img")];
+ const matching=preserveVariant?viewerImages.findIndex(img=>{
+  const figure=img.closest("figure");
+  return figure?.dataset.theme===previousTheme&&figure?.dataset.viewportWidth===previousWidth;
+ }):-1;
+ viewerIndex=matching>=0?matching:0;
+ viewerOrigin=preserveVariant?viewerImages[viewerIndex]?.closest("a")||anchor:anchor;
+ showViewerImage();
+ syncViewerReview();
+ // A state may be shown before its lazy screenshots finish decoding.
+ // Never permit approval in the viewer until every variant has been verified.
+ void verifyImages(section).then(()=>{if(viewerSection===section)syncViewerReview();});
+}
+function showViewerImage(){
+ const img=viewerImages[viewerIndex];
+ if(!img)return;
+ viewerImage.src=img.src;
+ viewerImage.alt=img.alt;
+ viewerLabel.textContent=(viewerIndex+1)+"/"+viewerImages.length+" · "+img.alt;
+ viewerOriginal.href=img.src;
+}
+function navigateViewer(step){
+ if(!viewerImages.length)return;
+ viewerIndex=(viewerIndex+step+viewerImages.length)%viewerImages.length;
+ // Focus must return to the thumbnail currently displayed, not the one
+ // that originally opened the dialog before the reviewer used the carousel.
+ viewerOrigin=viewerImages[viewerIndex]?.closest("a")||viewerOrigin;
+ showViewerImage();
+}
+for(const section of states){
+ section.querySelectorAll("figure a").forEach(anchor=>anchor.addEventListener("click",event=>{
+  if(event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+  event.preventDefault();
+  setViewerSection(section,anchor);
+  viewerIndex=viewerImages.indexOf(anchor.querySelector("img"));
+  if(viewerIndex<0)return;
+  showViewerImage();
+  viewer.showModal();
+ }));
+}
+viewerStatus.addEventListener("change",()=>{
+ if(!viewerSection)return;
+ const select=viewerSection.querySelector(".review-status");
+ if(select.disabled){syncViewerReview();return;}
+ select.value=viewerStatus.value;
+ select.dispatchEvent(new Event("change",{bubbles:true}));
+ syncViewerReview();
+});
+viewerNote.addEventListener("input",()=>{
+ if(!viewerSection)return;
+ const note=viewerSection.querySelector(".review-note");
+ note.value=viewerNote.value;
+ note.dispatchEvent(new Event("input",{bubbles:true}));
+});
+function moveViewerState(direction){
+ if(!viewerSection)return;
+ // Approving with "Ocultar aprovados" active hides the current state.
+ // Continue from its original position rather than getting stuck because
+ // the current state no longer appears in the filtered list.
+ const current=states.indexOf(viewerSection);
+ for(let offset=1;offset<states.length;offset++){
+  const index=(current+direction*offset+states.length*2)%states.length;
+  const next=states[index];
+  if(next.hidden)continue;
+  const anchor=next.querySelector("figure a");
+  if(anchor)setViewerSection(next,anchor,{preserveVariant:true});
+  return;
+ }
+}
+viewerNextState.addEventListener("click",()=>moveViewerState(1));
+viewerPrevState.addEventListener("click",()=>moveViewerState(-1));
+viewer.querySelector("#viewer-prev").addEventListener("click",()=>navigateViewer(-1));
+viewer.querySelector("#viewer-next").addEventListener("click",()=>navigateViewer(1));
+viewer.querySelector("#viewer-close").addEventListener("click",()=>viewer.close());
+viewer.addEventListener("keydown",event=>{
+ // Arrow keys in the review textarea/select belong to the native editor,
+ // not to the image carousel.
+ if(event.target.closest("input,textarea,select,[contenteditable]"))return;
+ if(event.key==="ArrowLeft"||event.key==="ArrowRight"){
+  event.preventDefault();
+  if(event.shiftKey)moveViewerState(event.key==="ArrowLeft"?-1:1);
+  else navigateViewer(event.key==="ArrowLeft"?-1:1);
+ }
+});
+viewer.addEventListener("close",()=>{
+ viewerImage.removeAttribute("src");
+ viewerSection=null;
+ const origin=viewerOrigin;
+ // Native <dialog> restores focus to its original opener when it closes.
+ // Defer our handoff until after that restoration, because navigation inside
+ // the dialog may have changed the currently reviewed state.
+ requestAnimationFrame(()=>{
+  if(origin?.isConnected&&origin.getClientRects().length)origin.focus();
+  else search.focus();
+ });
+});
+refresh();
+`; 
+ return ['<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>mdress — revisão visual UX-023</title><style>'+css+'</style></head><body>',
+  '<header><h1>mdress · QA visual supervisionado</h1><p>'+screenshots.length+' capturas registradas; '+coverage.expected+' obrigatórias. Falhas/ausências: '+coverage.missing.length+'. Testes verdes não aprovam a UX.</p><p id="review-progress" role="status" aria-live="polite"></p><p id="review-warning"></p><p id="review-import-status" role="status" aria-live="polite"></p>',
+  '<nav><label for="filter">Filtrar estado</label><input id="filter" type="search" placeholder="Ex.: color, focus, range"><button id="only-pending" type="button" aria-pressed="false">Ocultar aprovados</button><button id="export-review" type="button">Exportar revisão JSON</button><button id="import-review-button" type="button">Importar revisão JSON</button><input id="import-review" type="file" accept="application/json,.json" hidden><button id="reset-review" type="button">Limpar revisão</button><button id="expand" type="button">Expandir</button><button id="collapse" type="button">Recolher</button></nav></header>',
+  '<main>'+sections+'</main><dialog id="review-confirm" aria-labelledby="review-confirm-title" aria-describedby="review-confirm-message"><h2 id="review-confirm-title">Confirmar revisão</h2><p id="review-confirm-message"></p><footer><button type="button" data-confirm-cancel>Cancelar</button><button type="button" data-confirm-accept>Confirmar</button></footer></dialog><dialog id="image-viewer" aria-label="Inspecionar captura"><div class="viewer-toolbar"><span id="viewer-label"></span><a id="viewer-original" target="_blank" rel="noopener">Abrir original</a><button id="viewer-prev" type="button">← Anterior</button><button id="viewer-next" type="button">Próxima →</button><button id="viewer-close" type="button">Fechar</button></div><img id="viewer-image" alt=""><p>Setas ← → alternam todas as capturas; Shift + ← → compara o mesmo tema e largura entre estados; Esc fecha. A avaliação exige uma decisão humana por estado.</p><div class="viewer-review"><label>Revisão deste estado<select id="viewer-status" aria-label="Revisão no visualizador" disabled><option value="pending">Pendente</option><option value="approved">Aprovado</option><option value="rejected">Reprovado</option></select></label><label>Observações<textarea id="viewer-note" aria-label="Observações no visualizador" placeholder="Contraste, foco, clipping, ergonomia…"></textarea></label><div class="viewer-state-nav"><span id="viewer-state-position" role="status" aria-live="polite"></span><button id="viewer-prev-state" type="button">← Estado anterior</button><button id="viewer-next-state" type="button">Próximo estado →</button></div></div></dialog><script id="review-session" type="application/json">'+JSON.stringify(sessionId)+'</script><script>'+script+'</script></body></html>'].join('\n');
+}

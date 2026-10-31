@@ -1,3 +1,4 @@
+import {BACKGROUND_KIND_COST} from './pdf-weight.js';
 import {defaults,validateTheme,fontFamilies,fontCategory} from './resume-themes.js';
 import {applyBackgroundPreset,getBackgroundPreset} from './background-presets.js';
 /** Curated design recipes for ANY Markdown document. No external fonts or images. */
@@ -66,7 +67,10 @@ export function shuffleTheme(base=defaults,locks={},random=Math.random){
  const options=themeRecipes.map(item=>recipeTheme(item,old,locked));
  const changed=options.filter(next=>JSON.stringify(next)!==JSON.stringify(old));
  if(!changed.length)return old;
- const pick=changed[Math.min(changed.length-1,Math.floor(r*changed.length))];
+ const maxCost=Math.max(...changed.map(o=>BACKGROUND_KIND_COST[o.backgroundStyle.kind]??0));
+ const lighter=changed.filter(o=>(BACKGROUND_KIND_COST[o.backgroundStyle.kind]??0)<maxCost);
+ const pool=lighter.length?lighter:changed;
+ const pick=pool[Math.min(pool.length-1,Math.floor(r*pool.length))];
  // A recipe defines the direction; independent parameter offsets give each draw variation.
  // Use a deterministic fractional mixer for reproducible tests and one entropy sample.
  const mix=x=>{const t=Math.sin((r+0.001)*12345.678+x*78.233)*43758.5453;return t-Math.floor(t);};

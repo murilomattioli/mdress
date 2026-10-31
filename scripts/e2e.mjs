@@ -1,13 +1,52 @@
 import {chromium} from 'playwright';
 import {strict as assert} from 'node:assert';
 import {mkdir} from 'node:fs/promises';
+async function reveal(page,id){await page.evaluate(async id=>{if(document.getElementById('themesView').classList.contains('hidden'))document.getElementById('designToggle').click();const {revealInspectorControl}=await import('/property-inspector.js');revealInspectorControl(id);},id);}
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const page=await browser.newPage({viewport:{width:1600,height:950}});
 const errors=[];
 page.on('pageerror',e=>errors.push(e.message));
+// No-op interactions must not create duplicate document edits or history entries.
+async function assertNoRedundantNativeEvents(control,action,description){
+ await control.evaluate(el=>{
+  if(!el.__qaNativeEvents){
+   el.__qaNativeEvents={input:0,change:0};
+   el.addEventListener('input',()=>el.__qaNativeEvents.input++);
+   el.addEventListener('change',()=>el.__qaNativeEvents.change++);
+  }
+  el.__qaNativeEvents.input=0;el.__qaNativeEvents.change=0;
+ });
+ await action();
+ assert.deepEqual(await control.evaluate(el=>el.__qaNativeEvents),{input:0,change:0},description);
+}
+// Verify the focused *field* is visibly identified, not just its containing row.
+async function assertInspectorTextFocus(control,description){
+ await control.focus();
+ const state=await control.evaluate(el=>({
+  visible:el.matches(':focus-visible'),
+  style:getComputedStyle(el).outlineStyle,
+  width:parseFloat(getComputedStyle(el).outlineWidth),
+ }));
+ assert.ok(state.visible&&state.style==='solid'&&state.width>=1.9,
+  description+': '+JSON.stringify(state));
+}
 try {
- await page.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+ await page.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
  await page.locator('#source').waitFor();
+ // A4 print media must not inherit the narrow-screen inspector overlay hiding.
+ const printPage=await browser.newPage({viewport:{width:794,height:1123}});
+ try{
+  await printPage.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await reveal(printPage,'bgKind');
+  await printPage.emulateMedia({media:'print'});
+  assert.equal(await printPage.locator('#rendered').evaluate(el=>getComputedStyle(el).visibility),'visible','Open inspector must not hide printed document');
+  assert.ok(await printPage.locator('#rendered').isVisible(),'Print canvas must remain visible at A4 width');
+ }finally{await printPage.close();}
+ // Entity grouping must preserve original controls and their scope.
+ assert.equal(await page.locator('#sectionComposerView #sectionStyleReset').count(),1);
+ assert.equal(await page.locator('#inspector-page .ds-accordion').count(),3);
+ assert.equal(await page.locator('#inspector-themes .ds-accordion').count(),4);
+ assert.equal(await page.locator('#inspector-document .property-section').first().locator('#fontChoice').count(),1);
  await page.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent!=='Carregando…');
  const source=page.locator('#source');
  assert.ok((await source.inputValue()).includes('O título do artigo'));
@@ -23,9 +62,9 @@ try {
  // show focus for keyboard users without highlighting mouse-only or sibling focus.
  await page.locator('#newDoc').focus();
  await page.keyboard.press('Shift+Tab');
- const pickerFocused=await page.locator('#docPicker').evaluate(el=>el.matches(':focus-visible'));
+ const pickerFocused=await page.locator('[data-select-id=docPicker] .ds-select-trigger').evaluate(el=>el.matches(':focus-visible'));
  assert.equal(pickerFocused,true,'Document picker must receive keyboard-visible focus');
- const pickerRing=await page.locator('.document-selector').evaluate(el=>({
+ const pickerRing=await page.locator('[data-select-id=docPicker] .ds-select-trigger').evaluate(el=>({
   width:getComputedStyle(el).outlineWidth,
   style:getComputedStyle(el).outlineStyle
  }));
@@ -33,19 +72,14 @@ try {
  assert.equal(pickerRing.style,'solid','Document picker focus ring must be visible');
  await page.locator('.topbar').screenshot({path:'test-results/ux-audit/document-picker-focused.png',animations:'disabled'});
  await page.keyboard.press('Tab');
- assert.equal(await page.locator('.document-selector').evaluate(el=>getComputedStyle(el).outlineStyle),'none','Picker ring must not persist on sibling button focus');
- // Wrap complete groups at split widths, preserving scroll arrows as a narrow-width fallback.
+ assert.equal(await page.locator('[data-select-id=docPicker] .ds-select-trigger').evaluate(el=>getComputedStyle(el).outlineStyle),'none','Picker ring must not persist on sibling button focus');
+ // Toolbar stays on one row at split widths; arrows expose clipped actions.
  await page.setViewportSize({width:1024,height:900});
  const toolbar=page.locator('.markdown-toolbar');
  const nextTools=page.getByRole('button',{name:'Rolar ferramentas para a direita'});
  const previousTools=page.getByRole('button',{name:'Rolar ferramentas para a esquerda'});
- await page.waitForFunction(()=>{
-  const el=document.querySelector('.markdown-toolbar');
-  return el.scrollWidth<=el.clientWidth+2;
- });
  const groupRows=await toolbar.locator('.tool-group').evaluateAll(groups=>groups.map(el=>Math.round(el.getBoundingClientRect().top)));
- assert.ok(groupRows[2]>groupRows[0],'Block actions should wrap onto a visible second row');
- assert.equal(await nextTools.isVisible(),false,'No scroll arrows needed when all groups fit');
+ assert.ok(groupRows.every(y=>y===groupRows[0]),'Toolbar actions must stay on a single row');
  // At exceptionally narrow editor widths, keep overflow discoverable and keyboard reachable.
  await toolbar.evaluate(el=>{el.parentElement.style.width='180px';});
  await nextTools.waitFor({state:'visible'});
@@ -55,12 +89,77 @@ try {
  assert.equal(await previousTools.isDisabled(),false);
  await previousTools.click();
  await page.waitForFunction(()=>document.querySelector('.markdown-toolbar').scrollLeft<2);
- await toolbar.evaluate(el=>{el.parentElement.style.removeProperty('width');});
- await page.waitForFunction(()=>{
-  const el=document.querySelector('.markdown-toolbar');
-  return el.scrollWidth<=el.clientWidth+2;
+ // Scroll arrows must not lose keyboard focus when they become disabled
+ // at either boundary. The opposite direction remains operable.
+ await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Rolar ferramentas para a direita');
+ await nextTools.focus();
+ await toolbar.evaluate(el=>{el.scrollLeft=el.scrollWidth;});
+ await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Rolar ferramentas para a esquerda');
+ assert.equal(await nextTools.isDisabled(),true,'End of toolbar disables the forward arrow');
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-scroll-end-focus-handoff.png',animations:'disabled'});
+ await toolbar.evaluate(el=>{el.scrollLeft=0;});
+ await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Rolar ferramentas para a direita');
+ assert.equal(await previousTools.isDisabled(),true,'Start of toolbar disables the backward arrow');
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-scroll-start-focus-handoff.png',animations:'disabled'});
+ // Switching to a mode that hides the toolbar while a scroll arrow owns
+ // focus must land on the editor, never on a hidden command or the body.
+ await nextTools.focus();
+ await toolbar.evaluate(el=>{el.style.display='none';});
+ await page.waitForFunction(()=>document.activeElement?.id==='source');
+ assert.equal(await page.locator('#source').evaluate(el=>el===document.activeElement),true,
+  'Hiding a toolbar with a focused scroll arrow must restore editor focus');
+ await page.screenshot({path:'test-results/ux-audit/toolbar-hidden-arrow-focus-handoff.png',animations:'disabled'});
+ await toolbar.evaluate(el=>{el.style.removeProperty('display');});
+ await nextTools.waitFor({state:'visible'});
+ // Newly added toolbar groups must be observed, and disabling a focused
+ // action must preserve keyboard navigation even without a resize event.
+ await toolbar.evaluate(el=>{
+  const group=document.createElement('span');group.className='tool-group';group.dataset.qaDynamicGroup='true';
+  const action=document.createElement('button');action.type='button';action.textContent='Ação QA';
+  action.dataset.qaDynamicAction='true';group.append(action);el.append(group);
  });
- await page.locator('#headingCommand').focus();
+ const dynamicAction=toolbar.locator('[data-qa-dynamic-action]');
+ await dynamicAction.focus();
+ await dynamicAction.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>{
+  const active=document.activeElement;
+  return Boolean(active?.closest('.markdown-toolbar')&&!active.disabled&&
+   active!==document.querySelector('[data-qa-dynamic-action]'));
+ });
+ // Hiding a group must recover focus even when the action remains enabled.
+ await dynamicAction.evaluate(el=>{el.disabled=false;});
+ await dynamicAction.focus();
+ await toolbar.locator('[data-qa-dynamic-group]').evaluate(el=>{el.hidden=true;});
+ assert.equal(await dynamicAction.isVisible(),false,'Hidden toolbar groups must not render or remain tabbable');
+ await page.waitForFunction(()=>{
+  const active=document.activeElement,hidden=document.querySelector('[data-qa-dynamic-action]');
+  return Boolean(active?.closest('.markdown-toolbar')&&active!==hidden&&
+   !active.matches(':disabled,[aria-disabled="true"]')&&active.getClientRects().length);
+ });
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-hidden-group-focus-handoff.png',animations:'disabled'});
+ // ARIA-disabled mode changes are observed even when the native button
+ // remains enabled; keyboard focus must leave the unavailable action.
+ await toolbar.locator('[data-qa-dynamic-group]').evaluate(el=>{el.hidden=false;});
+ await dynamicAction.focus();
+ await dynamicAction.evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await page.waitForFunction(()=>{
+  const active=document.activeElement,fixture=document.querySelector('[data-qa-dynamic-action]');
+  return Boolean(active?.closest('.markdown-toolbar')&&active!==fixture&&
+   !active.matches(':disabled,[aria-disabled="true"]')&&active.getClientRects().length);
+ });
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-aria-disabled-focus-handoff.png',animations:'disabled'});
+ await dynamicAction.evaluate(el=>el.removeAttribute('aria-disabled'));
+ // Removing the currently focused action must recover focus as well.
+ await dynamicAction.focus();
+ await toolbar.locator('[data-qa-dynamic-group]').evaluate(el=>el.remove());
+ await page.waitForFunction(()=>{
+  const active=document.activeElement;
+  return Boolean(active?.closest('.markdown-toolbar')&&active!==document.body&&
+   !active.matches(':disabled,[aria-disabled="true"]')&&active.getClientRects().length);
+ });
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-detached-action-focus-handoff.png',animations:'disabled'});
+ await toolbar.evaluate(el=>{el.parentElement.style.removeProperty('width');});
+ await page.locator('[data-select-id=headingCommand] .ds-select-trigger').focus();
  for(let i=0;i<11;i++)await page.keyboard.press('Tab');
  assert.equal(await page.evaluate(()=>document.activeElement?.dataset.mdCommand),'rule');
  const focusVisible=await toolbar.evaluate(root=>{
@@ -79,10 +178,114 @@ try {
  assert.equal(await page.locator('.workspace').getAttribute('data-mode'),'preview');
  await page.locator('[data-workspace-mode="split"]').click();
  await page.locator('#designToggle').click();
- assert.equal(await page.locator('[data-inspector-tab="style"]').getAttribute('aria-selected'),'true');
+ assert.equal(await page.locator('[data-inspector-tab="document"]').getAttribute('aria-selected'),'true');
  await page.locator('[data-inspector-tab="page"]').click();
  assert.equal(await page.locator('#inspector-page').isVisible(),true);
  assert.ok((await page.locator('#inspectorPageCount').textContent()).includes('página'));
+ // A bounded number's auxiliary slider must mirror disabled/invalid native
+ // constraints and recover keyboard focus instead of leaving it on <body>.
+ const marginNumber=page.locator('#marginMm');
+ const marginScrub=page.locator('.ds-property-number').filter({has:marginNumber}).locator('.ds-scrub-range');
+ assert.equal(await marginScrub.count(),1);
+ await marginScrub.focus();
+ await marginNumber.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelector('.ds-scrub-range')?.disabled);
+ assert.equal(await page.evaluate(()=>document.activeElement!==document.body&&
+  Boolean(document.activeElement?.closest('.design-inspector'))&&!document.activeElement?.disabled),true,
+  'Disabling the focused numeric scrub slider must recover inspector focus');
+ await page.screenshot({path:'test-results/ux-audit/number-scrub-disabled-focus-handoff.png',animations:'disabled'});
+ await marginNumber.evaluate(el=>{el.disabled=false;});
+ const marginOriginalMax=await marginNumber.getAttribute('max');
+ await marginScrub.focus();
+ await marginNumber.evaluate(el=>{el.max=el.min;});
+ await page.waitForFunction(()=>document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelector('.ds-scrub-range')?.disabled);
+ assert.equal(await page.evaluate(()=>document.activeElement!==document.body&&
+  Boolean(document.activeElement?.closest('.design-inspector'))&&!document.activeElement?.disabled),true,
+  'Invalid numeric bounds must disable the slider and recover keyboard focus');
+ assert.equal(await marginScrub.evaluate(el=>el.closest('.ds-number-actions').style.getPropertyValue('--ds-range-progress')),'0%');
+ await page.screenshot({path:'test-results/ux-audit/number-scrub-invalid-bounds.png',animations:'disabled'});
+ await marginNumber.evaluate((el,max)=>{el.max=max;},marginOriginalMax);
+ await page.waitForFunction(()=>!document.querySelector('#marginMm')?.closest('.ds-property-number')?.querySelector('.ds-scrub-range')?.disabled);
+ // Enhanced steppers must honor native optional bounds and step=any.
+ // Exercise an isolated inspector fixture so no document settings are changed.
+ await page.evaluate(async()=>{
+  const original=document.querySelector('#marginMm').closest('label');
+  const label=document.createElement('label');
+  label.className='property-row';
+  label.textContent='QA passo sem limites';
+  const input=document.createElement('input');
+  input.id='qaNumberUnbounded';input.type='number';input.step='2';input.value='-2';
+  label.append(input);original.after(label);
+  const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+  enhancePropertyControls();
+ });
+ const qaNumber=page.locator('#qaNumberUnbounded');
+ const qaStepper=page.locator('.ds-property-number').filter({has:qaNumber});
+ const qaMinus=qaStepper.getByRole('button',{name:/Diminuir/});
+ const qaPlus=qaStepper.getByRole('button',{name:/Aumentar/});
+ await assertInspectorTextFocus(qaNumber,'Number input must expose its own focus ring');
+ await qaStepper.screenshot({path:'test-results/ux-audit/inspector-number-focus-ring.png',animations:'disabled'});
+ await qaMinus.click();
+ assert.equal(await qaNumber.inputValue(),'-4','Unbounded number must step below zero');
+ await qaNumber.fill('1002');await qaNumber.dispatchEvent('change');
+ await qaPlus.click();
+ assert.equal(await qaNumber.inputValue(),'1004','Unbounded number must not cap at synthetic 999');
+ await qaNumber.evaluate(el=>{el.step='any';el.value='-2';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await qaMinus.click();
+ assert.equal(await qaNumber.inputValue(),'-3','step=any must not throw or disable the stepper');
+ await qaNumber.evaluate(el=>{el.max='5';el.value='5';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ assert.equal(await qaPlus.isDisabled(),true,'Stepper must honor an explicit upper bound');
+ await qaNumber.evaluate(el=>{el.min='-3';el.removeAttribute('max');el.value='-3';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ assert.equal(await qaMinus.isDisabled(),true,'Stepper must honor an explicit negative minimum');
+ await qaNumber.evaluate(el=>{el.value='-4';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await qaNumber.dispatchEvent('change');
+ assert.match(await qaNumber.locator('..').locator('..').locator('..').locator('.ds-prop-error').textContent(),/maior ou igual a -3/,'One-sided numeric bounds must not display Infinity');
+ await qaStepper.scrollIntoViewIfNeeded();
+ await qaStepper.screenshot({path:'test-results/ux-audit/inspector-number-unbounded-step.png',animations:'disabled'});
+ // Invalid numeric drafts must not escape the enhanced control via bubbled
+ // input/change events: app-level listeners would otherwise persist bad data.
+ await qaNumber.evaluate(el=>{el.min='0';el.max='10';el.step='2';});
+ await qaNumber.fill('4');await qaNumber.dispatchEvent('change');
+ await qaNumber.evaluate(el=>{
+  const label=el.closest('label');
+  label.dataset.inputBubbles='0';label.dataset.changeBubbles='0';
+  label.addEventListener('input',()=>{label.dataset.inputBubbles=String(Number(label.dataset.inputBubbles)+1);label.dataset.lastInput=el.value;});
+  label.addEventListener('change',()=>{label.dataset.changeBubbles=String(Number(label.dataset.changeBubbles)+1);});
+ });
+ const bubbled=()=>qaNumber.evaluate(el=>({
+  input:Number(el.closest('label').dataset.inputBubbles),
+  change:Number(el.closest('label').dataset.changeBubbles)
+ }));
+ await qaNumber.fill('11');await qaNumber.dispatchEvent('change');
+ assert.deepEqual(await bubbled(),{input:0,change:0},'Out-of-bounds drafts cannot reach app listeners');
+ assert.equal(await qaNumber.getAttribute('aria-invalid'),'true');
+ await qaStepper.screenshot({path:'test-results/ux-audit/inspector-number-invalid-draft-isolated.png',animations:'disabled'});
+ await qaNumber.fill('');
+ assert.deepEqual(await bubbled(),{input:0,change:0},'Empty numeric drafts cannot reach app listeners');
+ await qaNumber.fill('5');await qaNumber.dispatchEvent('change');
+ assert.deepEqual(await bubbled(),{input:0,change:0},'Off-step drafts cannot reach app listeners');
+ await qaNumber.fill('6');await qaNumber.dispatchEvent('change');
+ assert.deepEqual(await bubbled(),{input:1,change:1},'Valid drafts must still update the document');
+ await qaNumber.fill('11');await qaNumber.press('Escape');
+ assert.equal(await qaNumber.inputValue(),'6','Escape restores the last valid number');
+ assert.equal(await qaNumber.evaluate(el=>document.activeElement===el),true,'Escape preserves number field focus');
+ // A valid input draft has already bubbled to app listeners, even before
+ // change. Escape and live disable must undo that observable draft as well.
+ await qaNumber.fill('8');
+ assert.deepEqual(await bubbled(),{input:2,change:1});
+ await qaNumber.press('Escape');
+ assert.equal(await qaNumber.inputValue(),'6','Escape restores the last committed value');
+ assert.deepEqual(await bubbled(),{input:3,change:1},'Escape must emit an input rollback without an extra change commit');
+ assert.equal(await qaNumber.evaluate(el=>el.closest('label').dataset.lastInput),'6','External input observers must see the restored value');
+ await qaNumber.fill('10');
+ assert.deepEqual(await bubbled(),{input:4,change:1});
+ await qaNumber.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#qaNumberUnbounded')?.value==='6');
+ assert.equal(await qaNumber.inputValue(),'6','Disabling a field must roll back its uncommitted valid draft');
+ assert.deepEqual(await bubbled(),{input:5,change:1},'Disabling must notify external input observers of the rollback');
+ assert.equal(await qaNumber.evaluate(el=>el.closest('label').dataset.lastInput),'6');
+ await qaNumber.evaluate(el=>{el.disabled=false;});
+ await qaNumber.evaluate(el=>el.closest('label').remove());
  // A disabled native checkbox must also disable its visible binary buttons.
  // With no target section, aligning to the page footer is not a valid action.
  const bottomTarget=page.locator('#bottomSectionTarget');
@@ -97,7 +300,8 @@ try {
  assert.equal(await bottomBinary.locator('button:disabled').count(),2,'Disabled binary control must expose disabled buttons');
  await bottomBinary.locator('.ds-binary-option').last().evaluate(button=>button.click());
  assert.equal(await bottomEnabled.isChecked(),false,'Disabled binary control must not modify native state');
- await bottomBinary.screenshot({path:'test-results/ux-audit/inspector-binary-disabled.png',animations:'disabled'});
+ assert.equal(await bottomBinary.isVisible(),false,'Position controls stay hidden without a concrete section');
+ await page.locator('#inspector-content').screenshot({path:'test-results/ux-audit/inspector-binary-disabled.png',animations:'disabled'});
  assert.ok((await bottomTarget.locator('option').count())>1,'Fixture needs a selectable section');
  await bottomTarget.evaluate(el=>{el.value=el.options[1].value;el.dispatchEvent(new Event('change',{bubbles:true}));});
  await page.waitForFunction(()=>{
@@ -106,8 +310,10 @@ try {
   return native&&!native.disabled&&buttons?.length===2&&[...buttons].every(button=>!button.disabled);
  });
  await bottomTarget.evaluate(el=>{el.value='';el.dispatchEvent(new Event('change',{bubbles:true}));});
- await page.locator('[data-inspector-tab="background"]').click();
+ await page.locator('[data-inspector-tab="document"]').click();
+ await reveal(page,'backgroundGallery');
  assert.equal(await page.locator('.bg-preset').count(),15);
+ await reveal(page,'backgroundGallery');
  await page.locator('.bg-preset[aria-label="Usar fundo Soft Mesh"]').click();
  assert.equal(await page.locator('#bgKind').inputValue(),'mesh');
  assert.equal(await page.locator('.mesh-handle').count(),3);
@@ -131,16 +337,113 @@ try {
  await page.reload({waitUntil:'networkidle'});
  await page.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent==='Salvo localmente');
  await page.locator('#designToggle').click();
- await page.locator('[data-inspector-tab="background"]').click();
+ await page.locator('[data-inspector-tab="document"]').click();
  assert.equal(await page.locator('#bgKind').inputValue(),'mesh');
  assert.equal(await page.locator('.mesh-handle').count(),3);
 
  // PDF settings are appearance choices, not a fake "ATS accepted" toggle.
 
  // Precision property input and keyboard-accessible tab switching.
- await page.locator('[data-inspector-tab="style"]').click();
+ await page.locator('[data-inspector-tab="document"]').click();
+ // A detached QA range must track live min/max/step changes without modifying
+ // the saved document. Keep visual evidence of normal, invalid and disabled states.
+ await page.evaluate(async()=>{
+  const original=document.querySelector('#fontSize').closest('label');
+  const label=document.createElement('label');
+  label.className='property-row';
+  label.textContent='QA faixa dinâmica';
+  const input=document.createElement('input');
+  input.id='qaRangeLive';input.type='range';input.min='0';input.max='10';
+  input.step='2';input.value='4';
+  label.append(input);original.after(label);
+  const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+  enhancePropertyControls();
+ });
+ const qaRange=page.locator('#qaRangeLive');
+ const qaRangeRow=page.locator('.ds-property-range').filter({has:qaRange});
+ const qaRangePrecision=qaRangeRow.locator('.ds-prop-number');
+ assert.equal(await qaRangePrecision.getAttribute('min'),'0');
+ await qaRange.evaluate(el=>{el.min='2';el.max='14';el.step='3';});
+ await page.waitForFunction(()=>document.querySelector('#qaRangeLive')?.closest('.ds-property-range')?.querySelector('.ds-prop-number')?.step==='3');
+ assert.equal(await qaRangePrecision.getAttribute('min'),'2');
+ assert.equal(await qaRangePrecision.getAttribute('max'),'14');
+ await qaRangePrecision.fill('8');await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await qaRange.inputValue(),'8','Range precision must commit on the new native step grid');
+ // A still-focused, valid draft must be stepped from its visible value.
+ // Programmatic activation avoids blur/change implicitly committing it first.
+ await qaRangePrecision.fill('11');
+ assert.equal(await qaRange.inputValue(),'8','Typing alone must not commit the precision draft');
+ await qaRangeRow.screenshot({path:'test-results/ux-audit/inspector-range-live-valid-draft.png',animations:'disabled'});
+ await qaRangeRow.locator('.ds-number-step').last().evaluate(el=>el.click());
+ assert.equal(await qaRange.inputValue(),'14','Stepper must advance from valid draft 11, not stale native 8');
+ assert.equal(await qaRangePrecision.inputValue(),'14','Committed step must sync the precision field');
+ await qaRangePrecision.fill('11');
+ await assertNoRedundantNativeEvents(qaRange,async()=>
+  qaRangeRow.locator('.ds-number-step').last().evaluate(el=>el.click()),
+  'Stepping a valid draft to an unchanged native value must not emit edits');
+ assert.equal(await qaRangePrecision.inputValue(),'14','A no-op native commit must still clear the pending draft');
+ await qaRangePrecision.fill('8');await qaRangePrecision.dispatchEvent('change');
+ await qaRangePrecision.fill('14');
+ assert.equal(await qaRangeRow.locator('.ds-number-step').last().isDisabled(),true,
+  'Stepper availability must follow a valid draft at the upper bound');
+ assert.equal(await qaRangeRow.locator('.ds-number-step').first().isEnabled(),true);
+ assert.equal(await qaRange.inputValue(),'8','A boundary draft must remain uncommitted');
+ await qaRangePrecision.fill('8');await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await qaRange.inputValue(),'8');
+ await qaRangePrecision.fill('9');await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await qaRangePrecision.getAttribute('aria-invalid'),'true','Live step mismatch must be explained');
+ assert.equal(await qaRange.inputValue(),'8','Invalid draft must not mutate native slider');
+ await qaRangeRow.screenshot({path:'test-results/ux-audit/inspector-range-live-step-invalid.png',animations:'disabled'});
+ const invalidRangeSteppers=qaRangeRow.locator('.ds-number-step');
+ assert.equal(await invalidRangeSteppers.first().isDisabled(),true,'An invalid precision draft must block decrement');
+ assert.equal(await invalidRangeSteppers.last().isDisabled(),true,'An invalid precision draft must block increment');
+ await assertNoRedundantNativeEvents(qaRange,async()=>
+  invalidRangeSteppers.last().evaluate(el=>el.click()),'Blocked stepper must not overwrite a mismatched precision draft');
+ assert.equal(await qaRangePrecision.inputValue(),'9','The rejected draft must survive an attempted stepper action');
+ await qaRangePrecision.fill('');
+ await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await qaRangePrecision.inputValue(),'','An empty precision draft must remain editable');
+ assert.equal(await qaRange.inputValue(),'8','Empty precision must not change the source of truth');
+ assert.equal(await invalidRangeSteppers.first().isDisabled(),true);
+ assert.equal(await invalidRangeSteppers.last().isDisabled(),true);
+ await qaRangeRow.screenshot({path:'test-results/ux-audit/inspector-range-live-empty-draft.png',animations:'disabled'});
+ await qaRangePrecision.fill('8');await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await invalidRangeSteppers.first().isEnabled(),true,'Correcting a draft restores decrement');
+ assert.equal(await invalidRangeSteppers.last().isEnabled(),true,'Correcting a draft restores increment');
+ await qaRange.evaluate(el=>{el.step='any';});
+ await page.waitForFunction(()=>document.querySelector('#qaRangeLive')?.closest('.ds-property-range')?.querySelector('.ds-prop-number')?.step==='any');
+ await qaRangePrecision.fill('9.25');await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await qaRange.inputValue(),'9.25','Range step=any must preserve fractional precision');
+ const qaRangePlus=qaRangeRow.locator('.ds-number-step').last();
+ const qaRangeMinus=qaRangeRow.locator('.ds-number-step').first();
+ await qaRangePlus.click();
+ assert.equal(await qaRange.inputValue(),'9.37','Free-step increment must advance instead of throwing');
+ await qaRangeMinus.click();
+ assert.equal(await qaRange.inputValue(),'9.25','Free-step decrement must reverse the increment');
+ await qaRangeRow.screenshot({path:'test-results/ux-audit/inspector-range-any-stepper.png',animations:'disabled'});
+ await qaRange.evaluate(el=>{el.min='0';el.max='10';el.step='6';el.value='6';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await page.waitForFunction(()=>document.querySelector('#qaRangeLive')?.closest('.ds-property-range')?.querySelectorAll('.ds-number-step')[1]?.disabled===true);
+ assert.equal(await qaRangePlus.isDisabled(),true,'Off-grid max must disable inert plus');
+ await assertNoRedundantNativeEvents(qaRange,async()=>qaRangePlus.evaluate(el=>el.click()),'Disabled range stepper must not emit edits');
+ await qaRangeRow.screenshot({path:'test-results/ux-audit/inspector-range-grid-edge.png',animations:'disabled'});
+ await qaRangeMinus.click();
+ assert.equal(await qaRange.inputValue(),'0','Grid decrement must reach previous valid step');
+ await qaRangePlus.click();
+ assert.equal(await qaRange.inputValue(),'6','Grid increment must reach final valid step');
+ assert.equal(await qaRangePlus.isDisabled(),true);
+ await qaRange.evaluate(el=>{el.min='10';el.max='20';el.step='2';});
+ await page.waitForFunction(()=>document.querySelector('#qaRangeLive')?.closest('.ds-property-range')?.querySelector('.ds-prop-number')?.min==='10');
+ await qaRangePrecision.fill('18');await qaRangePrecision.dispatchEvent('change');
+ assert.equal(await qaRange.inputValue(),'18','Changed range bounds must govern commits');
+ await qaRangeRow.screenshot({path:'test-results/ux-audit/inspector-range-live-bounds.png',animations:'disabled'});
+ await qaRange.evaluate(el=>{el.disabled=true;});
+ assert.equal(await qaRangePrecision.isDisabled(),true,'Disabled native range must disable its precision input');
+ await qaRangeRow.screenshot({path:'test-results/ux-audit/inspector-range-live-disabled.png',animations:'disabled'});
+ await qaRange.evaluate(el=>el.closest('label').remove());
  const precise=page.locator('.ds-property-range').filter({has:page.locator('#fontSize')}).locator('.ds-prop-number');
  assert.ok(await precise.count());
+ await assertInspectorTextFocus(precise,'Range precision input must expose its own focus ring');
+ await precise.locator('xpath=ancestor::*[contains(@class,"ds-property-range")]').screenshot({path:'test-results/ux-audit/inspector-range-focus-ring.png',animations:'disabled'});
  await precise.fill('11');
  await precise.dispatchEvent('change');
  assert.equal(await page.locator('#fontSize').inputValue(),'11');
@@ -148,10 +451,13 @@ try {
  await precise.fill('15');await precise.dispatchEvent('change');
  assert.equal(await precise.inputValue(),'15','Out-of-range slider draft must remain editable');
  assert.equal(await precise.getAttribute('aria-invalid'),'true','Invalid slider precision needs accessible feedback');
+ assert.equal(await rangeControl.locator('..').locator('.ds-prop-error').isVisible(),true,'Range validation must explain the error');
  assert.equal(await page.locator('#fontSize').inputValue(),'11','Invalid slider draft must not change the document');
  await rangeControl.screenshot({path:'test-results/ux-audit/inspector-range-invalid.png',animations:'disabled'});
  await precise.press('Escape');
  assert.equal(await precise.inputValue(),'11','Escape must restore the committed slider value');
+ assert.equal(await precise.evaluate(el=>document.activeElement===el),true,'Cancelling precision draft must retain keyboard focus');
+ await rangeControl.screenshot({path:'test-results/ux-audit/inspector-range-escape-focused.png',animations:'disabled'});
  assert.equal(await precise.getAttribute('aria-invalid'),null);
  await precise.fill('11.3');await precise.dispatchEvent('change');
  assert.equal(await precise.getAttribute('aria-invalid'),'true','Fractional step mismatch must be rejected');
@@ -159,22 +465,31 @@ try {
  await precise.fill('11.5');await precise.dispatchEvent('change');
  assert.equal(await precise.getAttribute('aria-invalid'),null,'Valid slider precision must clear the error');
  assert.equal(await page.locator('#fontSize').inputValue(),'11.5');
-
+ await assertNoRedundantNativeEvents(page.locator('#fontSize'),async()=>{
+  await precise.fill('11.5');await precise.dispatchEvent('change');
+ },'Recommitting the current slider value must not change the document');
 
  // Real DS components: select popover, color hex, segmented choices and accordion.
  assert.ok(await page.locator('.ds-property-range').count()>=3);
  assert.ok(await page.locator('.ds-property-select').count()>=1);
- const titleSection=page.locator('#inspector-style .ds-accordion-toggle').first();
+ const titleSection=page.locator('#inspector-document .ds-accordion-toggle').first();
 
  const headingHeight=await titleSection.evaluate(el=>Math.round(el.getBoundingClientRect().height));
- assert.ok(headingHeight>=40&&headingHeight<=46,'Accordion header is too tall: '+headingHeight);
+ assert.ok(headingHeight>=36&&headingHeight<=38,'Accordion header is too tall: '+headingHeight);
  assert.equal(await titleSection.locator('.ds-accordion-chevron svg path').getAttribute('d'),'m6 9 6 6 6-6');
  assert.equal((await titleSection.locator('.ds-accordion-meta').count()),0,'Non-informative section subtitle should be omitted');
  await titleSection.click();assert.equal(await titleSection.getAttribute('aria-expanded'),'false');
  await titleSection.click();assert.equal(await titleSection.getAttribute('aria-expanded'),'true');
- const themePicker=page.locator('#inspector-style .ds-property-select').filter({has:page.locator('#resumeTheme')}).locator('.ds-select-trigger');
+ await reveal(page,'bgKind');
+ const themePicker=page.locator('#inspector-document .ds-property-select').filter({has:page.locator('#bgKind')}).locator('.ds-select-trigger');
+ assert.equal(await themePicker.getAttribute('aria-controls'),null,
+  'Closed combobox must not reference an unmounted listbox');
  await themePicker.click();
  assert.equal(await themePicker.getAttribute('aria-expanded'),'true');
+ const controlledListbox=await themePicker.getAttribute('aria-controls');
+ assert.ok(controlledListbox,'Expanded combobox must identify its live listbox');
+ assert.equal(await page.locator('[role="listbox"]').filter({has:page.locator('[role="option"]')}).getAttribute('id'),controlledListbox,
+  'aria-controls must reference the mounted listbox, not a stale ID');
  assert.ok(await page.locator('.ds-select-popover [role="option"]').count()>=7);
  // Arrow navigation must expose a visible focus indicator inside the portaled listbox.
  await page.keyboard.press('ArrowDown');
@@ -187,38 +502,284 @@ try {
  assert.equal(optionFocus.width,'2px','Inspector option needs a 2px focus ring');
  assert.equal(optionFocus.style,'solid','Inspector option focus ring must not be suppressed');
  await page.locator('.ds-select-popover').screenshot({path:'test-results/ux-audit/inspector-select-option-focused.png',animations:'disabled'});
- await page.locator('.ds-select-option').filter({hasText:'Swiss'}).click();
- assert.equal(await page.locator('#resumeTheme').inputValue(),'swiss');
- // A disabled native select must also disable the visible combobox and prevent opening.
- const themeNative=page.locator('#resumeTheme');
+ await page.locator('.ds-select-option').filter({hasText:'Gradiente'}).click();
+ assert.equal(await themePicker.getAttribute('aria-controls'),null,
+  'Selecting an option must remove the now-invalid listbox reference');
+ assert.equal(await page.locator('#bgKind').inputValue(),'gradient');
+ await assertNoRedundantNativeEvents(page.locator('#bgKind'),async()=>{
+  await themePicker.click();
+  await page.locator('.ds-select-popover .ds-select-option').filter({hasText:'Gradiente'}).click();
+ },'Selecting the active combobox option must not dispatch document events');
+ // Focus recovery must not land on a button that is ARIA-disabled,
+ // including a descendant of an aria-disabled action group.
+ const themeNative=page.locator('#bgKind');
+ await themePicker.evaluate(trigger=>{
+  const blocked=document.createElement('button');blocked.type='button';
+  blocked.dataset.qaFocusBlocked='self';blocked.setAttribute('aria-disabled','true');
+  const group=document.createElement('span');group.dataset.qaFocusGroup='true';
+  group.setAttribute('aria-disabled','true');
+  const nested=document.createElement('button');nested.type='button';
+  nested.dataset.qaFocusBlocked='ancestor';group.append(nested);
+  const usable=document.createElement('button');usable.type='button';
+  usable.dataset.qaFocusUsable='true';usable.textContent='QA próximo controle';
+  trigger.after(blocked,group,usable);
+ });
+ await themePicker.focus();
  await themeNative.evaluate(el=>{el.disabled=true;});
- await page.waitForFunction(()=>document.querySelector('#resumeTheme')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.disabled);
+ await page.waitForFunction(()=>document.activeElement?.dataset.qaFocusUsable==='true');
+ assert.equal(await page.locator('[data-qa-focus-usable]').evaluate(el=>el===document.activeElement),true,
+  'Disabling the active select must skip ARIA-disabled siblings and groups');
+ await themePicker.locator('..').screenshot({
+  path:'test-results/ux-audit/inspector-aria-disabled-focus-handoff.png',animations:'disabled'
+ });
+ await themeNative.evaluate(el=>{el.disabled=false;});
+ await page.locator('[data-qa-focus-blocked],[data-qa-focus-group],[data-qa-focus-usable]')
+  .evaluateAll(nodes=>nodes.forEach(node=>node.remove()));
+ // A disabled native select must also disable the visible combobox and prevent opening.
+ await themeNative.evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#bgKind')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.disabled);
  assert.equal(await themePicker.isDisabled(),true,'Disabled native select must disable custom trigger');
  await themePicker.evaluate(el=>el.click());
  assert.equal(await themePicker.getAttribute('aria-expanded'),'false','Disabled select must not open a listbox');
+ assert.equal(await themePicker.getAttribute('aria-controls'),null,
+  'Disabled combobox must not retain an unmounted listbox reference');
  assert.equal(await page.locator('.ds-select-popover').count(),0);
  await themePicker.locator('..').screenshot({path:'test-results/ux-audit/inspector-select-disabled.png',animations:'disabled'});
  await themeNative.evaluate(el=>{el.disabled=false;});
- await page.waitForFunction(()=>!document.querySelector('#resumeTheme')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.disabled);
+ await page.waitForFunction(()=>!document.querySelector('#bgKind')?.closest('.ds-property-select')?.querySelector('.ds-select-trigger')?.disabled);
  await themePicker.click();
  assert.equal(await themePicker.getAttribute('aria-expanded'),'true','Re-enabled select must open normally');
  await page.keyboard.press('Escape');
  assert.equal(await themePicker.getAttribute('aria-expanded'),'false');
+ assert.equal(await themePicker.getAttribute('aria-controls'),null,
+  'Escape must remove aria-controls along with the portalled listbox');
+ // Detaching a combobox while its portalled option has focus must recover
+ // keyboard focus to the inspector toggle, never leave it on document.body.
+ await page.evaluate(async()=>{
+  const label=document.createElement('label');label.className='property-row';
+  label.textContent='QA lista removível';
+  const select=document.createElement('select');select.id='qaDetachedSelect';
+  for(const text of ['Primeiro','Segundo']){
+   const option=document.createElement('option');option.value=text;option.textContent=text;
+   select.append(option);
+  }
+  label.append(select);
+  document.querySelector('#inspector-document .ds-accordion-body').append(label);
+  const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+  enhancePropertyControls();
+ });
+ const detachedTrigger=page.locator('.ds-property-select')
+  .filter({has:page.locator('#qaDetachedSelect')}).locator('.ds-select-trigger');
+ await detachedTrigger.click();
+ assert.equal(await page.locator('.ds-select-popover [role="option"]:focus').count(),1,
+  'Fixture option must own keyboard focus before its anchor is removed');
+ await detachedTrigger.evaluate(el=>el.closest('label').remove());
+ await page.waitForFunction(()=>!document.querySelector('.ds-select-popover'));
+ assert.equal(await page.evaluate(()=>['designToggle','railDesign'].includes(document.activeElement?.id)),true,
+  'Detaching the focused combobox must restore focus to a visible inspector toggle');
+ // An ARIA-disabled toggle is not a valid recovery destination, even though
+ // it remains natively focusable. If both toggles are unavailable, restore
+ // keyboard focus to the visible Markdown editor rather than document.body.
+ await page.evaluate(async()=>{
+  for(const id of ['designToggle','railDesign'])
+   document.getElementById(id)?.setAttribute('aria-disabled','true');
+  const label=document.createElement('label');label.className='property-row';
+  label.textContent='QA lista sem alternadores disponíveis';
+  const select=document.createElement('select');select.id='qaDetachedNoToggles';
+  for(const value of ['Um','Dois']){
+   const option=document.createElement('option');option.value=value;option.textContent=value;
+   select.append(option);
+  }
+  label.append(select);
+  document.querySelector('#inspector-document .ds-accordion-body').append(label);
+  const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+  enhancePropertyControls();
+ });
+ const noTogglesTrigger=page.locator('.ds-property-select')
+  .filter({has:page.locator('#qaDetachedNoToggles')}).locator('.ds-select-trigger');
+ await noTogglesTrigger.click();
+ assert.equal(await page.locator('.ds-select-popover [role="option"]:focus').count(),1,
+  'Detached fallback fixture must focus a portalled option');
+ await noTogglesTrigger.evaluate(el=>el.closest('label').remove());
+ await page.waitForFunction(()=>!document.querySelector('.ds-select-popover')&&document.activeElement?.id==='source');
+ assert.equal(await page.locator('#source').evaluate(el=>el===document.activeElement),true,
+  'Unavailable inspector toggles must fall back to the visible editor');
+ await page.screenshot({path:'test-results/ux-audit/inspector-detached-toggle-disabled-focus.png',animations:'disabled'});
+ await page.evaluate(()=>{
+  for(const id of ['designToggle','railDesign'])
+   document.getElementById(id)?.removeAttribute('aria-disabled');
+ });
+ await reveal(page,'accentColor');
  const colorControl=page.locator('.ds-property-color').filter({has:page.locator('#accentColor')});
  const colorHex=colorControl.locator('.ds-color-hex');
+ await assertInspectorTextFocus(colorHex,'Hex color input must expose its own focus ring');
+ await colorControl.screenshot({path:'test-results/ux-audit/inspector-color-focus-ring.png',animations:'disabled'});
  const previousAccent=await page.locator('#accentColor').inputValue();
  await colorHex.fill('#BAD');await colorHex.dispatchEvent('change');
  assert.equal(await colorHex.inputValue(),'#BAD','Invalid hex must stay editable instead of silently reverting');
  assert.equal(await colorHex.getAttribute('aria-invalid'),'true','Invalid color needs accessible feedback');
+ assert.equal(await colorControl.locator('..').locator('.ds-prop-error:not([role="alert"])').isVisible(),true,'Color validation must explain the expected format');
  assert.equal(await page.locator('#accentColor').inputValue(),previousAccent,'Invalid hex must not update document color');
  await colorControl.screenshot({path:'test-results/ux-audit/inspector-color-invalid.png',animations:'disabled'});
  await colorHex.fill('#A1744B');await colorHex.dispatchEvent('change');
  assert.equal(await colorHex.getAttribute('aria-invalid'),null,'Valid color must clear the error state');
  assert.equal((await page.locator('#accentColor').inputValue()).toLowerCase(),'#a1744b');
+ await assertNoRedundantNativeEvents(page.locator('#accentColor'),async()=>{
+  await colorHex.fill('#a1744b');await colorHex.dispatchEvent('change');
+ },'Re-entering the same hex color, including different casing, must not create a document edit');
  await colorHex.fill('invalid');await colorHex.dispatchEvent('change');
  await colorHex.press('Escape');
  assert.equal(await colorHex.getAttribute('aria-invalid'),null,'Escape must clear the error state');
  assert.equal((await colorHex.inputValue()).toLowerCase(),'#a1744b','Escape must restore the committed color');
+ assert.equal(await colorHex.evaluate(el=>document.activeElement===el),true,'Cancelling hex draft must retain keyboard focus');
+ await colorControl.screenshot({path:'test-results/ux-audit/inspector-color-escape-focused.png',animations:'disabled'});
+  // The native eyedropper resolves asynchronously. Do not steal focus from
+  // a different inspector field when the user navigates while it is open.
+  await page.evaluate(async()=>{
+   window.__qaInspectorDropperCalls=0;
+   window.EyeDropper=class{open(){
+    window.__qaInspectorDropperCalls++;
+    return new Promise((resolve,reject)=>{
+     window.__qaInspectorDropperResolve=resolve;
+     window.__qaInspectorDropperReject=reject;
+    });
+   }};
+   const label=document.createElement('label');label.className='property-row';
+   label.textContent='Cor de teste';
+   const input=document.createElement('input');input.type='color';
+   input.id='qaEyeDropperColor';input.value='#123456';label.append(input);
+   document.querySelector('#inspector-document .ds-accordion-body').append(label);
+   const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+   enhancePropertyControls();
+  });
+  const dropperRow=page.locator('.ds-property-color').filter({has:page.locator('#qaEyeDropperColor')});
+  const dropperButton=dropperRow.locator('.ds-color-pipette');
+  const dropperHex=dropperRow.locator('.ds-color-hex');
+  assert.equal(await dropperButton.isEnabled(),true,'Mocked native eyedropper must be available');
+  await dropperButton.click();
+  await dropperHex.focus();
+  await page.evaluate(()=>window.__qaInspectorDropperResolve({sRGBHex:'#ABCDEF'}));
+  await page.waitForFunction(()=>document.getElementById('qaEyeDropperColor').value==='#abcdef');
+  assert.equal(await dropperHex.evaluate(el=>document.activeElement===el),true,
+   'A completed eyedropper must preserve intentional focus on another field');
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-preserved-focus.png',animations:'disabled'});
+  await dropperButton.click();
+  await page.evaluate(()=>document.activeElement.blur());
+  await page.evaluate(()=>window.__qaInspectorDropperResolve({sRGBHex:'#FEDCBA'}));
+  await page.waitForFunction(()=>document.getElementById('qaEyeDropperColor').value==='#fedcba');
+  assert.equal(await dropperButton.evaluate(el=>document.activeElement===el),true,
+   'A completed eyedropper must restore its button if native UI left focus on body');
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-restored-focus.png',animations:'disabled'});
+  // A pending native eyedropper must not disable the focused button or allow
+  // concurrent requests. Disabling/re-enabling the source invalidates its
+  // old promise without blocking the next screen sample.
+  await dropperButton.click();
+  assert.equal(await dropperButton.getAttribute('aria-busy'),'true');
+  assert.equal(await dropperButton.getAttribute('aria-disabled'),'true');
+  assert.equal(await dropperButton.evaluate(el=>document.activeElement===el),true,
+   'Pending screen sampling must preserve the keyboard focus');
+  await dropperButton.dispatchEvent('click');
+  assert.equal(await page.evaluate(()=>window.__qaInspectorDropperCalls),3,
+   'Repeated clicks must not start concurrent native screen samples');
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-pending-focus.png',animations:'disabled'});
+  await page.evaluate(()=>{window.__qaInspectorStaleResolve=window.__qaInspectorDropperResolve;});
+  await page.locator('#qaEyeDropperColor').evaluate(el=>{el.disabled=true;});
+  await page.waitForFunction(()=>document.querySelector('#qaEyeDropperColor')
+   ?.closest('.ds-property-color')?.querySelector('.ds-color-pipette')?.disabled===true);
+  assert.equal(await dropperButton.getAttribute('aria-busy'),null,
+   'Disabling the source must invalidate and clear the pending state');
+  assert.notEqual(await page.evaluate(()=>document.activeElement),null);
+  assert.equal(await page.evaluate(()=>document.activeElement===document.body),false,
+   'Disabling a focused eyedropper must hand focus to a usable control');
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-disabled-focus-handoff.png',animations:'disabled'});
+  await page.locator('#qaEyeDropperColor').evaluate(el=>{el.disabled=false;});
+  await page.waitForFunction(()=>!document.querySelector('#qaEyeDropperColor')
+   ?.closest('.ds-property-color')?.querySelector('.ds-color-pipette')?.disabled);
+  await dropperButton.click();
+  assert.equal(await page.evaluate(()=>window.__qaInspectorDropperCalls),4,
+   'Re-enabled source must accept a new screen sample immediately');
+  await page.evaluate(()=>window.__qaInspectorStaleResolve({sRGBHex:'#0F0F0F'}));
+  assert.equal(await page.locator('#qaEyeDropperColor').inputValue(),'#fedcba',
+   'Old native results must not overwrite a re-enabled source');
+  assert.equal(await dropperButton.getAttribute('aria-busy'),'true',
+   'An old result must not clear a newer request busy state');
+  await page.evaluate(()=>window.__qaInspectorDropperResolve({sRGBHex:'#112233'}));
+  await page.waitForFunction(()=>document.getElementById('qaEyeDropperColor').value==='#112233');
+  assert.equal(await dropperButton.getAttribute('aria-busy'),null);
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-reenabled.png',animations:'disabled'});
+  // External document edits supersede a pending sample as well.
+  await dropperButton.click();
+  await page.evaluate(()=>{
+   window.__qaInspectorStaleResolve=window.__qaInspectorDropperResolve;
+   const input=document.getElementById('qaEyeDropperColor');
+   input.value='#445566';input.dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  assert.equal(await dropperButton.getAttribute('aria-busy'),null,
+   'External input must cancel the obsolete pending state');
+  await page.evaluate(()=>window.__qaInspectorStaleResolve({sRGBHex:'#FFFFFF'}));
+  assert.equal(await page.locator('#qaEyeDropperColor').inputValue(),'#445566',
+   'A late result must never undo a newer document edit');
+  // The inline HEX field is also a draft editor. Native EyeDropper promises
+  // must lose to the FIRST input event, not only to change/Enter/blur.
+  await dropperButton.click();
+  await dropperHex.fill('#13579B');
+  assert.equal(await dropperButton.getAttribute('aria-busy'),null,
+   'Typing an inline HEX draft immediately invalidates the pending sample');
+  await page.evaluate(()=>window.__qaInspectorDropperResolve({sRGBHex:'#FFFFFF'}));
+  assert.equal(await dropperHex.inputValue(),'#13579B',
+   'A stale sample cannot erase a valid uncommitted inline HEX draft');
+  assert.equal(await page.locator('#qaEyeDropperColor').inputValue(),'#445566');
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-valid-draft-preserved.png',animations:'disabled'});
+  await dropperHex.press('Escape');
+  await dropperButton.click();
+  await dropperHex.fill('bad');
+  assert.equal(await dropperHex.getAttribute('aria-invalid'),'true');
+  const invalidDraftMessage=await dropperRow.locator('..').locator('.ds-prop-error:not([role="alert"])').first().textContent();
+  assert.match(invalidDraftMessage,/hexadecimal/i);
+  await page.evaluate(()=>window.__qaInspectorDropperReject(new Error('stale device failure')));
+  assert.equal(await dropperHex.inputValue(),'bad',
+   'A stale rejection cannot erase an invalid inline HEX draft');
+  assert.equal(await dropperHex.getAttribute('aria-invalid'),'true');
+  assert.equal(await dropperRow.locator('..').locator('.ds-prop-error:not([role="alert"])').first().textContent(),invalidDraftMessage);
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-invalid-draft-preserved.png',animations:'disabled'});
+  await dropperHex.press('Escape');
+  // MutationObserver must observe the transition records, not just the
+  // final enabled state when disabled toggles twice in a single task.
+  await dropperButton.click();
+  await page.locator('#qaEyeDropperColor').evaluate(el=>{el.disabled=true;el.disabled=false;});
+  await page.waitForFunction(()=>document.querySelector('#qaEyeDropperColor')
+   ?.closest('.ds-property-color')?.querySelector('.ds-color-pipette')?.getAttribute('aria-busy')===null);
+  await page.evaluate(()=>window.__qaInspectorDropperResolve({sRGBHex:'#FFFFFF'}));
+  assert.equal(await page.locator('#qaEyeDropperColor').inputValue(),'#445566',
+   'Rapid disable/re-enable cannot revive an obsolete inline sample');
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-rapid-reenable.png',animations:'disabled'});
+  // Native permission/device errors must remain visible and be announced
+  // on the eyedropper itself; the valid HEX field must not become invalid.
+  await dropperButton.click();
+  await page.evaluate(()=>window.__qaInspectorDropperReject(new Error('permission denied')));
+  const dropperError=dropperRow.locator('..').locator('.ds-prop-error[role="alert"]');
+  await dropperError.waitFor({state:'visible'});
+  assert.match(await dropperError.innerText(),/Não foi possível capturar a cor/);
+  assert.equal(await dropperButton.getAttribute('aria-describedby'),await dropperError.getAttribute('id'));
+  assert.equal(await dropperHex.getAttribute('aria-invalid'),null,
+   'A native capture failure must not invalidate the unrelated HEX editor');
+  assert.equal(await dropperButton.getAttribute('aria-busy'),null);
+  await dropperRow.screenshot({path:'test-results/ux-audit/inspector-eyedropper-failure-feedback.png',animations:'disabled'});
+  await dropperButton.click();
+  assert.equal(await dropperError.isHidden(),true,'Retry must clear the old error');
+  assert.equal(await dropperButton.getAttribute('aria-describedby'),null);
+  await page.evaluate(()=>window.__qaInspectorDropperReject({name:'AbortError'}));
+  assert.equal(await dropperError.isHidden(),true,'User cancellation is not an error');
+  await dropperButton.click();
+  await page.evaluate(()=>window.__qaInspectorDropperResolve({sRGBHex:'#AABBCC'}));
+  await page.waitForFunction(()=>document.getElementById('qaEyeDropperColor').value==='#aabbcc');
+  assert.equal(await dropperError.isHidden(),true,'Successful retry must not restore stale errors');
+  await page.evaluate(()=>{
+   document.getElementById('qaEyeDropperColor').closest('label').remove();
+   window.EyeDropper=undefined;
+   delete window.__qaInspectorDropperResolve;
+   delete window.__qaInspectorDropperReject;
+  });
  const fontPicker=page.locator('.ds-property-select').filter({has:page.locator('#fontChoice')});
  await fontPicker.locator('.ds-select-trigger').click();
  await page.locator('.ds-select-popover .ds-select-option').filter({hasText:'Consolas'}).click();
@@ -226,6 +787,329 @@ try {
  await fontPicker.locator('.ds-select-trigger').click();
  await page.locator('.ds-select-popover .ds-select-option').filter({hasText:'Palatino'}).click();
  assert.equal(await page.locator('#fontChoice').inputValue(),'palatino');
+ // Live Google Fonts catalog / optgroup edits must not erase the user's
+ // search or throw keyboard focus out of the portalled searchable listbox.
+ const fontTrigger=fontPicker.locator('.ds-select-trigger');
+ await fontTrigger.click();
+ const liveFontSearch=page.getByRole('searchbox',{name:'Buscar fonte'});
+ await liveFontSearch.fill('uxqa-never');
+ assert.equal(await page.locator('.ds-select-empty[role="status"]').isVisible(),true,
+  'An empty font search must announce its result state');
+ assert.equal((await page.locator('.ds-select-search-count').textContent()).trim(),'0',
+  'The compact search counter must report zero without consuming a new row');
+ assert.equal(await page.locator('.ds-select-results [role="status"]').count(),0,
+  'Empty-search announcements must not be nested inside the role=listbox');
+ // A live catalog update that still has zero matches must NOT dismiss the
+ // editable search or drop keyboard focus. The same applies when the only
+ // matching option is disabled but other native choices remain available.
+ // Keep a mid-query selection intact; resetting the caret makes subsequent
+ // typing replace the wrong characters after a background font update.
+ await liveFontSearch.evaluate(el=>el.setSelectionRange(2,6,'forward'));
+ await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');
+  group.id='qaUnmatchedFontGroup';group.label='Unrelated fonts';
+  group.append(new Option('Unrelated QA Font', 'qa:unmatched'));
+  select.append(group);
+ });
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'true',
+  'Unmatched async font insertion must keep the searchable popover open');
+ assert.equal(await liveFontSearch.inputValue(),'uxqa-never');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true);
+ assert.deepEqual(await liveFontSearch.evaluate(el=>[el.selectionStart,el.selectionEnd,el.selectionDirection]),
+  [2,6,'forward'],'Live catalog updates must preserve search selection and caret');
+ assert.equal(await page.locator('.ds-select-empty[role="status"]').isVisible(),true);
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-search-live-empty.png',animations:'disabled'
+ });
+ await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaUnmatchedFontGroup').remove());
+ await page.waitForFunction(()=>!document.querySelector('#qaUnmatchedFontGroup'));
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');
+  group.id='qaDisabledFontGroup';group.label='QA Disabled';
+  const option=new Option('QA Disabled Only','qa:disabled');
+  option.disabled=true;group.append(option);select.append(group);
+ });
+ await liveFontSearch.fill('qa disabled only');
+ await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
+ await page.locator('#fontChoice option[value="qa:disabled"]').evaluate(el=>{el.label='QA Disabled Only Updated';});
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'true',
+  'A live refresh with disabled-only filtered matches must keep the search editable');
+ assert.equal(await liveFontSearch.inputValue(),'qa disabled only');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true);
+ assert.equal(await page.locator('.ds-select-option:visible').count(),1);
+ assert.equal(await page.locator('.ds-select-option:visible').first().isDisabled(),true);
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-search-live-disabled.png',animations:'disabled'
+ });
+ await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaDisabledFontGroup').remove());
+ await liveFontSearch.fill('uxqa-never');
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');
+  group.id='qaLiveFontGroup';group.label='QA dynamic fonts';
+  group.append(new Option('UXQA-never', 'qa:live'));
+  select.append(group);
+ });
+ await page.waitForFunction(()=>document.querySelector('.ds-select-option[data-value="qa:live"]'));
+ assert.equal((await page.locator('.ds-select-search-count').textContent()).trim(),'1 / 1',
+  'Live native option changes must refresh the result counter');
+ assert.match(await page.locator('.ds-select-empty[role="status"]').textContent(),/1 fonte encontrada/,
+  'Screen readers need the result count outside role=listbox');
+ assert.equal(await page.locator('.ds-select-empty[role="status"]').evaluate(el=>getComputedStyle(el).clipPath),'inset(50%)',
+  'The spoken result count must be visually clipped without adding a row');
+ assert.equal(await liveFontSearch.inputValue(),'uxqa-never',
+  'A native optgroup insertion must preserve the active search query');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true,
+  'A live options refresh must retain keyboard focus in the search editor');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-search-live-insert.png',animations:'disabled'
+ });
+ await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaLiveFontGroup').remove());
+ await page.waitForFunction(()=>document.querySelector('.ds-select-empty[role="status"]')?.getClientRects().length);
+ assert.equal(await liveFontSearch.inputValue(),'uxqa-never',
+  'Removing a native optgroup must preserve the search draft too');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true);
+ await liveFontSearch.fill('palatino');
+ await liveFontSearch.press('ArrowDown');
+ const focusedFontValue=await page.locator('.ds-select-option:focus').getAttribute('data-value');
+ assert.ok(focusedFontValue,'A matching option must be reachable by keyboard');
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');
+  group.id='qaLiveFontGroup';group.label='QA dynamic fonts';
+  group.append(new Option('Unrelated QA Font', 'qa:other'));
+  select.append(group);
+ });
+ await page.waitForFunction(value=>document.querySelector('.ds-select-option:focus')?.dataset.value===value,
+  focusedFontValue);
+ assert.equal(await liveFontSearch.inputValue(),'palatino',
+  'A focused option refresh must preserve the filter without changing the selection');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-search-live-focus.png',animations:'disabled'
+ });
+ await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaLiveFontGroup').remove());
+ await page.keyboard.press('Escape');
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'false');
+ // Pagination must survive a live native-option refresh too. Resetting
+ // "Mostrar mais" to 60 on every async catalog update loses the user's place.
+ await fontTrigger.click();
+ await liveFontSearch.fill('');
+ await page.waitForFunction(()=>document.querySelectorAll('#fontChoice optgroup[label="Google Fonts"] option').length>120);
+ const moreFonts=page.locator('.ds-select-more');
+ assert.match((await page.locator('.ds-select-search-count').textContent()).trim(),/^60 \/ \d+$/,
+  'The search field should show loaded and total font counts');
+ const searchBounds=await liveFontSearch.boundingBox();
+ const countBounds=await page.locator('.ds-select-search-count').boundingBox();
+ assert.ok(countBounds.y>=searchBounds.y&&countBounds.y+countBounds.height<=searchBounds.y+searchBounds.height,
+  'Font result counts must stay inside the existing search-field height');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-search-count.png',animations:'disabled'
+ });
+ await page.locator('.ds-select-option').last().focus();
+ await page.keyboard.press('ArrowDown');
+ assert.equal(await moreFonts.evaluate(el=>el===document.activeElement),true,
+  'ArrowDown on the last loaded option must reach the pagination action');
+ assert.notEqual(await moreFonts.evaluate(el=>getComputedStyle(el).outlineStyle),'none',
+  'Keyboard pagination must have a visible focus indicator');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-pagination-focused.png',animations:'disabled'
+ });
+ // Refreshing the source while the pagination button owns keyboard focus
+ // must restore that button, not silently jump to a selected font option.
+ await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');
+  group.id='qaPaginationFontGroup';group.label='QA pagination';
+  group.append(new Option('Unrelated QA Font','qa:pagination'));
+  select.append(group);
+ });
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
+ assert.equal(await moreFonts.evaluate(el=>el===document.activeElement),true,
+  'Live font refresh must preserve keyboard focus on Mostrar mais');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-pagination-live-focus.png',animations:'disabled'
+ });
+ await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaPaginationFontGroup').remove());
+ await page.waitForFunction(()=>!document.querySelector('#qaPaginationFontGroup'));
+ assert.equal(await moreFonts.evaluate(el=>el===document.activeElement),true);
+ // The pagination button lives in a body portal. Tab/Shift+Tab must
+ // continue from the inspector trigger, never jump to the document edge.
+ for(const key of ['Tab','Shift+Tab']){
+  await page.keyboard.press(key);
+  assert.equal(await fontTrigger.getAttribute('aria-expanded'),'false',
+   key+' from font pagination must close the popup');
+  assert.equal(await page.locator('.ds-select-popover').count(),0);
+  const focus=await page.evaluate(()=>({
+   inInspector:Boolean(document.activeElement?.closest('.design-inspector')),
+   isTrigger:document.activeElement?.classList.contains('ds-select-trigger'),
+   isBody:document.activeElement===document.body
+  }));
+  assert.ok(focus.inInspector&&!focus.isTrigger&&!focus.isBody,
+   key+' from pagination must follow inspector tab order: '+JSON.stringify(focus));
+  await page.screenshot({path:'test-results/ux-audit/inspector-font-pagination-'+
+   (key==='Tab'?'tab-forward':'tab-backward')+'.png',animations:'disabled'});
+  await fontTrigger.click();
+  await moreFonts.waitFor({state:'visible'});
+  await moreFonts.focus();
+ }
+ await page.keyboard.press('ArrowUp');
+ assert.equal(await page.locator('.ds-select-option').last().evaluate(el=>el===document.activeElement),true,
+  'ArrowUp from pagination must return to the last loaded option');
+ await page.keyboard.press('ArrowDown');
+ await page.keyboard.press('Enter');
+ const expandedFontCount=await page.locator('.ds-select-option').count();
+ assert.ok(expandedFontCount>=120,'Show more must reveal the second page of fonts');
+ await liveFontSearch.focus();
+ const previousFontScroll=await page.locator('.ds-select-results').evaluate(el=>{
+  el.scrollTop=Math.min(220,el.scrollHeight-el.clientHeight);
+  return el.scrollTop;
+ });
+ assert.ok(previousFontScroll>20,'Expanded font results must be scrollable');
+ await page.evaluate(()=>{window.__qaPreviousFontPopover=document.querySelector('.ds-select-popover');});
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');
+  group.id='qaLiveFontGroup';group.label='QA dynamic fonts';
+  group.append(new Option('Unrelated QA Font', 'qa:other'));
+  select.append(group);
+ });
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaPreviousFontPopover);
+ assert.equal(await page.locator('.ds-select-option').count(),expandedFontCount,
+  'Refreshing live options must preserve the expanded font result count');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true,
+  'A live refresh must keep focus on the active font search');
+ assert.ok(Math.abs(await page.locator('.ds-select-results').evaluate(el=>el.scrollTop)-previousFontScroll)<=2,
+  'A live font refresh must not jump the scrolled results back to the top');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-search-live-pagination.png',animations:'disabled'
+ });
+ await page.locator('#fontChoice').evaluate(select=>select.querySelector('#qaLiveFontGroup').remove());
+ // IME candidate keys must not activate a focused option or the paginated
+ // action. The search input is not the only keyboard owner in this portal.
+ const checkImeButton=async locator=>locator.evaluate(el=>{
+  const events=['ArrowDown','ArrowUp','Home','End','Escape','Tab','Enter','p'].map(key=>{
+   const event=new KeyboardEvent('keydown',{key,bubbles:true,cancelable:true,isComposing:true});
+   el.dispatchEvent(event);return {key,prevented:event.defaultPrevented};
+  });
+  const legacy=new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true});
+  Object.defineProperty(legacy,'keyCode',{value:229});
+  el.dispatchEvent(legacy);
+  return {events,legacyPrevented:legacy.defaultPrevented,stillFocused:document.activeElement===el};
+ });
+ await page.locator('.ds-select-option').last().focus();
+ const imeOption=await checkImeButton(page.locator('.ds-select-option').last());
+ assert.ok(imeOption.stillFocused&&imeOption.events.every(event=>!event.prevented)&&!imeOption.legacyPrevented,
+  'IME composition must not navigate, typeahead, tab or dismiss a focused option');
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'true');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-ime-option.png',animations:'disabled'
+ });
+ await moreFonts.focus();
+ const imeMore=await checkImeButton(moreFonts);
+ assert.ok(imeMore.stillFocused&&imeMore.events.every(event=>!event.prevented)&&!imeMore.legacyPrevented,
+  'IME composition must not activate or dismiss focused pagination');
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'true');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-ime-pagination.png',animations:'disabled'
+ });
+ await page.keyboard.press('ArrowUp');
+ assert.equal(await page.locator('.ds-select-option').last().evaluate(el=>el===document.activeElement),true,
+  'Non-composing keyboard navigation must still work after IME');
+ await liveFontSearch.focus();
+ // IME candidate confirmation is not a request to select a font. In
+ // particular, Enter and Escape belong to the composition window, and
+ // older Chromium integrations can report keyCode=229 without isComposing.
+ await liveFontSearch.fill('palatino');
+ const composingKeys=await liveFontSearch.evaluate(el=>{
+  const events=['Enter','Escape','ArrowDown'].map(key=>{
+   const event=new KeyboardEvent('keydown',{
+    key,bubbles:true,cancelable:true,isComposing:true
+   });
+   el.dispatchEvent(event);
+   return {key,prevented:event.defaultPrevented};
+  });
+  const legacy=new KeyboardEvent('keydown',{
+   key:'Enter',bubbles:true,cancelable:true
+  });
+  Object.defineProperty(legacy,'keyCode',{value:229});
+  el.dispatchEvent(legacy);
+  return {events,legacyPrevented:legacy.defaultPrevented};
+ });
+ assert.ok(composingKeys.events.every(event=>!event.prevented)&&!composingKeys.legacyPrevented,
+  'Font combobox must leave IME candidate keystrokes to the browser');
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'true',
+  'IME Escape/Enter must not dismiss the font picker');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true,
+  'IME arrow navigation must keep focus in the search editor');
+ assert.equal(await liveFontSearch.inputValue(),'palatino',
+  'IME key handling must not overwrite the active font query');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-ime-composition.png',animations:'disabled'
+ });
+ // Catalog changes during an active IME session must not detach the search
+ // input. A committed input may arrive *after* compositionend.
+ await liveFontSearch.fill('palatin');
+ await liveFontSearch.evaluate(el=>el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true})));
+ await page.evaluate(()=>{
+  window.__qaImePopup=document.querySelector('.ds-select-popover');
+  window.__qaImeSearch=document.querySelector('.ds-select-search');
+ });
+ await page.locator('#fontChoice').evaluate(select=>{
+  const group=document.createElement('optgroup');group.id='qaImeFontGroup';group.label='QA IME catalog';
+  group.append(new Option('QA IME Candidate','qa:ime-candidate'));select.append(group);
+ });
+ await page.waitForTimeout(60);
+ assert.equal(await page.evaluate(()=>document.querySelector('.ds-select-popover')===window.__qaImePopup&&
+  document.querySelector('.ds-select-search')===window.__qaImeSearch&&
+  document.activeElement===window.__qaImeSearch),true,
+  'An async catalog mutation must not destroy the active IME input');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-ime-catalog-pending.png',animations:'disabled'
+ });
+ await liveFontSearch.evaluate(el=>{
+  el.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));
+  el.value='palatino';el.dispatchEvent(new Event('input',{bubbles:true}));
+ });
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')!==window.__qaImePopup);
+ assert.equal(await liveFontSearch.inputValue(),'palatino',
+  'Final input after compositionend must survive deferred catalog refresh');
+ assert.equal(await liveFontSearch.evaluate(el=>el===document.activeElement),true,
+  'Deferred IME refresh must restore the search focus');
+ await page.locator('.ds-select-popover').screenshot({
+  path:'test-results/ux-audit/inspector-font-ime-catalog-resumed.png',animations:'disabled'
+ });
+ await page.locator('#qaImeFontGroup').evaluate(el=>el.remove());
+ await page.keyboard.press('Escape');
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'false');
+ const imeTrigger=await checkImeButton(fontTrigger);
+ assert.ok(imeTrigger.events.every(event=>!event.prevented)&&!imeTrigger.legacyPrevented,
+  'IME candidate keys on the trigger must not open a select');
+ assert.equal(await fontTrigger.getAttribute('aria-expanded'),'false');
+ // Two open events during one pending catalog request must not append
+ // duplicate Google Fonts groups (the first result may arrive asynchronously).
+ const catalogPage=await browser.newPage({viewport:{width:1280,height:900}});
+ let releaseCatalog;
+ const catalogGate=new Promise(resolve=>{releaseCatalog=resolve;});
+ try{
+  await catalogPage.route('**/google-fonts-catalog.json',async route=>{
+   await catalogGate;
+   await route.fulfill({
+    status:200,contentType:'application/json',
+    body:JSON.stringify({families:[{family:'QA Font One',variants:['400']}]})
+   });
+  });
+  await catalogPage.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173',{waitUntil:'domcontentloaded'});
+  await catalogPage.locator('#fontChoice').evaluate(select=>{
+   select.dispatchEvent(new Event('mdress:select-open'));
+   select.dispatchEvent(new Event('mdress:select-open'));
+  });
+  releaseCatalog();
+  await catalogPage.waitForFunction(()=>document.querySelector('#fontChoice optgroup[label="Google Fonts"]'));
+  assert.equal(await catalogPage.locator('#fontChoice optgroup[label="Google Fonts"]').count(),1,
+   'Concurrent catalog-open events must create only one Google Fonts group');
+  assert.equal(await catalogPage.locator('#fontChoice option[value="google:QA Font One"]').count(),1,
+   'Concurrent catalog-open events must not duplicate font options');
+ }finally{releaseCatalog?.();await catalogPage.close();}
  await page.locator('[data-inspector-tab="page"]').click();
  const paginationAccordion=page.locator('#inspector-page .ds-accordion-toggle').filter({hasText:'Paginação'});
  await paginationAccordion.click();
@@ -242,38 +1126,129 @@ try {
  await marginControl.getByRole('button',{name:'Aumentar Margens'}).click();
  assert.equal(Number(await marginInput.inputValue()),beforeMargin+1);
  const savedMargin=await marginInput.inputValue();
+ const marginScrubBefore=await marginControl.locator('.ds-scrub-range').inputValue();
+ const marginProgressBefore=await marginControl.locator('.ds-number-actions').evaluate(el=>el.style.getPropertyValue('--ds-range-progress'));
  await marginInput.fill('99');await marginInput.dispatchEvent('change');
  assert.equal(await marginInput.inputValue(),'99','Out-of-range margin must remain editable');
+ assert.equal(await marginControl.locator('.ds-scrub-range').isDisabled(),true,
+  'Invalid drafts must freeze the auxiliary scrub');
+ assert.equal(await marginControl.locator('.ds-scrub-range').inputValue(),marginScrubBefore);
+ assert.equal(await marginControl.locator('.ds-number-actions').evaluate(el=>el.style.getPropertyValue('--ds-range-progress')),marginProgressBefore);
+ await marginControl.screenshot({path:'test-results/ux-audit/inspector-number-scrub-invalid-draft.png',animations:'disabled'});
  assert.equal(await marginInput.getAttribute('aria-invalid'),'true','Invalid numeric value needs accessible feedback');
  assert.equal(await marginControl.getByRole('button',{name:'Aumentar Margens'}).isDisabled(),true,'Stepper must not commit an invalid draft');
  await marginControl.screenshot({path:'test-results/ux-audit/inspector-number-invalid.png',animations:'disabled'});
  await marginInput.press('Escape');
  assert.equal(await marginInput.inputValue(),savedMargin,'Escape must restore the committed numeric value');
+ assert.equal(await marginControl.locator('.ds-scrub-range').isEnabled(),true,'Escape must restore scrubbing');
  assert.equal(await marginInput.getAttribute('aria-invalid'),null);
  await marginInput.fill('');await marginInput.dispatchEvent('change');
  assert.equal(await marginInput.getAttribute('aria-invalid'),'true','Empty numeric value must be rejected');
+ assert.equal(await marginControl.locator('.ds-scrub-range').isDisabled(),true,'Empty drafts must freeze scrub');
+ assert.equal(await marginControl.locator('.ds-scrub-range').inputValue(),marginScrubBefore);
+ await marginControl.screenshot({path:'test-results/ux-audit/inspector-number-scrub-empty-draft.png',animations:'disabled'});
  await marginInput.fill('12.5');await marginInput.dispatchEvent('change');
  assert.equal(await marginInput.getAttribute('aria-invalid'),'true','Numeric step mismatch must be rejected');
  await marginInput.fill(String(beforeMargin));await marginInput.dispatchEvent('change');
  assert.equal(await marginInput.getAttribute('aria-invalid'),null,'Valid numeric correction must clear the error');
+ assert.equal(await marginControl.locator('.ds-scrub-range').isEnabled(),true,'Valid correction must restore scrub');
  assert.equal(Number(await marginInput.inputValue()),beforeMargin);
+ await reveal(page,'sectionRule');
  const rules=page.locator('.ds-property-segment').filter({has:page.locator('#sectionRule')});
  await rules.getByRole('button',{name:'Bloco'}).click();
  assert.equal(await page.locator('#sectionRule').inputValue(),'block');
+ assert.deepEqual(await rules.locator('.ds-segment-option').evaluateAll(buttons=>buttons.map(button=>button.tabIndex)),[-1,-1,0],
+  'Only the selected segment is tabbable');
+ await rules.screenshot({path:'test-results/ux-audit/inspector-segment-roving-tabstop.png',animations:'disabled'});
+ // Document sync may select another native option without clicking the
+ // segmented UI. The focused button must follow the new single Tab stop.
+ await page.locator('#sectionRule').evaluate(el=>{
+  el.value='line';el.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+ assert.equal(await rules.locator('[data-value="line"]').evaluate(el=>el===document.activeElement),true,
+  'External segment selection must transfer focus to the selected option');
+ assert.deepEqual(await rules.locator('.ds-segment-option').evaluateAll(buttons=>buttons.map(button=>button.tabIndex)),[0,-1,-1]);
+ await rules.screenshot({path:'test-results/ux-audit/inspector-segment-external-selection-focus.png',animations:'disabled'});
+ await page.locator('#sectionRule').evaluate(el=>{
+  el.value='block';el.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+ assert.equal(await rules.locator('[data-value="block"]').evaluate(el=>el===document.activeElement),true,
+  'Reverting an external segment selection must preserve roving focus');
+ await assertNoRedundantNativeEvents(page.locator('#sectionRule'),async()=>{
+  await rules.getByRole('button',{name:'Bloco'}).click();
+ },'Pressing an already selected segment must not create a document edit');
+ // A focused segment can disappear while its nearest remaining option is disabled.
+ const nativeRule=page.locator('#sectionRule');
+ await nativeRule.locator('option[value="none"]').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelector('[data-value="none"]')?.disabled===true);
+ await rules.getByRole('button',{name:'Bloco'}).focus();
+ await nativeRule.locator('option[value="block"]').evaluate(el=>{el.hidden=true;});
+ await page.waitForFunction(()=>!document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelector('[data-value="block"]'));
+ assert.equal(await rules.locator('[data-value="line"]').evaluate(el=>el===document.activeElement),true,
+  'Removing a focused segment must skip its disabled neighbor');
+ await rules.screenshot({path:'test-results/ux-audit/inspector-segment-removed-disabled-neighbor.png',animations:'disabled'});
+ await nativeRule.locator('option[value="block"]').evaluate(el=>{el.hidden=false;});
+ await nativeRule.locator('option[value="none"]').evaluate(el=>{el.disabled=false;});
+ await page.waitForFunction(()=>document.querySelector('#sectionRule')?.closest('.ds-property-segment')
+  ?.querySelectorAll('.ds-segment-option').length===3);
+ // Native option disabling can blur the focused button synchronously,
+ // before MutationObserver can read document.activeElement.
+ await rules.locator('[data-value="line"]').focus();
+ await nativeRule.locator('option[value="line"]').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.activeElement?.matches('.ds-property-segment [data-value="none"]'));
+ assert.equal(await rules.locator('[data-value="none"]').evaluate(el=>el===document.activeElement),true,
+  'Disabling a focused segment must preserve keyboard focus on an enabled sibling');
+ assert.deepEqual(await rules.locator('.ds-segment-option').evaluateAll(buttons=>buttons.map(button=>button.tabIndex)),[-1,-1,0],
+  'Disabling an unselected segment preserves the selected Tab stop');
+ await nativeRule.locator('option[value="line"]').evaluate(el=>{el.disabled=false;});
+ await reveal(page,'showPageGuides');
  const guides=page.locator('.ds-property-binary').filter({has:page.locator('#showPageGuides')});
- await guides.getByRole('button',{name:'Marcações de página desligado'}).click();
+ await guides.getByRole('button',{name:'Marcações de página — Ocultar'}).click();
  assert.equal(await page.locator('#showPageGuides').isChecked(),false);
  assert.ok(await page.locator('#pageStack').evaluate(el=>el.classList.contains('hide-page-guides')));
- await guides.getByRole('button',{name:'Marcações de página ligado'}).click();
+ await guides.getByRole('button',{name:'Marcações de página — Mostrar'}).click();
  assert.equal(await page.locator('#showPageGuides').isChecked(),true);
+ assert.deepEqual(await guides.locator('.ds-binary-option').evaluateAll(buttons=>buttons.map(button=>button.tabIndex)),[-1,0],
+  'Only the selected binary choice is tabbable');
+ await guides.getByRole('button',{name:'Marcações de página — Mostrar'}).press('ArrowLeft');
+ assert.equal(await page.locator('#showPageGuides').isChecked(),false,'ArrowLeft selects the preceding alternative');
+ assert.deepEqual(await guides.locator('.ds-binary-option').evaluateAll(buttons=>buttons.map(button=>button.tabIndex)),[0,-1]);
+ await guides.getByRole('button',{name:'Marcações de página — Ocultar'}).press('ArrowRight');
+ assert.equal(await page.locator('#showPageGuides').isChecked(),true,'ArrowRight selects the following alternative');
+ await guides.screenshot({path:'test-results/ux-audit/inspector-binary-keyboard-roving.png',animations:'disabled'});
+ // A programmatic source-of-truth update must not leave focus on an option
+ // that has just been removed from the sequential keyboard navigation.
+ await page.locator('#showPageGuides').evaluate(el=>{
+  el.checked=false;el.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+ assert.equal(await guides.locator('.ds-binary-option').first().evaluate(el=>el===document.activeElement),true,
+  'External binary update must focus the newly selected option');
+ assert.deepEqual(await guides.locator('.ds-binary-option').evaluateAll(buttons=>buttons.map(button=>button.tabIndex)),[0,-1]);
+ await guides.screenshot({path:'test-results/ux-audit/inspector-binary-external-selection-focus.png',animations:'disabled'});
+ await page.locator('#showPageGuides').evaluate(el=>{
+  el.checked=true;el.dispatchEvent(new Event('change',{bubbles:true}));
+ });
+ assert.equal(await guides.locator('.ds-binary-option').last().evaluate(el=>el===document.activeElement),true,
+  'Restoring binary selection must restore the sole Tab stop and focus');
+ await page.keyboard.press('Tab');
+ assert.equal(await guides.locator('.ds-binary-group').evaluate(el=>el.contains(document.activeElement)),false,
+  'Tab must leave the binary group instead of visiting a second button');
+ assert.equal(await guides.getByRole('button',{name:'Marcações de página — Ocultar'}).textContent(),'Ocultar');
+ assert.equal(await guides.getByRole('button',{name:'Marcações de página — Mostrar'}).textContent(),'Mostrar');
+ await assertNoRedundantNativeEvents(page.locator('#showPageGuides'),async()=>{
+  await guides.getByRole('button',{name:'Marcações de página — Mostrar'}).click();
+ },'Pressing an already selected binary option must not create a document edit');
+ await guides.screenshot({path:'test-results/ux-audit/inspector-binary-localized.png',animations:'disabled'});
 
- await page.locator('[data-inspector-tab="style"]').click();
- await page.locator('[data-inspector-tab="style"]').focus();
+ await page.locator('[data-inspector-tab="document"]').click();
+ await page.locator('[data-inspector-tab="document"]').focus();
  await page.keyboard.press('ArrowRight');
- assert.equal(await page.locator('[data-inspector-tab="sections"]').getAttribute('aria-selected'),'true');
+ assert.equal(await page.locator('[data-inspector-tab="content"]').getAttribute('aria-selected'),'true');
  await page.keyboard.press('ArrowRight');
  assert.equal(await page.locator('[data-inspector-tab="page"]').getAttribute('aria-selected'),'true');
- await page.locator('[data-inspector-tab="background"]').click();
+ await page.locator('[data-inspector-tab="document"]').click();
  assert.ok(await page.locator('.ds-property-range').filter({has:page.locator('#bgOpacity')}).count());
  await page.locator('#printPDF').click();
  await page.locator('input[name="pdfPreset"][value="light"]').check();
@@ -281,16 +1256,12 @@ try {
  await page.locator('input[name="pdfPreset"][value="contrast"]').check();
  assert.equal(await page.locator('#pdfBackgroundMode').inputValue(),'none');
  assert.equal(await page.locator('#pdfTextMode').inputValue(),'dark');
+ await page.locator('.pdf-custom-settings summary').click();
  await page.locator('#pdfBackgroundMode').selectOption('full');
  assert.equal(await page.locator('#pdfSelectionStatus').textContent(),'Personalizado');
  await page.locator('#pdfPaper').selectOption('letter');
- await page.locator('#pdfCheckFile').setInputFiles([
-  {name:'visual.pdf',mimeType:'application/pdf',buffer:Buffer.alloc(43296,0)},
-  {name:'simplified.pdf',mimeType:'application/pdf',buffer:Buffer.alloc(37483,0)}
- ]);
- assert.match(await page.locator('#pdfSizeResult').textContent(),/42.3 KB/);
- assert.match(await page.locator('#pdfSizeResult').textContent(),/Diferença entre maior e menor/);
- await page.locator('#exportSettingsDialog button[value="cancel"]').click();
+
+ await page.locator('#exportSettingsDialog .pdf-footer button[value="cancel"]').click();
  // Heading + first paragraph/list item are grouped for print without modifying Markdown.
  assert.ok(await page.locator('#rendered .section-lead').count()>0);
 
@@ -312,7 +1283,7 @@ try {
  const text=await page.locator('#pageStack .page-content').allTextContents();
  assert.match(text.join(' '),/MARCADOR TESTE ULTIMA PAGINA/);
  await page.locator('#nextPage').click();assert.equal(await page.locator('#currentPage').textContent(),'2 / '+count);
- await page.locator('#paperSize').selectOption('letter');
+ await reveal(page,'paperSize');await page.locator('#paperSize').selectOption('letter');
  await page.waitForFunction(()=>document.querySelector('#paginationStatus')?.dataset.status==='ready');
  assert.ok((await page.locator('#pageStack > .paper').count())>=3);
 
@@ -353,7 +1324,7 @@ try {
  }
  // On narrow viewport, the user can explicitly switch to the page canvas.
  await page.setViewportSize({width:390,height:844});
- await page.locator('#railCanvas').click();
+ await page.locator('[data-workspace-mode=preview]').click();
  assert.equal(await page.locator('.workspace').getAttribute('data-mode'),'preview');
  assert.ok(await page.locator('.preview-panel').isVisible(),'Mobile canvas entry failed');
  await page.setViewportSize({width:1600,height:950});
@@ -363,12 +1334,13 @@ try {
  // mdress: Any Markdown document. Preview section breaks, theme locks and IA guidance.
  const mdress=await browser.newPage({viewport:{width:1500,height:900}});
  try{
-  await mdress.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await mdress.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
   await mdress.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent==='Salvo localmente');
   assert.match(await mdress.title(),/mdress/);
   assert.match(await mdress.locator('#source').inputValue(),/O título do artigo/);
   await mdress.locator('#designToggle').click();
-  await mdress.locator('[data-inspector-tab="style"]').click();
+  await mdress.locator('[data-inspector-tab="document"]').click();
+  await reveal(mdress,'shuffleTheme');await reveal(mdress,'themeRecipeGallery');
   assert.ok(await mdress.locator('.theme-recipe-card').count()>=9);
   const beforeAccent=await mdress.locator('#accentColor').inputValue();
   await mdress.locator('[data-theme-lock="colors"]').click();
@@ -414,10 +1386,11 @@ try {
   await mdress.locator('[data-theme-lock="colors"]').click();
   await mdress.locator('[data-theme-lock="background"]').click();
 
-  await mdress.locator('[data-inspector-tab="ai"]').click();
+  await reveal(mdress,'agentBrief');
   await mdress.locator('[data-ai-brief]').first().click();
   assert.match(await mdress.locator('#agentBrief').inputValue(),/Editorial sofisticado/);
   await mdress.locator('[data-inspector-tab="page"]').click();
+  await mdress.evaluate(()=>{document.getElementById('outlineDisclosure').open=true;document.querySelector('.outline-pagination').open=true;});
   const heading=mdress.locator('#pageBreakList .page-break-option[data-section-break-id^="2:"]').first();
   assert.ok(await heading.count(),'No section break choices');
   await heading.click();
@@ -429,11 +1402,12 @@ try {
   await mdress.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent==='Salvo localmente');
   await mdress.locator('#designToggle').click();
   await mdress.locator('[data-inspector-tab="page"]').click();
+  await mdress.evaluate(()=>{document.getElementById('outlineDisclosure').open=true;document.querySelector('.outline-pagination').open=true;});
   assert.equal(await mdress.locator('#pageBreakList .page-break-option[data-section-break-id^="2:"]').first().getAttribute('aria-pressed'),'true','Page break not persisted');
 
   // The same policy can be changed from the source outline; no Markdown edits.
   const sourceBefore=await mdress.locator('#source').inputValue();
-  await mdress.locator('#outlineDisclosure > summary').click();
+  await mdress.locator('#outlineDisclosure').evaluate(el=>el.open=true);
   const outlineBreak=mdress.locator('.outline-break-toggle[data-section-break-id^="2:"]').first();
   assert.equal(await outlineBreak.getAttribute('aria-pressed'),'true');
   await outlineBreak.click();
@@ -446,6 +1420,7 @@ try {
   await previewAction.click();
   assert.equal(await mdress.locator('#source').inputValue(),sourceBefore);
   await mdress.locator('[data-inspector-tab="page"]').click();
+  await mdress.evaluate(()=>{document.getElementById('outlineDisclosure').open=true;document.querySelector('.outline-pagination').open=true;});
   const toggled=mdress.locator('#pageBreakList .page-break-option[aria-pressed=true]');
   assert.ok(await toggled.count()>=1);
 
@@ -457,15 +1432,15 @@ try {
   assert.match(await mdress.locator('#source').inputValue(),/Instalação/);
 
   // Per-section styling: first a global recipe, then a local override.
-  await mdress.locator('[data-inspector-tab="sections"]').click();
-  const composer=mdress.locator('#inspector-sections');
+  await mdress.locator('[data-inspector-tab="content"]').click();
+  const composer=mdress.locator('#inspector-content');
   const composerDimensions=await composer.evaluate(root=>{
     const bounds=root.getBoundingClientRect();
     const nodes=['.composer-mode-switch','#sectionStyleTarget','#sectionStyleControl'].map(query=>root.querySelector(query));
     return nodes.map(node=>{const r=node.getBoundingClientRect();return {overflow:r.left<bounds.left-2||r.right>bounds.right+2,height:r.height};});
   });
   assert.ok(composerDimensions.every(x=>!x.overflow),'Composer controls must fit inspector width');
-  assert.ok(composerDimensions[2].height<=43,'Preset control is too tall');
+  assert.ok(composerDimensions[2].height<=80,'Label, actions and preset field must fit two compact rows');
 
   assert.ok(await composer.locator('.section-style-preset').count()>=8);
   await composer.locator('[data-style-gallery="section"]').click();
@@ -475,6 +1450,7 @@ try {
   const secondNamedSection=await composer.locator('#sectionStyleTarget').evaluate(el=>[...el.options].filter(option=>option.value.startsWith('2:'))[1]?.value);
   assert.ok(secondNamedSection,'Named H2 sections should remain selectable alongside level scopes');
   await composer.locator('#sectionStyleTarget').selectOption(secondNamedSection);
+  await composer.locator('[data-style-gallery="section"]').click();
   await composer.locator('[data-section-preset="band"]').click();
   assert.ok(await mdress.locator('#pageStack .semantic-section[data-section-variant="band"]').count()>=1);
   assert.ok(await mdress.locator('#pageStack .semantic-section[data-section-variant="surface"]').count()>=1,'Local styling changed sibling sections');
@@ -485,26 +1461,27 @@ try {
   await mdress.reload({waitUntil:'networkidle'});
   await mdress.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent==='Salvo localmente');
   await mdress.locator('#designToggle').click();
-  await mdress.locator('[data-inspector-tab="sections"]').click();
+  await mdress.locator('[data-inspector-tab="content"]').click();
   assert.equal(await mdress.locator('#source').inputValue(),sourceBeforeComposer,'Styling mutated Markdown');
   assert.equal(await mdress.locator('.section-style-density button[data-section-density="airy"]').getAttribute('aria-pressed'),'true','Section density not persisted');
   assert.ok(await mdress.locator('#pageStack .semantic-section[data-section-variant="band"]').count()>=1,'Section override not persisted');
   const button=mdress.locator('#pageStack .section-design-action').first();
   assert.ok(await button.count(),'Preview must offer a section styling affordance');
   await button.click({force:true});
-  assert.equal(await mdress.locator('[data-inspector-tab="sections"]').getAttribute('aria-selected'),'true');
+  assert.equal(await mdress.locator('[data-inspector-tab="content"]').getAttribute('aria-selected'),'true');
   await mdress.locator('[data-view="ats"]').click();
-  assert.match(await mdress.locator('#atsView').textContent(),/Revisão do Markdown/);
+  assert.match(await mdress.locator('#atsView').textContent(),/Revisão do documento/);
  } finally {await mdress.close();}
  // Regression: a short H2 section fits on page 1, but a nested H3 has an explicit page break.
  const regression=await browser.newPage({viewport:{width:1500,height:960}});
  try{
-  await regression.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await regression.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
   await regression.locator('#source').waitFor();
   await regression.locator('#source').fill('# Documento\n\n## Experiência Profissional\nIntrodução da seção.\n\n### Big2be\nConteúdo da empresa.\n\n### Outra empresa\nConteúdo seguinte.');
   await regression.waitForFunction(()=>document.querySelector('#paginationStatus')?.dataset.status==='ready');
   await regression.locator('#designToggle').click();
   await regression.locator('[data-inspector-tab="page"]').click();
+  await regression.evaluate(()=>{document.getElementById('outlineDisclosure').open=true;document.querySelector('.outline-pagination').open=true;});
   await regression.locator('#pageBreakList .page-break-option[data-section-break-id^="3:big2be:"]').click();
   await regression.waitForFunction(()=>document.querySelector('#paginationStatus')?.dataset.status==='ready'&&document.querySelectorAll('#pageStack>.paper').length>=2);
   const pages=await regression.locator('#pageStack>.paper').allTextContents();
@@ -512,6 +1489,7 @@ try {
   assert.doesNotMatch(pages[0],/Big2be/,'Explicit H3 break must prevent nested heading from staying on previous page');
   assert.match(pages[1],/Big2be/);
   // The parent H2 should also be able to start its own page independently.
+  await regression.evaluate(()=>{document.getElementById('outlineDisclosure').open=true;document.querySelector('.outline-pagination').open=true;});
   await regression.locator('#pageBreakList .page-break-option[data-section-break-id^="2:experiência profissional:"]').click();
   await regression.waitForFunction(()=>document.querySelector('#paginationStatus')?.dataset.status==='ready'&&document.querySelectorAll('#pageStack>.paper').length>=3);
   const parentPages=await regression.locator('#pageStack>.paper').allTextContents();
@@ -525,7 +1503,7 @@ try {
  // Bidirectional scroll sync follows rendered heading landmarks across physical pages.
  const syncPage=await browser.newPage({viewport:{width:1600,height:900}});
  try{
-  await syncPage.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await syncPage.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
   await syncPage.locator('#source').waitFor();
   const markdown=Array.from({length:8},(_,i)=>'## Capítulo '+(i+1)+'\n\n'+Array.from({length:6},(_,j)=>'Parágrafo '+j+' '+('Texto de exemplo para testar a paginação e o alinhamento. '.repeat(2))).join('\n\n')).join('\n\n');
   await syncPage.locator('#source').fill('# Documento\n\n'+markdown);
@@ -535,13 +1513,17 @@ try {
   await syncPage.waitForFunction(()=>document.querySelector('.preview-scroll').scrollHeight>document.querySelector('.preview-scroll').clientHeight);
   await syncPage.locator('#source').evaluate(el=>{el.scrollTop=el.scrollHeight*.65;el.dispatchEvent(new Event('scroll'));});
   await syncPage.waitForFunction(()=>document.querySelector('.preview-scroll').scrollTop>30);
+  // The scroll synchronizer intentionally holds source ownership until the
+  // next animation frame to avoid feedback loops. Reverse direction only after
+  // that frame has released ownership; otherwise CI races against rAF.
+  await syncPage.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   await syncPage.locator('.preview-scroll').evaluate(el=>{el.scrollTop=el.scrollHeight*.9;el.dispatchEvent(new Event('scroll'));});
   await syncPage.waitForFunction(()=>document.querySelector('#source').scrollTop>document.querySelector('#source').scrollHeight*.45);
  }finally{await syncPage.close();}
  // Individual preview styling: only the clicked item changes, including its marker.
  const elementPage=await browser.newPage({viewport:{width:1600,height:950}});
  try{
-  await elementPage.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await elementPage.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
   await elementPage.locator('#source').fill('# Lista\n\n- Primeiro item\n- Segundo item\n- Terceiro item');
   await elementPage.waitForFunction(()=>document.querySelector('#paginationStatus')?.dataset.status==='ready');
   await elementPage.locator('#pageStack li[data-md-element-id="li:2"]').click();
@@ -564,7 +1546,9 @@ try {
   await elementPage.locator('[data-element-property="fontSize"]').dispatchEvent('change');
   await elementPage.waitForFunction(()=>document.querySelector('#pageStack li[data-md-element-id="li:2"]')?.style.fontSize==='24px');
   assert.notEqual(await elementPage.locator('#pageStack li[data-md-element-id="li:1"]').evaluate(el=>el.style.fontSize),'24px');
+  const acceptReset=elementPage.getByRole('alertdialog').waitFor({state:'visible'}).then(()=>elementPage.locator('[data-alert-confirm]').click());
   await elementPage.locator('[data-preview-style-reset]').click();
+  await acceptReset;
   await elementPage.waitForFunction(()=>!document.querySelector('#pageStack li[data-md-element-id="li:2"]')?.dataset.mdElementStyle);
   assert.equal(await elementPage.locator('#pageStack li[data-md-element-id="li:2"]').evaluate(el=>el.style.fontSize),'');
   assert.ok((await elementPage.locator('#source').inputValue()).includes('- Segundo item'));
@@ -574,7 +1558,7 @@ try {
  // Source toolbar must form one contiguous editing cluster, never split ends.
  const toolbarPage=await browser.newPage({viewport:{width:1700,height:900}});
  try{
-  await toolbarPage.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await toolbarPage.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
   await toolbarPage.locator('#source').waitFor();
   const metrics=await toolbarPage.locator('.markdown-toolbar').evaluate(el=>{
    const groups=[...el.querySelectorAll('.tool-group')].map(node=>node.getBoundingClientRect());
@@ -593,10 +1577,10 @@ try {
  // UX review evidence is a separate artifact from functional smoke assertions.
  const ux=await browser.newPage({viewport:{width:1440,height:900}});
  try{
-  await ux.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'});
+  await ux.goto((process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173'),{waitUntil:'networkidle'});
   await ux.locator('#source').waitFor();
   await ux.locator('#designToggle').click();
-  await ux.locator('[data-inspector-tab="sections"]').click();
+  await ux.locator('[data-inspector-tab="content"]').click();
   // Capture component states as actual rendered browser images for design review.
   await ux.locator('body').evaluate(el=>el.dataset.theme='graphite');
   await ux.setViewportSize({width:1440,height:900});
@@ -612,6 +1596,66 @@ try {
   if(await sectionControl.isVisible())await sectionControl.screenshot({path:'test-results/component-preset-picker.png',animations:'disabled'});
   await ux.locator('body').evaluate(el=>el.dataset.theme='studio');
   if(await inspector.isVisible())await inspector.screenshot({path:'test-results/component-inspector-studio.png',animations:'disabled'});
+  // Mobile is narrower than the previous 768px QA floor. Keep the
+  // inspector accessible as an overlay with touch-sized interactive targets.
+  await ux.setViewportSize({width:390,height:844});
+  if(!(await ux.locator('.design-inspector').isVisible()))await ux.locator('#railDesign').click();
+  await ux.locator('[data-inspector-tab="document"]').click();
+  const mobileTargets=await ux.locator('.design-inspector').evaluate(root=>{
+   const selectors=['.ds-prop-number','.ds-number-native','.ds-number-step',
+    '.ds-color-swatch','.ds-color-hex','.ds-color-pipette','.ds-select-trigger',
+    '.ds-segment-option','.ds-binary-option'];
+   const bounds=root.getBoundingClientRect();
+   return selectors.flatMap(selector=>[...root.querySelectorAll(selector)]
+    .filter(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden')
+    .map(el=>({selector,width:el.getBoundingClientRect().width,
+     height:el.getBoundingClientRect().height,
+     left:el.getBoundingClientRect().left-bounds.left,
+     right:el.getBoundingClientRect().right-bounds.right})));
+  });
+  assert.ok(mobileTargets.length>=3,'Mobile inspector must expose usable property controls');
+  assert.ok(mobileTargets.every(item=>item.height>=43.5),
+   'Mobile inspector targets must be at least 44px high: '+JSON.stringify(mobileTargets));
+  assert.ok(mobileTargets.filter(item=>['.ds-number-step','.ds-color-swatch','.ds-color-pipette'].includes(item.selector))
+   .every(item=>item.width>=43.5),'Mobile steppers, swatches and eyedroppers need 44px touch width');
+  assert.ok(mobileTargets.every(item=>item.left>=-3&&item.right<=3),
+   'Mobile property controls must not clip horizontally: '+JSON.stringify(mobileTargets));
+  await ux.screenshot({path:'test-results/ux-audit/mobile-inspector-390.png',animations:'disabled'});
+  // A portalled listbox must fit the mobile viewport and must not stay
+  // expanded when focus leaves via keyboard or assistive technology.
+  const mobileThemeTrigger=ux.locator('#inspector-document .ds-property-select')
+   .filter({has:ux.locator('#bgKind')}).locator('.ds-select-trigger');
+  await mobileThemeTrigger.click();
+  const mobilePopup=ux.locator('.ds-select-popover');
+  const popupBounds=await mobilePopup.evaluate(el=>{
+   const rect=el.getBoundingClientRect();
+   return {left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom,
+    viewportWidth:window.innerWidth,viewportHeight:window.innerHeight};
+  });
+  assert.ok(popupBounds.left>=7&&popupBounds.right<=popupBounds.viewportWidth-7&&
+   popupBounds.top>=7&&popupBounds.bottom<=popupBounds.viewportHeight-7,
+   'Mobile listbox must remain inside the viewport: '+JSON.stringify(popupBounds));
+  assert.equal(await mobileThemeTrigger.getAttribute('aria-controls'),await mobilePopup.getAttribute('id'),
+   'Mobile combobox must reference its mounted listbox');
+  await ux.keyboard.press('ArrowDown');
+  assert.equal(await mobilePopup.locator('[role="option"]:focus-visible').count(),1,
+   'Mobile listbox keyboard focus must remain visible');
+  await ux.screenshot({path:'test-results/ux-audit/mobile-inspector-combobox-390.png',animations:'disabled'});
+  const otherInspectorTab=ux.locator('[data-inspector-tab="page"]');
+  await otherInspectorTab.focus();
+  assert.equal(await mobilePopup.count(),0,
+   'Moving focus outside the portalled listbox must dismiss it');
+  assert.equal(await mobileThemeTrigger.getAttribute('aria-expanded'),'false');
+  assert.equal(await mobileThemeTrigger.getAttribute('aria-controls'),null,
+   'Focus-out must clear the now-dangling listbox ID reference');
+  assert.equal(await otherInspectorTab.evaluate(el=>document.activeElement===el),true,
+   'Closing the listbox must preserve the new keyboard focus target');
+  await mobileThemeTrigger.click();
+  await ux.keyboard.press('Tab');
+  assert.equal(await mobilePopup.count(),0,'Tab must dismiss the portalled listbox');
+  assert.equal(await mobileThemeTrigger.getAttribute('aria-expanded'),'false');
+  assert.equal(await ux.evaluate(()=>document.activeElement===document.body),false,
+   'Tab from a listbox option must not lose keyboard focus to body');
   for(const [name,width,height,theme] of [
    ['desktop-graphite',1440,900,'graphite'],
    ['desktop-oled',1440,900,'oled'],

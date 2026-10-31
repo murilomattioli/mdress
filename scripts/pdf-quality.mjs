@@ -1,15 +1,23 @@
 import {chromium} from 'playwright';
 import {strict as assert} from 'node:assert';
 import {execFileSync} from 'node:child_process';
-import {mkdtemp,stat,rm,writeFile} from 'node:fs/promises';
+import {mkdtemp,stat,rm,writeFile,copyFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 
+async function reveal(page,id){await page.evaluate(async id=>{if(document.getElementById('themesView').classList.contains('hidden'))document.getElementById('designToggle').click();const {revealInspectorControl}=await import('/property-inspector.js');revealInspectorControl(id);},id);}
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const temp=await mkdtemp(join(tmpdir(),'resume-pdf-quality-'));
 const metrics=[];
 const MAX_BYTES=5*1024*1024;
-const base='http://127.0.0.1:4173';
+const base=(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173');
+function extractPDFText(args){
+ if(!process.env.MDRESS_PDF_PYTHON)return execFileSync('pdftotext',args,{encoding:'utf8'});
+ // Optional existing Python/pypdf runtime; never installs dependencies.
+ return execFileSync(process.env.MDRESS_PDF_PYTHON,['-X','utf8','-c',
+  'import sys; from pypdf import PdfReader; a=sys.argv[1:]; r=PdfReader(a[-2]); start=int(a[a.index("-f")+1])-1 if "-f" in a else 0; end=int(a[a.index("-l")+1]) if "-l" in a else len(r.pages); print("\\n".join(p.extract_text() or "" for p in r.pages[start:end]))',...args],{encoding:'utf8'});
+}
+
 
 async function openDocument(){
  const page=await browser.newPage({viewport:{width:1500,height:900}});
@@ -20,7 +28,8 @@ async function openDocument(){
 }
 async function setPaperTheme(page,id){
  await page.locator('#designToggle').click();
- await page.locator('[data-inspector-tab="background"]').click();
+ await page.locator('[data-inspector-tab="document"]').click();
+ await reveal(page,'backgroundGallery');
  await page.locator('.bg-preset[aria-label="Usar fundo '+id+'"]').click();
  await page.waitForFunction(()=>document.querySelector('#saveStatus')?.textContent==='Salvo localmente');
 }
@@ -28,7 +37,7 @@ async function printScenario(name,{backgroundPreset=null,profile='visual',backgr
  const page=await openDocument();
  try{
   if(backgroundPreset)await setPaperTheme(page,backgroundPreset);
-  if(paper==='letter')await page.locator('#paperSize').selectOption('letter');
+  if(paper==='letter'){await reveal(page,'paperSize');await page.locator('#paperSize').selectOption('letter');}
   if(long){
    const tail='\n## Experiências complementares\n'+Array.from({length:130},(_,i)=>'- Projeto '+(i+1)+': otimização, React, TypeScript e documentação acessível em aplicações empresariais.').join('\n')+'\n\n## Encerramento\nMARCADOR FINAL MULTIPAGINA';
    await page.locator('#source').fill((await page.locator('#source').inputValue())+tail);
@@ -60,7 +69,8 @@ async function printScenario(name,{backgroundPreset=null,profile='visual',backgr
   const size=(await stat(pdfPath)).size;
   assert.ok(size>500,'PDF output is unexpectedly empty');
   assert.ok(size<MAX_BYTES,'PDF above safety budget: '+size+' bytes');
-  const extracted=execFileSync('pdftotext',['-enc','UTF-8',pdfPath,'-'],{encoding:'utf8'});
+  await copyFile(pdfPath,'test-results/'+name+'.pdf');
+  const extracted=extractPDFText(['-enc','UTF-8',pdfPath,'-']);
   for(const phrase of ['O título do artigo','Uma introdução para o leitor.','Desenvolva sua ideia','Primeira ideia']){
    assert.ok(extracted.includes(phrase),name+' lost source text: '+phrase);
   }
@@ -98,13 +108,13 @@ async function testSemanticNearPageBoundary(){
   assert.ok(count>=2&&count<=10,'Unreasonable number of pages: '+count);
   let headingPage=-1,leadPage=-1;
   for(let i=1;i<=count;i++){
-   const out=execFileSync('pdftotext',['-enc','UTF-8','-f',String(i),'-l',String(i),path,'-'],{encoding:'utf8'});
+   const out=extractPDFText(['-enc','UTF-8','-f',String(i),'-l',String(i),path,'-']);
    if(out.includes('SECAO LIMITE'))headingPage=i;
    if(out.includes('PRIMEIRO PARAGRAFO JUNTO AO TITULO'))leadPage=i;
   }
   assert.ok(headingPage>0&&leadPage>0,'Heading or first block lost');
   assert.equal(headingPage,leadPage,'Heading stranded from first paragraph at page boundary');
-  const full=execFileSync('pdftotext',['-enc','UTF-8',path,'-'],{encoding:'utf8'});
+  const full=extractPDFText(['-enc','UTF-8',path,'-']);
   assert.ok(full.includes('Item adicional depois do título.'),'Content removed by pagination');
   console.log('PAGINATION QUALITY '+JSON.stringify({pages:count,headingPage,leadPage,samePage:true,groupedHeadings:groups}));
  } finally {await page.close();}
@@ -120,7 +130,7 @@ async function testExperienceSectionFlow(){
   const markdown='# Currículo de teste\n\n## Experiência Profissional\n\n'+records.join('\n\n')+'\n\n## Formação Acadêmica\n\nCurso de Engenharia de Software. Fim do currículo.';
   await page.locator('#source').fill(markdown);
   await page.locator('#designToggle').click();
-  await page.locator('[data-inspector-tab="sections"]').click();
+  await page.locator('[data-inspector-tab="content"]').click();
   await page.locator('[data-style-nav="section:1"]').click();
   await page.waitForFunction(()=>document.querySelector('#paginationStatus')?.dataset.status==='ready',{timeout:20000});
   const decorated=await page.locator('#pageStack > .paper .semantic-section[data-section-variant="surface"]').count();
@@ -147,10 +157,10 @@ async function testExperienceSectionFlow(){
   const pages=Number((info.match(/^Pages:\s*(\d+)/m)||[])[1]||0);
   assert.equal(pages,previewPages,'Preview/PDF pages diverged');
   for(let i=1;i<=pages;i++){
-   const extracted=execFileSync('pdftotext',['-enc','UTF-8','-f',String(i),'-l',String(i),path,'-'],{encoding:'utf8'});
+   const extracted=extractPDFText(['-enc','UTF-8','-f',String(i),'-l',String(i),path,'-']);
    assert.ok(extracted.trim().length>20,'Blank PDF page '+i);
   }
-  const allText=execFileSync('pdftotext',['-enc','UTF-8',path,'-'],{encoding:'utf8'});
+  const allText=extractPDFText(['-enc','UTF-8',path,'-']);
   assert.ok(allText.includes('Experiência item 80'),'Last experience item missing');
   assert.ok(allText.toLocaleLowerCase('pt-BR').includes('formação acadêmica'),'Following heading missing');
   console.log('SECTION FLOW PASS '+JSON.stringify({previewPages,pdfPages:pages,firstPageHasExperience:true,noEmptyPage:true,lastExperiencePreserved:true,styled:true,fragments}));
@@ -162,6 +172,7 @@ async function testExplicitBreakOnDocumentSection(){
  try{
   await page.locator('#designToggle').click();
   await page.locator('[data-inspector-tab="page"]').click();
+  await page.evaluate(()=>{document.getElementById('outlineDisclosure').open=true;document.querySelector('.outline-pagination').open=true;});
   const choices=page.locator('#pageBreakList .page-break-option[data-section-break-id^="2:"]');
   assert.ok(await choices.count()>=2,'No markdown sections were found');
   await choices.first().click();
@@ -173,8 +184,8 @@ async function testExplicitBreakOnDocumentSection(){
   const info=execFileSync('pdfinfo',[target],{encoding:'utf8'});
   const pdfPages=Number((info.match(/^Pages:\s*(\d+)/m)||[])[1]||0);
   assert.equal(pdfPages,count,'Manual break PDF page count diverges from preview');
-  const first=execFileSync('pdftotext',['-enc','UTF-8','-f','1','-l','1',target,'-'],{encoding:'utf8'});
-  const second=execFileSync('pdftotext',['-enc','UTF-8','-f','2','-l','2',target,'-'],{encoding:'utf8'});
+  const first=extractPDFText(['-enc','UTF-8','-f','1','-l','1',target,'-']);
+  const second=extractPDFText(['-enc','UTF-8','-f','2','-l','2',target,'-']);
   assert.match(first,/O título do artigo/);
   assert.match(second.toLocaleLowerCase('pt-BR'),/o contexto/);
   assert.doesNotMatch(first.toLocaleLowerCase('pt-BR'),/o contexto/);

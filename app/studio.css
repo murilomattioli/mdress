@@ -18,12 +18,12 @@ button,select,input,textarea{font:inherit}
 .brand-wordmark strong .brand-period{font-size:19px;color:var(--ds-brand);font-weight:800}
 .brand-wordmark small{font-size:9px;font-weight:720;letter-spacing:.115em;color:var(--ds-text-tertiary);margin-top:3px}
 .appbar-separator{width:1px;height:26px;background:var(--ds-border)}
-.document-selector{display:flex;align-items:center;gap:5px;padding:3px 4px 3px 11px;border:1px solid var(--ds-border);border-radius:10px;background:var(--ds-panel-raised);min-width:150px;max-width:300px;position:relative}
-.document-selector>ds-icon{color:var(--ds-brand);font-size:16px}
+.document-selector{display:flex;align-items:center;gap:2px;padding:3px 4px 3px 8px;border:1px solid var(--ds-border);border-radius:8px;background:var(--ds-panel-raised);min-width:150px;max-width:300px;position:relative}
+.document-selector>ds-icon{color:var(--ds-brand);font-size:16px;flex:0 0 16px;margin-right:2px}
 .document-selector select{min-width:60px;max-width:198px;width:100%;padding:6px 16px 6px 4px;font-size:11.5px;font-weight:650;border:0!important;background:transparent!important;color:var(--ds-text);outline:none!important;text-overflow:ellipsis}
 /* The native select has no outline: restore a keyboard-only ring on its shared shell. */
 .document-selector:has(> select:focus-visible){outline:2px solid var(--ds-brand);outline-offset:2px}
-.document-selector .ds-button--icon{width:26px;height:26px;min-height:26px;border-radius:6px}
+.document-selector .ds-button--icon{width:30px;height:32px;min-height:32px;flex:0 0 30px;border-radius:5px;padding:0}
 .document-selector .ds-button--icon:hover{background:var(--ds-panel-hover)}
 .document-menu{position:absolute;top:calc(100% + 10px);right:0;z-index:60;width:222px;padding:6px;border:1px solid var(--ds-border);border-radius:12px;background:var(--ds-panel-raised);box-shadow:var(--ds-shadow-pop)}
 .document-menu button{display:flex;align-items:center;gap:10px;padding:10px;width:100%;border:0;border-radius:6px;background:transparent;color:var(--ds-text);font-size:11px;text-align:left;min-height:36px}
@@ -36,22 +36,13 @@ button,select,input,textarea{font:inherit}
 #saveStatus{font-size:10.5px;font-weight:570;color:var(--ds-text-secondary);letter-spacing:0}
 .topbar #printPDF{min-height:36px;height:36px;padding:0 14px}
 .topbar #siteSettings{min-height:34px}
-.appbar-center{justify-content:center}
-.workspace{--rail-width:66px;display:grid;grid-template-columns:var(--rail-width) var(--editor-width) minmax(0,1fr);height:calc(100dvh - var(--ds-appbar-height));min-height:400px;width:100%;overflow:hidden;position:relative}
-.workspace[data-mode=edit]{grid-template-columns:var(--rail-width) minmax(0,1fr)}
-.workspace[data-mode=preview]{grid-template-columns:var(--rail-width) minmax(0,1fr)}
+.appbar-center{justify-content:center;gap:6px}
+.appbar-center .view-modes{order:0}
+.workspace{--rail-width:0px;display:grid;grid-template-columns:var(--editor-width) minmax(0,1fr);height:calc(100dvh - var(--ds-appbar-height));min-height:400px;width:100%;overflow:hidden;position:relative}
+.workspace[data-mode=edit]{grid-template-columns:minmax(0,1fr)}
+.workspace[data-mode=preview]{grid-template-columns:minmax(0,1fr)}
 .workspace[data-mode=edit] .preview-panel,.workspace[data-mode=preview] .editor-panel{display:none!important}
 .workspace[data-mode=edit] #editorSplitter,.workspace[data-mode=preview] #editorSplitter{display:none!important}
-.ds-rail.sidebar{display:flex;flex-direction:column;align-items:center;gap:7px;padding:16px 7px 10px;min-width:0;background:var(--ds-rail);border-right:1px solid var(--ds-border-subtle);z-index:1}
-.rail-heading{font-size:8px;font-weight:800;letter-spacing:.11em;color:var(--ds-text-tertiary);margin:3px 0 12px}
-.ds-rail .nav{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:0;width:52px;height:54px;padding:6px 4px;background:transparent;border:1px solid transparent;border-radius:10px;color:var(--ds-text-tertiary);font-size:9px;font-weight:600;line-height:1.1;letter-spacing:-.01em;transition:background .15s,color .15s}
-.ds-rail .nav:hover{background:var(--ds-panel-hover);color:var(--ds-text)}
-.ds-rail .nav.active{background:var(--ds-brand-soft);color:var(--ds-brand);border-color:color-mix(in srgb,var(--ds-brand) 18%,transparent)}
-.ds-rail .nav ds-icon{font-size:19px}
-.ds-rail .nav .rail-label{white-space:nowrap}
-.rail-spacer{flex:1}
-.rail-offline{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 4px;color:var(--ds-text-tertiary);font-size:9px;font-weight:600}
-.offline-dot{height:7px;width:7px;border-radius:50%;background:var(--ds-success);box-shadow:0 0 0 3px color-mix(in srgb,var(--ds-success) 12%,transparent)}
 #editorSplitter{left:calc(var(--rail-width) + var(--editor-width) - 5px);top:0;bottom:0;width:10px}
 #editorSplitter::after{content:'';position:absolute;top:0;bottom:0;left:4px;width:1px;background:var(--ds-border);transition:background .16s,width .16s}
 #editorSplitter:hover::after,#editorSplitter[data-dragging=true]::after{width:2px;background:var(--ds-brand)}
@@ -62,6 +53,12 @@ button,select,input,textarea{font:inherit}
 .panel-kicker{font-size:9px;font-weight:760;letter-spacing:.125em;color:var(--ds-text-tertiary)}
 .panel-heading strong{font-size:13px;font-weight:740;line-height:1.25;color:var(--ds-text);letter-spacing:-.016em}
 .panel-head-actions,.canvas-controls{display:flex;align-items:center;gap:7px;min-width:0}
+.editor-view-tabs{display:flex;align-items:center;gap:4px;min-width:0}
+.editor-view-tabs [role=tab]{display:flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:0 10px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--ds-text-secondary);font-size:12px;font-weight:500;white-space:nowrap}
+.editor-view-tabs [role=tab]:hover{background:var(--ds-panel-hover);filter:none}
+.editor-view-tabs [aria-selected=true]{background:var(--ds-brand-soft);border-color:var(--ds-border);color:var(--ds-text);font-weight:600}
+.editor-view-tabs [role=tab]:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px}
+@media(max-width:1190px){.editor-head{padding-inline:8px;gap:8px}.editor-head #importMD span{display:none}.editor-view-tabs [role=tab]{padding-inline:8px}}
 .editor-panel .view{flex:1;min-height:0}
 .editor-panel .meta{height:35px;min-height:35px;display:flex;align-items:center;gap:10px;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--ds-border-subtle);font-size:10px;color:var(--ds-text-tertiary);background:var(--ds-bg)}
 .document-path{display:flex;align-items:center;gap:6px;color:var(--ds-text-secondary);font-family:var(--ds-mono);font-size:11px}
@@ -136,10 +133,6 @@ button,select,input,textarea{font:inherit}
 .inspector-header .inspector-eyebrow{color:var(--ds-brand);letter-spacing:.1em}
 .inspector-header>strong{font-size:16px;letter-spacing:-.035em}
 .inspector-header>p{color:var(--ds-text-tertiary);font-size:10.5px}
-.inspector-tabs{padding:0 9px;border-color:var(--ds-border-subtle);background:var(--ds-panel)}
-.inspector-tabs button{color:var(--ds-text-tertiary);font-weight:600;font-size:11px}
-.inspector-tabs button[aria-selected=true]{color:var(--ds-text)}
-.inspector-tabs button[aria-selected=true]::after{background:var(--ds-brand)}
 .inspector-scroll{background:var(--ds-panel)}
 .property-section{border-color:var(--ds-border-subtle);padding:16px 17px 17px}
 .property-section-heading strong{font-weight:730;font-size:12px;color:var(--ds-text)}
@@ -188,13 +181,16 @@ button,select,input,textarea{font:inherit}
  .ds-segmented button span{display:none}
  .page-stack{--preview-zoom:.64}
 }
-@media(max-width:860px){
+@media screen and (max-width:860px){
  .topbar{grid-template-columns:1fr auto;gap:8px}
- .appbar-center{display:none}
+ .appbar-center{display:flex;grid-column:1/-1;grid-row:2;justify-content:center;gap:8px}
+ :root{--ds-appbar-height:108px}
+ .topbar{grid-template-rows:60px 42px;row-gap:0}
+ .appbar-actions{grid-column:2;grid-row:1}
  .appbar-separator,.brand-wordmark{display:none}
  .document-selector{max-width:245px}
  .appbar-actions .ds-button--primary>ds-icon:last-child{display:none}
- .workspace{grid-template-columns:var(--rail-width) minmax(0,1fr)!important}
+ .workspace{grid-template-columns:minmax(0,1fr)!important}
  .workspace[data-mode=split] .editor-panel{display:flex}
  .workspace[data-mode=split] .preview-panel{display:none}
  #editorSplitter{display:none!important}
@@ -202,17 +198,14 @@ button,select,input,textarea{font:inherit}
  .editor-head,.canvas-head{min-height:60px;max-height:60px}
 }
 @media(max-width:540px){
- :root{--rail-width:52px}
+ :root{--rail-width:0px}
  .brand .brand-symbol{width:38px;height:26px;flex-basis:38px}
  .topbar{padding:0 8px}
  .document-selector{max-width:205px;gap:2px;padding-left:6px}
- .document-selector .ds-button--icon{width:23px;height:23px}
+ .document-selector .ds-button--icon{width:28px;flex-basis:28px}
  .appbar-actions{gap:4px}
  .topbar #printPDF{padding:0 8px}
  .topbar #printPDF span{font-size:10px}
- .ds-rail.sidebar{padding:12px 3px}
- .ds-rail .nav{width:44px}
- .rail-heading{font-size:7px}
  .source-gutter{width:32px;flex-basis:32px}
  #source{padding:16px 8px 22px 10px;font-size:11.5px}
  .panel-heading strong{font-size:11.5px}
@@ -322,14 +315,16 @@ button,select,input,textarea{font:inherit}
 /* Source actions are one coherent left-aligned tool cluster, not two distant islands. */
 .editor-panel .markdown-toolbar{
  justify-content:flex-start;
- /* Keep complete tool groups visible before resorting to horizontal scrolling. */
- flex-wrap:wrap;
+ /* Keep the toolbar to one predictable row; discoverable arrows handle overflow. */
+ flex-wrap:nowrap;
  gap:4px;
- row-gap:2px;
+ row-gap:0;
+ white-space:nowrap;
  overflow-x:auto;
- scrollbar-width:thin;
+ scrollbar-width:none;
  overscroll-behavior-x:contain;
 }
+.editor-panel .markdown-toolbar::-webkit-scrollbar{display:none}
 .editor-panel .markdown-toolbar .tool-group{
  display:flex;flex:0 0 auto;align-items:center;gap:2px;
  margin:0;padding-right:7px;
@@ -345,9 +340,58 @@ button,select,input,textarea{font:inherit}
 
 /* Overflow affordances stay outside the scrolling toolbar so they remain visible. */
 .editor-panel .markdown-toolbar-shell{display:flex;align-items:stretch;min-width:0;flex:0 0 auto;background:var(--ds-panel);border-bottom:1px solid var(--ds-border-subtle)}
+/* Author-level flex/button rules must not override native hidden semantics. */
+.editor-panel .markdown-toolbar [hidden]{display:none!important}
 .editor-panel .markdown-toolbar-shell .markdown-toolbar{flex:1 1 auto;min-width:0;border-bottom:0}
 .editor-panel .toolbar-scroll-button{display:grid;place-items:center;flex:0 0 28px;width:28px;min-width:28px;padding:0;border:0;border-radius:0;background:var(--ds-panel-raised);color:var(--ds-text);font-size:23px;cursor:pointer}
 .editor-panel .toolbar-scroll-button:hover:not(:disabled){background:var(--ds-panel-hover)}
 .editor-panel .toolbar-scroll-button:focus-visible{outline:2px solid var(--ds-brand);outline-offset:-2px}
 .editor-panel .toolbar-scroll-button:disabled{opacity:.35;cursor:default}
 .editor-panel .toolbar-scroll-button[hidden]{display:none}
+
+/* UX-023: the design inspector must remain reachable on compact screens.
+ * The preview canvas is hidden in split/edit mode, but it owns the inspector.
+ * Expose only its inspector as a floating overlay when the Design rail opens. */
+@media screen and (max-width:860px){
+ .workspace[data-mode=split] .preview-panel:has(.design-inspector:not(.hidden)),
+ .workspace[data-mode=edit] .preview-panel:has(.design-inspector:not(.hidden)){
+  display:flex!important;position:absolute!important;inset:0 0 0 var(--rail-width);
+  width:calc(100% - var(--rail-width));height:100%;z-index:12;
+  background:transparent!important;border:0!important;pointer-events:none;
+ }
+ .workspace[data-mode=split] .preview-panel:has(.design-inspector:not(.hidden)) > :not(.design-inspector),
+ .workspace[data-mode=edit] .preview-panel:has(.design-inspector:not(.hidden)) > :not(.design-inspector){
+  visibility:hidden!important;pointer-events:none!important;
+ }
+ .workspace[data-mode=split] .preview-panel .design-inspector:not(.hidden),
+ .workspace[data-mode=edit] .preview-panel .design-inspector:not(.hidden){
+  visibility:visible!important;pointer-events:auto!important;
+  width:min(330px,100%)!important;min-width:0!important;
+  box-shadow:-15px 0 45px #0004!important;
+ }
+}
+
+/* Actionable Markdown review, scoped away from document styling. */
+#atsView .scroll{padding:16px;overflow:auto;height:100%}
+#atsView h2{margin:0 0 6px;font-size:16px}
+#atsView .muted{font-size:12px;margin:0 0 18px}
+.analysis-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 20px}
+.analysis-metrics>div{padding:10px 4px;border:1px solid var(--ds-border-subtle);border-radius:6px;text-align:center;background:var(--ds-panel-raised)}
+.analysis-metrics dd{margin:0;font-size:16px;font-weight:600}.analysis-metrics dt{font-size:10px;color:var(--ds-text-secondary);margin-top:3px}
+.analysis-section{margin:0 0 20px}.analysis-section h3{font-size:12px;font-weight:600;margin:0 0 8px}
+.analysis-empty,.analysis-note{font-size:11px;color:var(--ds-text-secondary);line-height:1.6}
+.analysis-finding{display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;padding:12px;margin:0 0 8px;text-align:left;border:1px solid var(--ds-border);border-radius:8px;background:var(--ds-panel-raised);color:var(--ds-text);font-size:12px;white-space:normal}
+.analysis-finding>span{line-height:1.5}.analysis-location{font-size:10px;color:var(--ds-text-secondary)}.analysis-jump{font-size:11px;color:var(--ds-brand)}
+.analysis-heading{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:7px 8px 7px calc(8px + var(--heading-depth)*6px);border:0;border-bottom:1px solid var(--ds-border-subtle);border-radius:0;background:transparent;color:var(--ds-text);text-align:left;font-size:12px}
+.analysis-heading>span:nth-child(2){min-width:0;overflow-wrap:anywhere;flex:1}.analysis-heading small,.analysis-level{font-size:10px;color:var(--ds-text-secondary)}
+.analysis-heading:hover,.analysis-finding:hover{background:var(--ds-panel-hover);filter:none}.analysis-heading:focus-visible,.analysis-finding:focus-visible{outline:2px solid var(--ds-focus);outline-offset:-2px}
+
+@media(max-width:540px){.appbar-actions .global-history-controls{position:absolute;right:8px;top:66px;margin:0;padding:0;border:0}.appbar-center{justify-content:flex-start}.document-selector{min-width:0;flex:1}.appbar-leading{gap:8px}.document-selector .ds-select-host{flex:1;min-width:0}}
+
+/* Approximate PDF size belongs to page composition, not the document palette. */
+.pdf-weight-badge{font-size:11px!important;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:68px}
+.pdf-weight-badge[data-band=atencao],.pdf-weight-badge[data-band=pesado]{color:var(--ds-text)!important;background:var(--ds-panel-hover)!important}
+.pdf-weight-details{display:grid;gap:8px;font-size:12px}.pdf-weight-details p{margin:0;line-height:1.5}
+.pdf-weight-row{display:flex;justify-content:space-between;gap:12px;padding:4px 0;font-size:11px;font-variant-numeric:tabular-nums}
+.pdf-weight-row>span:last-child{white-space:nowrap}.pdf-weight-details summary{cursor:pointer;padding:6px 0}
+@media(max-width:540px){.pdf-weight-badge{position:absolute;right:82px;top:66px;min-width:58px;max-width:92px;padding-inline:4px!important}}

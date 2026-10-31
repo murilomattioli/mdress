@@ -82,7 +82,7 @@ function outline(){
      const action=document.createElement('button');action.type='button';action.className='outline-break-toggle';
      action.setAttribute('aria-label','Alternar quebra de página para '+title);
      action.dataset.sectionBreakId=anchor.id;action.setAttribute('aria-pressed',String(breakBefore.has(anchor.id)));action.title=breakBefore.has(anchor.id)?'Remover quebra manual':'Iniciar em nova página';
-     action.textContent='↵';
+     action.innerHTML='<ds-icon name="page-break" size="14"></ds-icon>';
      action.onclick=()=>document.dispatchEvent(new CustomEvent('mdress:toggle-page-break',{detail:{id:anchor.id}}));
      group.append(action);headings.append(group);
     }else headings.append(item);
@@ -137,15 +137,7 @@ function canvas(){
   design.classList.toggle('active',opened);design.setAttribute('aria-pressed',String(opened));
   requestAnimationFrame(fit);
  }).observe($('themesView'),{attributes:true,attributeFilter:['class']});
- const canvasButton=document.createElement('button');canvasButton.id='railCanvas';canvasButton.type='button';canvasButton.className='nav';
- canvasButton.setAttribute('aria-label','Visualizar canvas');canvasButton.title='Visualizar canvas';
- canvasButton.append(createIcon('panel-top',19));const label=document.createElement('span');label.className='rail-label';label.textContent='Canvas';canvasButton.append(label);
- design.after(canvasButton);
- canvasButton.onclick=()=>{
-  const mode=document.querySelector('.workspace').dataset.mode==='preview'?'edit':'preview';
-  document.querySelector('[data-workspace-mode="'+mode+'"]').click();canvasButton.classList.toggle('active',mode==='preview');
- };
- document.querySelectorAll('[data-workspace-mode]').forEach(button=>button.addEventListener('click',()=>{requestAnimationFrame(fit);canvasButton.classList.toggle('active',document.querySelector('.workspace').dataset.mode==='preview');}));
+ document.querySelectorAll('[data-workspace-mode]').forEach(button=>button.addEventListener('click',()=>requestAnimationFrame(fit)));
 }
 function setupPageGuides(){
  const control=$('showPageGuides'),stack=$('pageStack');if(!control||!stack)return;

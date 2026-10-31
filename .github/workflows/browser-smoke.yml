@@ -19,13 +19,14 @@ concurrency:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 (Node 24)
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5 (Node 24)
         with:
           node-version: '22'
-      - run: npm install --no-save playwright@1.56.1
+      - name: Install declared QA dependencies
+        run: npm install --include=dev --no-audit --no-fund
       - run: npx playwright install --only-shell chromium
       - name: Start application
         run: |
@@ -33,8 +34,27 @@ jobs:
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4173 >/dev/null && exit 0; sleep 1; done
           cat /tmp/mdress-server.log; exit 1
       - run: node scripts/e2e.mjs
+      - name: Toolbar resize — focus visibility and independent manual scrolling
+        run: node scripts/toolbar-resize-qa.mjs
+      - name: Inspector header menus — keyboard, disabled actions and viewport fit
+        run: node scripts/inspector-header-qa.mjs
+      - name: Quick actions — dynamic focus handoff and mobile hit targets
+        run: node scripts/choice-actions-qa.mjs
+      - name: Alert dialogs — keyboard, cancellation and focus restoration
+        run: node scripts/alert-dialog-qa.mjs
+      - name: Color picker — opacity validation and disabled-source focus handoff
+        run: node scripts/color-picker-qa.mjs
+      - name: PDF weight interactions
+        run: node scripts/pdf-weight-qa.mjs
       - name: Component UX Audit
         run: node scripts/component-ux-audit.mjs
+      - name: Inspector and toolbar interaction matrix
+        run: node scripts/supervised-ux-qa.mjs --auto --headless
+      - name: Human review gallery browser smoke
+        run: node scripts/ux-qa-gallery-smoke.mjs
+      - name: Real PTY pause, stop and resume (two viewports, no human approval)
+        timeout-minutes: 8
+        run: node scripts/ux-qa-interruption-e2e.mjs
       # Temporary, read-only evidence transport. Not the permanent PR image publisher.
       # No repository write permission; PNGs are already compressed.
       - name: Upload short-lived UX review bundle
@@ -45,7 +65,16 @@ jobs:
           name: ux-audit-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             test-results/ux-audit/*.png
+            test-results/color-picker/*.png
+            # Include every header QA screenshot (dynamic permissions, removed
+            # actions, typeahead, IME and viewport). Narrow globs previously
+            # dropped valid visual evidence without failing the workflow.
+            test-results/header-*.png
+            test-results/ux-audit/supervised/*.png
+            test-results/ux-audit/supervised/index.html
+            test-results/ux-audit/supervised/*-trace.zip
             test-results/component-ux-audit.json
+            test-results/supervised-ux-qa.json
           if-no-files-found: warn
           retention-days: 2
           compression-level: 0
