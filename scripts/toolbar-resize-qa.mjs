@@ -282,12 +282,22 @@ try{
   document.body.append(host);
   const third=attachToolbarOverflow(bar);
   const remounted=host.querySelectorAll('.toolbar-scroll-button').length===2;
-  third();host.remove();delete window.__ux23DisposeToolbar;
-  return {controlsValid,sameInstance,explicitCleanup,reattached,automaticCleanup,remounted};
+  const newHost=document.createElement('div');newHost.id='ux23-toolbar-new-parent';
+  host.after(newHost);newHost.append(bar);
+  await new Promise(resolve=>setTimeout(resolve,80));
+  const movedClean=host.querySelectorAll('.markdown-toolbar-shell').length===0&&
+   newHost.firstElementChild===bar&&!bar.id;
+  const movedDispose=attachToolbarOverflow(bar);
+  const movedReattached=newHost.querySelectorAll('.toolbar-scroll-button').length===2&&
+   movedDispose!==third;
+  movedDispose();newHost.remove();host.remove();delete window.__ux23DisposeToolbar;
+  return {controlsValid,sameInstance,explicitCleanup,reattached,automaticCleanup,
+   remounted,movedClean,movedReattached};
  });
  assert.deepEqual(lifecycle,{
   controlsValid:true,sameInstance:true,explicitCleanup:true,
-  reattached:true,automaticCleanup:true,remounted:true
+  reattached:true,automaticCleanup:true,remounted:true,
+  movedClean:true,movedReattached:true
  },'Toolbar must dispose observers and restore a clean DOM across mounts: '+JSON.stringify(lifecycle));
  console.log('Toolbar resize, manual scroll, splitter and dynamic focus recovery passed.');
 }finally{await browser.close();}
