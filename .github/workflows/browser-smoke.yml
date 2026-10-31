@@ -69,6 +69,7 @@ jobs:
             test-results/header-edge-menu-*.png
             test-results/header-pattern-*.png
             test-results/header-typeahead-*.png
+            test-results/header-ime-native-keys-*.png
             test-results/ux-audit/supervised/*.png
             test-results/ux-audit/supervised/index.html
             test-results/ux-audit/supervised/*-trace.zip
