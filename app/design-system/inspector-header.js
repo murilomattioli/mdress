@@ -19,7 +19,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   menu.setAttribute('popover','auto');menu.setAttribute('role','menu');menu.setAttribute('aria-label',more.getAttribute('aria-label'));
   more.setAttribute('aria-controls',menu.id);
   const buttons=menuItems.map(item=>{
-   const button=document.createElement('button');button.type='button';button.setAttribute('role','menuitem');button.textContent=item.label;button.disabled=Boolean(item.disabled);
+   const button=document.createElement('button');button.type='button';button.setAttribute('role','menuitem');button.tabIndex=-1;button.textContent=item.label;button.disabled=Boolean(item.disabled);
    button.onclick=()=>{
     // aria-disabled does not prevent native clicks; respect runtime changes.
     if(!available().includes(button))return;
@@ -173,7 +173,12 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
     if(match){e.preventDefault();focusItem(match);}
    }
    if(e.key==='Escape'){e.preventDefault();menu.hidePopover();more.focus();}
-   if(e.key==='Tab')menu.hidePopover();
+   if(e.key==='Tab'){
+    // Return to the trigger *before* the browser performs the Tab default.
+    // This makes Shift+Tab reach the preceding accordion control and Tab
+    // reach the following control, rather than walking every menu item.
+    menu.hidePopover();more.focus({preventScroll:true});
+   }
   };
   header.append(more,menu);
  }
