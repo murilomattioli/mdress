@@ -1,5 +1,13 @@
 # Issue #23 — evidências duráveis
 
+## UX-023 — viewport visual móvel e composição IME (31/10/2026)
+
+O menu compartilhado do inspetor usa o retângulo de `window.visualViewport` (largura, altura e deslocamentos), e não apenas `innerHeight`, para limitar altura/largura e posicionar ações quando teclado virtual, zoom ou deslocamento do viewport reduzem a área visível. Eventos `visualViewport.scroll` e `resize` reposicionam o popover aberto; os listeners são removidos ao fechar. Teclas de navegação e Escape com `isComposing` ou `keyCode=229` não alteram foco nem fecham o menu durante composição IME.
+
+**QA Chromium obrigatório:** `node scripts/inspector-header-qa.mjs` simula uma área visual móvel deslocada, verifica limites após scroll e cobre Escape/setas/Home/End/PageUp/PageDown/Tab durante composição. Evidências: `header-edge-menu-visual-390.png`, `header-edge-menu-visual-scrolled-390.png` e `header-typeahead-ime.png` (capturadas no Browser Smoke quando o workflow passa). `npm run check` também valida sintaxe de `inspector-header.js`.
+
+**Homologação:** screenshots e testes automatizados não aprovam a UX. Revisar visualmente e interagir em um dispositivo com teclado virtual/IME real antes de autorizar merge, release ou publicação. PR #27 permanece draft e a issue #23 aberta.
+
 ## UX-023 — navegação em menus extensos (30/10/2026)
 
 Menus do inspetor com muitas ações agora oferecem **typeahead** por prefixo, ignorando acentos (ex.: `arvore` alcança **Árvore**), repetição de letras para alternar resultados, expiração de sequência após 700 ms e navegação por `PageUp`/`PageDown` (5 ações). `Home`, `End` e setas continuam disponíveis. A ação focada rola para a área visível do popover sem aumentar a altura do cabeçalho; itens do menu passam a ter alvo mínimo de 36 px. A composição IME (`isComposing`/`keyCode=229`) não ativa a busca por teclas.
