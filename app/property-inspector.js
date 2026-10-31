@@ -4,13 +4,31 @@ const $=id=>document.getElementById(id);
 let currentTab='document';
 const scrollPositions=new Map();
 const legacyTabs={style:'document',sections:'content',background:'document',ai:'themes'};
+// Roving tab focus must skip permission-revoked and CSS-hidden destinations.
+// A tab with tabindex=-1 is still eligible for arrow navigation.
+const keyboardTabAvailable=tab=>{
+ if(!tab?.isConnected||tab.matches(':disabled,[aria-disabled="true"]')||
+    tab.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
+    !tab.getClientRects().length)return false;
+ for(let node=tab;node;node=node.parentElement){
+  const style=getComputedStyle(node);
+  if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
+     style.contentVisibility==='hidden')return false;
+ }
+ return true;
+};
 export function setInspectorTab(name,{focus=false}={}){
  name=legacyTabs[name]||name;
  const tabs=[...document.querySelectorAll('[data-inspector-tab]')];
  const chosen=tabs.find(x=>x.dataset.inspectorTab===name);if(!chosen)return false;
  const scroller=document.querySelector('.inspector-scroll');
  if(currentTab!==name&&scroller)scrollPositions.set(currentTab,scroller.scrollTop);
- const changed=currentTab!==name;currentTab=name;
+ const changed=currentTab!==name;
+ // A programmatic panel switch can hide the focused property input. Move
+ // focus to the newly selected tab before its panel becomes unavailable.
+ const focusWasInHiddenPanel=changed&&[...document.querySelectorAll('[data-inspector-panel]')]
+  .some(panel=>panel.dataset.inspectorPanel!==name&&panel.contains(document.activeElement));
+ currentTab=name;
  for(const tab of tabs){
   const active=tab===chosen;
   tab.setAttribute('aria-selected',String(active));
@@ -22,7 +40,7 @@ export function setInspectorTab(name,{focus=false}={}){
   panel.setAttribute('aria-hidden',String(!active));
  }
  if(changed&&scroller)scroller.scrollTop=scrollPositions.get(name)||0;
- if(focus)chosen.focus({preventScroll:true});
+ if(focus||focusWasInHiddenPanel)chosen.focus({preventScroll:true});
  return true;
 }
 export function inspectorPageSummary(count,diagnostics=[]){
@@ -56,8 +74,13 @@ export function initializeInspector(){
    const keys=['ArrowRight','ArrowLeft','Home','End'];
    if(!keys.includes(event.key))return;
    event.preventDefault();
-   let target=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
-   setInspectorTab(tabs[target].dataset.inspectorTab,{focus:true});
+   const available=tabs.filter(keyboardTabAvailable);
+   if(!available.length)return;
+   const current=available.indexOf(tab);
+   const step=event.key==='ArrowRight'?1:-1;
+   const target=event.key==='Home'?available[0]:event.key==='End'?available.at(-1):
+    available[(Math.max(current,0)+(current<0?0:step)+available.length)%available.length];
+   setInspectorTab(target.dataset.inspectorTab,{focus:true});
   });
  }
  initializePropertyControls();
