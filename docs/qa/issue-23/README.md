@@ -1,5 +1,14 @@
 # Issue #23 — evidências duráveis
 
+## UX-023 — recuperação de foco após remoção dinâmica de comandos (31/10/2026)
+
+Quando uma ação da toolbar é removida enquanto possui foco (mudança de modo, permissões ou re-render), o navegador pode devolver o foco para `<body>`. A toolbar agora guarda o **índice da última ação focada** e tenta recuperar a ação seguinte na mesma posição, ou a anterior quando não existe sucessora. Antes, uma remoção podia deslocar o usuário para o primeiro comando da toolbar, mesmo quando o vizinho permanecia disponível.
+
+O `ResizeObserver` também deixa de observar grupos removidos e registra novos grupos somente uma vez, evitando reter elementos desconectados durante mudanças repetidas do editor. As ações indisponíveis continuam excluídas da recuperação.
+
+**Regressões obrigatórias:** `scripts/toolbar-resize-qa.mjs` cobre remoção de ação intermediária, remoção da última ação, desabilitação com foco e recuperação sem cair em `<body>`. `tests/toolbar-overflow.test.mjs` cobre limites de rolagem fracionários e padding do comando focado. Evidências do Browser Smoke: `ux-audit/toolbar-removed-action-focus-recovered.png` e `ux-audit/toolbar-disabled-action-focus-recovered.png`. Execute `npm test` e `node scripts/toolbar-resize-qa.mjs` com `npm run dev` ativo. Capturas são evidências para **homologação humana**, não aprovação automática.
+
+
 ## UX-023 — toolbar responsiva e busca de menu após navegação (31/10/2026)
 
 A toolbar do editor mantém o comando que já tinha foco visível quando o painel encolhe ou quando o splitter dispara `studio:resized`. A recuperação ocorre apenas após mudanças de layout (`ResizeObserver`, mutações e resize), **não** durante rolagem manual do usuário. A atualização é coalescida em um `requestAnimationFrame` para não multiplicar reposicionamentos. Ações desabilitadas/ocultas continuam usando a recuperação de foco existente.
