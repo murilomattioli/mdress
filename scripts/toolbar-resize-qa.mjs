@@ -56,5 +56,33 @@ try{
  },null,{timeout:3000});
  assert.equal(await visible(),true,'Splitter resize event reveals the focused command');
  await toolbar.screenshot({path:'test-results/ux-audit/toolbar-splitter-focused-action.png',animations:'disabled'});
- console.log('Toolbar responsive focus visibility, manual scroll independence and splitter event passed.');
+ // Toolbar actions are replaced during editor mode and permission changes.
+ // Removing a focused command must restore focus to its nearest surviving
+ // neighbor instead of jumping to the first Markdown action or <body>.
+ await toolbar.evaluate(el=>{
+  const group=document.createElement('div');group.className='tool-group';
+  group.id='ux23-replaced-group';
+  for(const name of ['before','removed','after']){
+   const button=document.createElement('button');button.type='button';
+   button.id='ux23-'+name;button.textContent=name;group.append(button);
+  }
+  el.append(group);
+ });
+ await page.locator('#ux23-removed').focus();
+ await page.locator('#ux23-removed').evaluate(el=>el.remove());
+ await page.waitForFunction(()=>document.activeElement?.id==='ux23-after',null,{timeout:3000});
+ assert.equal(await page.evaluate(()=>document.activeElement?.id),'ux23-after',
+  'Removing a focused action must focus its next surviving neighbor');
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-removed-action-focus-recovered.png',animations:'disabled'});
+ await page.locator('#ux23-after').evaluate(el=>el.remove());
+ await page.waitForFunction(()=>document.activeElement?.id==='ux23-before',null,{timeout:3000});
+ assert.equal(await page.evaluate(()=>document.activeElement?.id),'ux23-before',
+  'Removing the final focused action must focus the preceding neighbor');
+ await page.locator('#ux23-before').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.activeElement!==document.body&&
+  document.querySelector('.markdown-toolbar')?.contains(document.activeElement)&&
+  document.activeElement?.id!=='ux23-before',null,{timeout:3000});
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-disabled-action-focus-recovered.png',animations:'disabled'});
+ await toolbar.locator('#ux23-replaced-group').evaluate(el=>el.remove());
+ console.log('Toolbar resize, manual scroll, splitter and dynamic focus recovery passed.');
 }finally{await browser.close();}
