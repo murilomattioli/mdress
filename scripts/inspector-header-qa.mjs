@@ -129,6 +129,47 @@ try{
  await dynamicItems.nth(0).evaluate(el=>el.hidden=false);
  await page.keyboard.press('Escape');
  await dynamicHost.evaluate(el=>el.remove());
+ // Large action menus need typeahead, accent-insensitive matching, repeat-key
+ // cycling and page navigation without breaking IME composition.
+ await page.evaluate(async()=>{
+  const {createInspectorHeader}=await import('/design-system/inspector-header.js');
+  const host=document.createElement('div');host.id='ux23-typeahead-host';host.className='design-inspector';
+  host.style.cssText='position:fixed;top:4px;right:4px;width:220px;z-index:2147483000';
+  const toggle=document.createElement('button');toggle.type='button';toggle.textContent='Menu longo';
+  const labels=['Alpha','Árvore','Beta','Bravo','Brisa','Omega',...Array.from({length:18},(_,i)=>'Item '+i)];
+  host.append(createInspectorHeader({toggle,menuVisibility:'always',menuItems:labels.map(label=>({label,onSelect:()=>{}}))}));
+  document.body.append(host);
+ });
+ await page.setViewportSize({width:390,height:320});
+ const typeHost=page.locator('#ux23-typeahead-host');
+ const typeTrigger=typeHost.locator('.ds-header-menu-trigger');
+ await typeTrigger.focus();await typeTrigger.press('Enter');
+ const focusedLabel=()=>page.evaluate(()=>document.activeElement?.textContent?.trim());
+ assert.equal(await focusedLabel(),'Alpha');
+ await page.keyboard.press('b');assert.equal(await focusedLabel(),'Beta');
+ await page.keyboard.press('b');assert.equal(await focusedLabel(),'Bravo','Repeated letters cycle matching actions');
+ await page.waitForTimeout(750);
+ await page.keyboard.press('b');await page.keyboard.press('r');await page.keyboard.press('i');
+ assert.equal(await focusedLabel(),'Brisa','Multi-character typeahead selects matching action');
+ await page.waitForTimeout(750);
+ await page.keyboard.press('a');assert.equal(await focusedLabel(),'Alpha');
+ await page.keyboard.press('a');assert.equal(await focusedLabel(),'Árvore','Diacritics do not block typeahead');
+ await page.screenshot({path:'test-results/header-typeahead-focused.png'});
+ await page.keyboard.press('PageDown');assert.equal(await focusedLabel(),'Item 0');
+ await page.keyboard.press('PageUp');assert.equal(await focusedLabel(),'Árvore');
+ await page.keyboard.press('End');assert.equal(await focusedLabel(),'Item 17');
+ assert.ok(await typeHost.getByRole('menu').evaluate(el=>el.scrollTop)>0,
+  'Keyboard navigation scrolls the focused action into view on a short screen');
+ assert.equal(await page.evaluate(()=>{
+  const focused=document.activeElement;
+  focused.dispatchEvent(new KeyboardEvent('keydown',{key:'b',bubbles:true,isComposing:true}));
+  return document.activeElement===focused;
+ }),true,'IME composition must not trigger menu typeahead');
+ await page.keyboard.press('Escape');
+ assert.equal(await typeTrigger.evaluate(el=>el===document.activeElement),true);
+ await typeHost.evaluate(el=>el.remove());
+ await page.setViewportSize({width:1024,height:900});
+
  // Exercise the top-layer menu against a genuinely short, mobile viewport.
  await page.evaluate(async()=>{
   const {createInspectorHeader}=await import('/design-system/inspector-header.js');
