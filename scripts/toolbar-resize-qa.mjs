@@ -260,6 +260,25 @@ try{
  });
  await page.waitForFunction(()=>
   !document.querySelector('.markdown-toolbar-shell .toolbar-scroll-button:last-child')?.hidden);
+ // Moving an already-focused toolbar into a previously disabled fieldset
+ // must also revoke interactivity, even though the fieldset never mutates.
+ await last.focus();
+ await shell.evaluate(el=>{
+  const fieldset=document.createElement('fieldset');
+  fieldset.id='ux23-toolbar-reparent-disabled';fieldset.disabled=true;
+  fieldset.style.minWidth='0';el.before(fieldset);fieldset.append(el);
+ });
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-toolbar-reparent-disabled');
+  return document.activeElement!==document.body&&!host.contains(document.activeElement)&&
+   [...host.querySelectorAll('.toolbar-scroll-button')].every(el=>el.hidden);
+ },null,{timeout:3000});
+ await page.screenshot({path:'test-results/ux-audit/toolbar-reparent-disabled-fieldset.png',animations:'disabled'});
+ await page.locator('#ux23-toolbar-reparent-disabled').evaluate(el=>{
+  el.disabled=false;el.before(el.firstElementChild);el.remove();
+ });
+ await page.waitForFunction(()=>
+  !document.querySelector('.markdown-toolbar-shell .toolbar-scroll-button:last-child')?.hidden);
  // Moving the shell to a different parent must refresh the watched ancestry.
  // Revoking permissions on its *new* wrapper should recover focus, not leave
  // a stale observer attached to the former workspace parent.
