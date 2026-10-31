@@ -229,6 +229,7 @@ try{
   closed:!document.querySelector('#ux23-typeahead-host [role=menu]').matches(':popover-open')
  })),{outside:true,notBody:true,closed:true},
  'Tab exits the menu to the next page control without stranding focus on body');
+ await page.screenshot({path:'test-results/header-typeahead-tab-exit.png'});
  await typeHost.evaluate(el=>el.remove());
  await page.setViewportSize({width:1024,height:900});
 
