@@ -174,10 +174,18 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    }
    if(e.key==='Escape'){e.preventDefault();menu.hidePopover();more.focus();}
    if(e.key==='Tab'){
-    // Return to the trigger *before* the browser performs the Tab default.
-    // This makes Shift+Tab reach the preceding accordion control and Tab
-    // reach the following control, rather than walking every menu item.
-    menu.hidePopover();more.focus({preventScroll:true});
+    // Native Tab after hiding a top-layer popover can land on <body> when
+    // the focused menuitem has tabindex=-1. Resolve the adjacent page stop
+    // from the trigger before closing, including wrap at the document edge.
+    e.preventDefault();
+    const stops=[...document.querySelectorAll('a[href],area[href],button,input,select,textarea,[tabindex]')]
+     .filter(el=>el.tabIndex>=0&&!el.matches(':disabled,[aria-disabled="true"]')&&
+      !el.closest('[hidden],[inert],[aria-hidden="true"],[role="menu"]')&&
+      el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');
+    const index=stops.indexOf(more),step=e.shiftKey?-1:1;
+    const target=index>=0?stops[(index+step+stops.length)%stops.length]:toggle;
+    menu.hidePopover();
+    (target||toggle).focus();
    }
   };
   header.append(more,menu);
