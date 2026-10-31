@@ -47,11 +47,19 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   // A native hidden/disabled check alone leaves invisible menuitems in the
   // roving keyboard order and may dispatch actions that are no longer offered.
   const available=()=>buttons.filter(button=>{
-   if(!menu.contains(button)||button.disabled||button.hidden||
+   if(!menu.contains(button)||button.matches(':disabled')||button.hidden||
       button.getAttribute('aria-disabled')==='true'||
-      button.closest('[inert],[aria-hidden="true"]'))return false;
-   const style=getComputedStyle(button);
-   return style.display!=='none'&&style.visibility!=='hidden'&&style.visibility!=='collapse';
+      button.closest('[inert],[aria-hidden="true"],[aria-disabled="true"]'))return false;
+   // A feature flag can hide a wrapper rather than the menuitem itself.
+   // getComputedStyle(button).display stays visible for descendants of a
+   // display:none ancestor, so inspect the path up to (not including) the
+   // closed popover. Checking the popover would hide the trigger forever.
+   for(let node=button;node&&node!==menu;node=node.parentElement){
+    if(node.hidden)return false;
+    const style=getComputedStyle(node);
+    if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse')return false;
+   }
+   return true;
   });
   const isOpen=()=>menu.matches(':popover-open');
   // Keep the menu anchored when a responsive panel scrolls or resizes while open.
