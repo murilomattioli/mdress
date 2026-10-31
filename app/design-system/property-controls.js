@@ -721,9 +721,7 @@ function closePopup({restoreFocus=true}={}){
  if(restoreFocus){
   // Escape/resize may race with an inspector tab hiding or detaching.
   // Never restore focus to a disabled or hidden combobox trigger.
-  const usable=trigger.isConnected&&!trigger.disabled&&
-   !trigger.closest('[hidden],[inert],[aria-hidden="true"]')&&
-   trigger.getClientRects().length&&getComputedStyle(trigger).visibility!=='hidden';
+  const usable=focusTargetAvailable(trigger);
   if(usable)trigger.focus({preventScroll:true});
   else focusInspectorNeighbor(trigger,{visibleOnly:true});
  }
@@ -776,6 +774,26 @@ export function selectPopoverLayout(anchor,viewport,contentHeight){
  const top=placeAbove?anchor.top-gap-Math.min(desired,maxHeight):anchor.bottom+gap;
  return {left,top,width,maxHeight,placement:placeAbove?'above':'below'};
 }
+// A focusable rectangle can still live inside a CSS-hidden ancestor or a
+// disabled fieldset. Portalled selects must obey the same permissions as
+// native controls, including the first-legend exception.
+function visibleFocusTree(el){
+ if(!el?.isConnected||el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
+    !el.getClientRects().length)return false;
+ for(let node=el;node;node=node.parentElement){
+  if(node.tagName==='FIELDSET'&&node.disabled){
+   const legend=[...node.children].find(child=>child.tagName==='LEGEND');
+   if(!legend?.contains(el))return false;
+  }
+  const style=getComputedStyle(node);
+  if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
+     style.contentVisibility==='hidden')return false;
+ }
+ return true;
+}
+function focusTargetAvailable(el){
+ return visibleFocusTree(el)&&!el.disabled&&el.tabIndex>=0;
+}
 // When a native select becomes disabled while its portalled option owns
 // keyboard focus, move to a real enabled inspector control. A disabled
 // combobox trigger cannot receive focus, and body is not a useful fallback.
@@ -784,10 +802,7 @@ function focusInspectorNeighbor(trigger,{visibleOnly=false}={}){
  // Never recover onto an ARIA-disabled toggle or a hidden rail action. The
  // Markdown editor is a stable fallback when no inspector toggle is usable.
  const focusOutsideInspector=()=>{
-  const target=[$('designToggle'),$('railDesign'),$('source')].find(el=>
-   el?.isConnected&&!el.disabled&&el.tabIndex>=0&&
-   !el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')&&
-   el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');
+  const target=[$('designToggle'),$('railDesign'),$('source')].find(focusTargetAvailable);
   target?.focus({preventScroll:true});
  };
  const root=trigger.isConnected?(trigger.closest('.design-inspector,dialog')||document.body):null;
@@ -799,9 +814,7 @@ function focusInspectorNeighbor(trigger,{visibleOnly=false}={}){
  const controls=[...root.querySelectorAll('button,input,select,textarea,[tabindex]')];
  const index=controls.indexOf(trigger);
  const eligible=el=>{
-  if(el===trigger||el.disabled||el.tabIndex<0||
-   el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||!el.getClientRects().length||
-   getComputedStyle(el).visibility==='hidden')return false;
+  if(el===trigger||!focusTargetAvailable(el))return false;
   if(!visibleOnly)return true;
   const rect=el.getBoundingClientRect();
   if(rect.bottom<=0||rect.top>=window.innerHeight||
@@ -816,9 +829,7 @@ function focusInspectorNeighbor(trigger,{visibleOnly=false}={}){
  const next=controls.slice(index+1).find(eligible)||
   controls.slice(0,index).reverse().find(eligible);
  if(next)next.focus({preventScroll:true});
- else if(root.getClientRects().length&&
-  !root.closest('[hidden],[inert],[aria-hidden="true"]')&&
-  getComputedStyle(root).visibility!=='hidden'){
+ else if(visibleFocusTree(root)){
   root.tabIndex=-1;root.focus({preventScroll:true});
  }else{
   // Closing the inspector itself must not focus a hidden panel.
@@ -924,7 +935,7 @@ function makeListbox(label,select,title){
   }
  };
  const open=(preferredValue=null,restoredSearch=null)=>{
-  if(select.disabled)return;
+  if(select.disabled||!focusTargetAvailable(trigger))return;
   if(openSelect?.trigger===trigger){closePopup();return;}
   closePopup({restoreFocus:false});
   select.dispatchEvent(new Event('mdress:select-open'));
@@ -1111,10 +1122,7 @@ function makeListbox(label,select,title){
   // programmatic tab changes (no pointerdown) and detached inspector nodes.
   const visibilityObserver=new MutationObserver(()=>{
    if(openSelect?.trigger!==trigger)return;
-   const hidden=!trigger.isConnected||
-    Boolean(trigger.closest('[hidden],[inert],[aria-hidden="true"]'))||
-    !trigger.getClientRects().length||
-    getComputedStyle(trigger).visibility==='hidden';
+   const hidden=!focusTargetAvailable(trigger);
    if(!hidden)return;
    const focusInPopup=popup.contains(document.activeElement);
    closePopup({restoreFocus:false});
@@ -1122,7 +1130,7 @@ function makeListbox(label,select,title){
   });
   for(let ancestor=trigger;ancestor;ancestor=ancestor.parentElement)
    visibilityObserver.observe(ancestor,{
-    attributes:true,attributeFilter:['hidden','inert','aria-hidden','class','style'],
+    attributes:true,attributeFilter:['hidden','inert','disabled','aria-hidden','aria-disabled','class','style'],
     childList:true
    });
   openSelect.visibilityObserver=visibilityObserver;
