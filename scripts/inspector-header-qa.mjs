@@ -165,9 +165,23 @@ try{
  await page.keyboard.press('b');assert.equal(await focusedLabel(),'Bravo');
  await page.keyboard.press('b');assert.equal(await focusedLabel(),'Beta',
   'Repeated-key typeahead skips dynamically disabled actions');
+ // Keep focus inside the menu without invoking native scrollIntoView,
+ // which can scroll the document or an unrelated inspector panel.
+ await typeHost.evaluate(host=>{
+  for(const item of host.querySelectorAll('[role=menuitem]')){
+   item.scrollIntoView=()=>{throw new Error('Menu focus must scroll only its own popover');};
+  }
+ });
+ const outerScrollBefore=await page.evaluate(()=>({
+  page:window.scrollY,inspector:document.querySelector('#inspector-themes')?.scrollTop||0
+ }));
  await page.keyboard.press('End');assert.equal(await focusedLabel(),'Item 17');
  assert.ok(await typeHost.getByRole('menu').evaluate(el=>el.scrollTop)>0,
   'Keyboard navigation scrolls the focused action into view on a short screen');
+ assert.deepEqual(await page.evaluate(()=>({
+  page:window.scrollY,inspector:document.querySelector('#inspector-themes')?.scrollTop||0
+ })),outerScrollBefore,'Navigating a long menu must not scroll outer panels or the page');
+ await page.screenshot({path:'test-results/header-typeahead-scroll-contained.png'});
  assert.equal(await page.evaluate(()=>{
   const focused=document.activeElement;
   focused.dispatchEvent(new KeyboardEvent('keydown',{key:'b',bubbles:true,isComposing:true}));
@@ -182,6 +196,21 @@ try{
   }
   return {focused:document.activeElement===focused,open:menu.matches(':popover-open')};
  }),{focused:true,open:true},'IME navigation and Escape must not dismiss the menu or move focus');
+ // Some browsers emit a plain Escape/Arrow keydown during an active IME
+ // session (isComposing=false, keyCode!=229). The lifecycle is authoritative.
+ assert.deepEqual(await page.evaluate(()=>{
+  const focused=document.activeElement,menu=focused.closest('[role=menu]');
+  focused.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true,data:'あ'}));
+  for(const key of ['Escape','ArrowDown','Home','End','PageDown','PageUp','Tab','b']){
+   focused.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true}));
+  }
+  const state={focused:document.activeElement===focused,open:menu.matches(':popover-open')};
+  focused.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'あ'}));
+  return state;
+ }),{focused:true,open:true},'IME lifecycle protects menu focus even without keydown composition flags');
+ await page.keyboard.press('Home');assert.equal(await focusedLabel(),'Alpha',
+  'Keyboard navigation resumes after compositionend');
+ await page.screenshot({path:'test-results/header-typeahead-composition-lifecycle.png'});
  await page.screenshot({path:'test-results/header-typeahead-ime.png'});
  await page.keyboard.press('Escape');
  assert.equal(await typeTrigger.evaluate(el=>el===document.activeElement),true);
