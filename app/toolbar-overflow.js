@@ -34,7 +34,7 @@ export function attachToolbarOverflow(toolbar){
   const glyph=document.createElement('ds-icon');
   glyph.setAttribute('name',icon);glyph.setAttribute('aria-hidden','true');
   node.append(glyph);node.hidden=true;
-  node.addEventListener('click',()=>toolbar.scrollBy({left:direction*Math.max(140,Math.round(toolbar.clientWidth*.7)),behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'}));
+  node.addEventListener('click',()=>toolbar.scrollBy({left:direction*Math.max(140,Math.round(toolbar.clientWidth*.7)),behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'}));
   return node;
  };
  const previous=button(-1,'Rolar ferramentas para a esquerda','chevron-left');
@@ -173,7 +173,11 @@ export function attachToolbarOverflow(toolbar){
  // A pointer interaction outside the toolbar is intentional; never pull
  // its focus back when a subsequent toolbar mutation arrives.
  const onDocumentPointerDown=event=>{
-  if(!shell.contains(event.target)){lastFocusedAction=null;lastFocusedIndex=-1;}
+  // A deliberate click on a non-focusable area may blur the arrow to <body>.
+  // Do not treat that as lost focus from a later permission/layout change.
+  if(!shell.contains(event.target)){
+   lastFocusedAction=null;lastFocusedIndex=-1;lastFocusedArrow=null;
+  }
  };
  document.addEventListener('pointerdown',onDocumentPointerDown,true);
  const onToolbarFocusIn=event=>{
