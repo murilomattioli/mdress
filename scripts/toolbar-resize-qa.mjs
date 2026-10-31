@@ -405,6 +405,33 @@ try{
   const arrow=document.querySelector('#ux23-pointer-focus-fixture .toolbar-scroll-button:last-child');
   return arrow&&!arrow.hidden&&!arrow.disabled;
  });
+ // Blank space INSIDE the shell is also a deliberate pointer interaction.
+ // Its target is not a command or an arrow, and it must clear arrow ownership.
+ await pointerHost.evaluate(host=>{
+  const shell=host.querySelector('.markdown-toolbar-shell');
+  shell.style.position='relative';
+  const blank=document.createElement('div');blank.id='ux23-pointer-inside-blank';
+  blank.style.cssText='position:absolute;left:0;top:0;width:20px;height:20px;z-index:99999';
+  shell.append(blank);
+ });
+ await pointerArrow.focus();
+ await page.locator('#ux23-pointer-inside-blank').click();
+ await pointerArrow.evaluate(el=>el.blur());
+ await pointerHost.evaluate(el=>{el.style.display='none';});
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-pointer-focus-fixture');
+  return [...host.querySelectorAll('.toolbar-scroll-button')].every(arrow=>arrow.hidden);
+ },null,{timeout:3000});
+ assert.equal(await page.evaluate(()=>document.activeElement===document.body),true,
+  'Blank space inside the toolbar must not cause stale arrow focus recovery');
+ await pointerHost.evaluate(el=>{
+  el.style.removeProperty('display');
+  el.querySelector('#ux23-pointer-inside-blank').remove();
+ });
+ await page.waitForFunction(()=>{
+  const arrow=document.querySelector('#ux23-pointer-focus-fixture .toolbar-scroll-button:last-child');
+  return arrow&&!arrow.hidden&&!arrow.disabled;
+ });
  // Reduced-motion users should get an immediate, standards-compliant auto
  // scroll rather than the non-standard `instant` ScrollBehavior value.
  await pointerHost.evaluate(host=>{
