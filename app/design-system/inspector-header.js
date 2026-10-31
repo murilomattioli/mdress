@@ -246,7 +246,12 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    syncAvailability();
   };
   const watchHiddenActions=()=>{
-   if(!more.hidden){
+   // Native disabled/hidden/removed actions already have mutation observers.
+   // Only CSS-hidden candidates need a viewport listener while closed.
+   const cssHiddenCandidate=buttons.some(button=>menu.contains(button)&&
+    !button.matches(':disabled')&&!button.hidden&&
+    !button.closest('[inert],[aria-hidden="true"],[aria-disabled="true"]'));
+   if(!more.hidden||!cssHiddenCandidate){
     stopHiddenActionsWatcher();
     if(!tracking){hostObserver.disconnect();watchedAncestors=[];}
     return;
