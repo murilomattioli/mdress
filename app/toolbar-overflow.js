@@ -83,11 +83,24 @@ export function attachToolbarOverflow(toolbar){
    }
   }
  };
- let frame=0;
- const schedule=()=>{
-  if(frame)cancelAnimationFrame(frame);
-  frame=requestAnimationFrame(()=>{frame=0;update();});
+ // Resizing the editor can clip a focused command without another focusin.
+ // Reveal it only for layout changes, never on ordinary scroll: a user must
+ // still be able to browse the toolbar independently of keyboard focus.
+ const revealFocusedAction=()=>{
+  const active=document.activeElement;
+  if(!toolbar.contains(active)||!focusable(active))return;
+  const delta=focusedToolbarDelta(active.getBoundingClientRect(),toolbar.getBoundingClientRect());
+  if(delta)toolbar.scrollLeft+=delta;
  };
+ let frame=0,revealOnNextFrame=false;
+ const schedule=()=>{
+  if(frame)return;
+  frame=requestAnimationFrame(()=>{
+   frame=0;update();
+   if(revealOnNextFrame){revealOnNextFrame=false;revealFocusedAction();}
+  });
+ };
+ const scheduleReveal=()=>{revealOnNextFrame=true;schedule();};
  toolbar.addEventListener('scroll',schedule,{passive:true});
  toolbar.addEventListener('focusout',event=>{
   // A focused action can blur *before* the DOM removal/hidden mutation.
@@ -111,7 +124,7 @@ export function attachToolbarOverflow(toolbar){
  });
  let resize=null;
  if(typeof ResizeObserver==='function'){
-  resize=new ResizeObserver(schedule);
+  resize=new ResizeObserver(scheduleReveal);
   resize.observe(toolbar);
   for(const group of toolbar.children)resize.observe(group);
  }
@@ -120,12 +133,12 @@ export function attachToolbarOverflow(toolbar){
  new MutationObserver(records=>{
   if(resize&&records.some(record=>record.type==='childList'))
    for(const group of toolbar.children)resize.observe(group);
-  schedule();
+  scheduleReveal();
  }).observe(toolbar,{
   childList:true,subtree:true,attributes:true,
   attributeFilter:['disabled','aria-disabled','hidden','class','style']
  });
- window.addEventListener('resize',schedule);
- document.addEventListener('studio:resized',schedule);
+ window.addEventListener('resize',scheduleReveal);
+ document.addEventListener('studio:resized',scheduleReveal);
  schedule();
 }
