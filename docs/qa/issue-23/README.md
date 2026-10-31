@@ -1,3 +1,25 @@
+## UX-023 — permissões visuais responsivas sem mutação de DOM (31/10/2026)
+
+O menu de ações agora reconcilia sua disponibilidade durante atualizações de geometria e viewport, além das mutações de atributos. Isso cobre regras `@media` que ocultam **itens individuais** sem modificar seus nós: ao ocultar a ação focada, o foco passa para a próxima; ao ocultar todas, o popover fecha, o gatilho desaparece e o foco retorna ao toggle. Quando a largura é restaurada, as ações reaparecem sem recriar o cabeçalho.
+
+`content-visibility:hidden` também é tratado como indisponibilidade tanto nos ancestrais do cabeçalho quanto nos itens do menu. Um popover aberto não permanece interativo quando o host passa a ter conteúdo oculto.
+
+**Regressões Chromium:** `node scripts/inspector-header-qa.mjs` cobre media queries em 390 → 375 → 350 → 390 px, foco contextual, menu vazio e restauração, além de `content-visibility:hidden` em ação e host. Evidências: `header-responsive-actions-focus-375.png`, `header-responsive-actions-empty-350.png`, `header-content-visibility-action.png` e `header-content-visibility-host-revoked.png`. O Browser Smoke inclui `test-results/header-*.png`. **Capturas exigem revisão humana; CI verde não equivale a homologação.**
+
+**PowerShell (sem merge):**
+```powershell
+git fetch origin
+git switch feat/23-property-controls-ux-qa
+git pull --ff-only origin feat/23-property-controls-ux-qa
+npm install --include=dev
+npm run dev
+# Outro terminal:
+node scripts/inspector-header-qa.mjs
+npm run qa:supervised
+```
+
+---
+
 ## UX-023 — recuperação de foco em hosts revogados e mudanças responsivas (31/10/2026)
 
 Quando um menu do inspetor está aberto e seu cabeçalho é desativado (`aria-disabled`, `inert`, `fieldset disabled`), ocultado por CSS ou removido do DOM, o foco deve sair do popover para um controle **visível, habilitado e fora do host revogado**. O componente prioriza o editor Markdown quando disponível e usa outro controle acessível como fallback, sem restaurar foco para o gatilho inválido nem deixá-lo em `<body>`.
