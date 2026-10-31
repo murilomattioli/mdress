@@ -204,6 +204,9 @@ try{
  await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
  await dynamicHost.evaluate(el=>el.setAttribute('aria-disabled','true'));
  await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.waitForFunction(()=>document.activeElement!==document.body&&
+  !document.querySelector('#ux23-dynamic-menu-host')?.contains(document.activeElement));
+ await page.screenshot({path:'test-results/header-revoked-host-focus.png'});
  await dynamicItems.nth(0).evaluate(el=>el.click());
  await dynamicTrigger.evaluate(el=>el.click());
  assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
@@ -215,6 +218,8 @@ try{
  await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
  await dynamicHost.evaluate(el=>el.setAttribute('inert',''));
  await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.waitForFunction(()=>document.activeElement!==document.body&&
+  !document.querySelector('#ux23-dynamic-menu-host')?.contains(document.activeElement));
  await dynamicItems.nth(0).evaluate(el=>el.click());
  assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
   'Inert inspector hosts must revoke menu actions even when the popover is top-layer');
@@ -228,6 +233,8 @@ try{
   host.before(fieldset);fieldset.append(host);fieldset.disabled=true;
  });
  await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.waitForFunction(()=>document.activeElement!==document.body&&
+  !document.querySelector('#ux23-dynamic-menu-host')?.contains(document.activeElement));
  assert.equal(await dynamicTrigger.evaluate(el=>el.matches(':disabled')),true,
   'The inspector trigger inherits disabled state from its host fieldset');
  await dynamicItems.nth(0).evaluate(el=>el.click());
@@ -243,15 +250,20 @@ try{
  // leave the same component usable, without rebuilding the inspector.
  await dynamicHost.evaluate(el=>el.style.display='none');
  await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.waitForFunction(()=>document.activeElement!==document.body&&
+  !document.querySelector('#ux23-dynamic-menu-host')?.contains(document.activeElement));
  await dynamicHost.evaluate(el=>el.style.removeProperty('display'));
  await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
  await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
  await page.screenshot({path:'test-results/header-host-permissions-restored.png'});
- await page.keyboard.press('Escape');
+ // Detaching an open top-layer menu must release its tracking and return
+ // keyboard focus to a usable control outside the removed accordion.
  await page.evaluate(()=>{
   window.__ux23RemovedHeaderAction=document.querySelector('#ux23-dynamic-menu-host [role=menuitem]');
  });
  await dynamicHost.evaluate(el=>el.remove());
+ await page.waitForFunction(()=>document.activeElement!==document.body&&
+  !document.querySelector('#ux23-dynamic-menu-host'));
  await page.evaluate(()=>window.__ux23RemovedHeaderAction.click());
  assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
   'A menuitem from a removed inspector header must never execute');
