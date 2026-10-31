@@ -237,5 +237,57 @@ try{
  await page.locator('#ux23-toolbar-reparented').evaluate(el=>{
   el.removeAttribute('aria-disabled');el.before(el.firstElementChild);el.remove();
  });
+ // A detached toolbar must not retain global resize/pointer listeners or
+ // ancestry observers across repeated editor mounts. Explicit disposal must
+ // also unwrap the toolbar and allow a fresh attachment without duplicate UI.
+ await page.evaluate(async()=>{
+  const {attachToolbarOverflow}=await import('/app/toolbar-overflow.js');
+  const host=document.createElement('div');host.id='ux23-toolbar-lifecycle';
+  host.style.cssText='width:210px;max-width:210px;position:relative';
+  const bar=document.createElement('div');bar.className='markdown-toolbar';
+  bar.style.cssText='display:flex;flex-wrap:nowrap;overflow-x:auto;width:160px';
+  for(let i=0;i<8;i++){
+   const action=document.createElement('button');action.type='button';
+   action.textContent='Action '+i;action.style.cssText='min-width:100px;flex-shrink:0';
+   bar.append(action);
+  }
+  host.append(bar);document.body.append(host);
+  window.__ux23DisposeToolbar=attachToolbarOverflow(bar);
+ });
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-toolbar-lifecycle');
+  return host?.querySelectorAll('.toolbar-scroll-button').length===2&&
+   [...host.querySelectorAll('.toolbar-scroll-button')].some(button=>!button.hidden);
+ },null,{timeout:3000});
+ await page.locator('#ux23-toolbar-lifecycle').screenshot({
+  path:'test-results/ux-audit/toolbar-lifecycle-scroll-controls.png',animations:'disabled'
+ });
+ const lifecycle=await page.evaluate(async()=>{
+  const {attachToolbarOverflow}=await import('/app/toolbar-overflow.js');
+  const host=document.querySelector('#ux23-toolbar-lifecycle');
+  const bar=host.querySelector('.markdown-toolbar');
+  const arrows=[...host.querySelectorAll('.toolbar-scroll-button')];
+  const controlsValid=arrows.every(arrow=>arrow.getAttribute('aria-controls')===bar.id&&bar.id);
+  const sameInstance=attachToolbarOverflow(bar)===window.__ux23DisposeToolbar;
+  window.__ux23DisposeToolbar();
+  const explicitCleanup=host.querySelectorAll('.markdown-toolbar-shell,.toolbar-scroll-button').length===0&&
+   bar.parentElement===host;
+  const again=attachToolbarOverflow(bar);
+  const reattached=host.querySelectorAll('.toolbar-scroll-button').length===2&&
+   typeof again==='function'&&again!==window.__ux23DisposeToolbar;
+  host.remove();
+  await new Promise(resolve=>setTimeout(resolve,80));
+  const automaticCleanup=!bar.closest('.markdown-toolbar-shell')&&
+   !bar.id&&host.querySelectorAll('.toolbar-scroll-button').length===0;
+  document.body.append(host);
+  const third=attachToolbarOverflow(bar);
+  const remounted=host.querySelectorAll('.toolbar-scroll-button').length===2;
+  third();host.remove();delete window.__ux23DisposeToolbar;
+  return {controlsValid,sameInstance,explicitCleanup,reattached,automaticCleanup,remounted};
+ });
+ assert.deepEqual(lifecycle,{
+  controlsValid:true,sameInstance:true,explicitCleanup:true,
+  reattached:true,automaticCleanup:true,remounted:true
+ },'Toolbar must dispose observers and restore a clean DOM across mounts: '+JSON.stringify(lifecycle));
  console.log('Toolbar resize, manual scroll, splitter and dynamic focus recovery passed.');
 }finally{await browser.close();}
