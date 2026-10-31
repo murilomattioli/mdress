@@ -1,7 +1,8 @@
 // Make overflowed Markdown actions discoverable without hiding keyboard focus.
 export function toolbarOverflowState({scrollLeft,scrollWidth,clientWidth}){
  const max=Math.max(0,scrollWidth-clientWidth);
- return {overflow:max>2,canScrollPrevious:scrollLeft>1,canScrollNext:scrollLeft<max-1};
+ const overflow=max>2;
+ return {overflow,canScrollPrevious:overflow&&scrollLeft>1,canScrollNext:overflow&&scrollLeft<max-1};
 }
 export function focusedToolbarDelta(control,viewport,padding=6){
  // At high zoom or very narrow split panes a control can be wider than the
@@ -40,9 +41,20 @@ export function attachToolbarOverflow(toolbar){
  const actionSelector='button,select,input,[tabindex]';
  // Conditional modes can hide groups, remove nodes or mark actions aria-disabled.
  // These are unavailable for keyboard users even when disabled=false.
- const focusable=el=>Boolean(el?.isConnected&&!el.matches(':disabled,[aria-disabled="true"]')&&
-  el.tabIndex>=0&&!el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')&&
-  el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');
+ const focusable=el=>{
+  if(!el?.isConnected||el.matches(':disabled,[aria-disabled="true"]')||el.tabIndex<0||
+     el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
+     !el.getClientRects().length)return false;
+  // content-visibility:hidden leaves a layout rectangle even though its
+  // contents are not available to keyboard users. Inspect ancestor styles:
+  // a descendant may still report its own display as visible.
+  for(let node=el;node;node=node.parentElement){
+   const style=getComputedStyle(node);
+   if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
+      style.contentVisibility==='hidden')return false;
+  }
+  return true;
+ };
  const recoverActionFocus=()=>{
   const origin=lastFocusedAction;
   if(!origin||focusable(origin)||
