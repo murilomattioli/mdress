@@ -109,7 +109,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    // remain visible even when the menu contains dozens of commands.
    item.scrollIntoView({block:'nearest',inline:'nearest'});
   };
-  const normalizeLabel=value=>value.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLocaleLowerCase('pt-BR');
+  const normalizeLabel=value=>value.normalize('NFD').replace(/\p{M}/gu,'').toLocaleLowerCase('pt-BR');
   menu.addEventListener('toggle',()=>{
    const open=isOpen();
    more.setAttribute('aria-expanded',String(open));
