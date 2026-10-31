@@ -6,6 +6,39 @@ const browser=await chromium.launch();
 try{
  const page=await browser.newPage({viewport:{width:1024,height:900},reducedMotion:'reduce'});
  await page.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173');await page.locator('#designToggle').click();
+ // Roving tab navigation must skip dynamically unavailable destinations.
+ // A programmatic tab change must not strand focus in the hidden old panel.
+ const documentTab=page.locator('[data-inspector-tab=document]');
+ const contentTab=page.locator('[data-inspector-tab=content]');
+ const pageTab=page.locator('[data-inspector-tab=page]');
+ const themesTab=page.locator('[data-inspector-tab=themes]');
+ await contentTab.evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await documentTab.focus();await page.keyboard.press('ArrowRight');
+ assert.equal(await pageTab.evaluate(el=>document.activeElement===el),true,
+  'ArrowRight must skip aria-disabled inspector tabs');
+ await documentTab.click();
+ await pageTab.evaluate(el=>{el.style.contentVisibility='hidden';});
+ await documentTab.focus();await page.keyboard.press('ArrowRight');
+ assert.equal(await themesTab.evaluate(el=>document.activeElement===el),true,
+  'ArrowRight must skip tabs hidden with content-visibility');
+ await contentTab.evaluate(el=>el.removeAttribute('aria-disabled'));
+ await pageTab.evaluate(el=>el.style.removeProperty('content-visibility'));
+ await documentTab.click();
+ await page.evaluate(()=>{
+  const focused=document.createElement('button');focused.type='button';
+  focused.id='ux23-panel-focused-control';focused.textContent='Focused property';
+  document.querySelector('#inspector-document').append(focused);focused.focus();
+ });
+ assert.equal(await page.evaluate(()=>document.activeElement?.id),'ux23-panel-focused-control');
+ await page.evaluate(async()=>{
+  const {setInspectorTab}=await import('/property-inspector.js');
+  setInspectorTab('themes');
+ });
+ assert.equal(await themesTab.evaluate(el=>document.activeElement===el),true,
+  'Programmatic panel changes must recover focus to the active tab');
+ assert.equal(await page.locator('#inspector-document').getAttribute('aria-hidden'),'true');
+ await page.screenshot({path:'test-results/header-inspector-tabs-focus-recovery.png',animations:'disabled'});
+ await page.locator('#ux23-panel-focused-control').evaluate(el=>el.remove());
  await page.locator('[data-inspector-tab=themes]').click();
  for(const button of await page.locator('#inspector-themes .ds-accordion-toggle').all())if(await button.getAttribute('aria-expanded')==='true')await button.click();
  const group=page.locator('.ds-accordion').filter({has:page.locator('#themeRecipeGallery')});
