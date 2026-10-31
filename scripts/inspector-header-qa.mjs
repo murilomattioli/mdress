@@ -12,6 +12,36 @@ try{
  const contentTab=page.locator('[data-inspector-tab=content]');
  const pageTab=page.locator('[data-inspector-tab=page]');
  const themesTab=page.locator('[data-inspector-tab=themes]');
+ // Disabled fieldset inheritance must be respected by programmatic
+ // selection and by the roving tab recovery, including the legend exception.
+ await contentTab.click();await contentTab.focus();
+ await contentTab.evaluate(el=>{
+  const fieldset=document.createElement('fieldset');
+  fieldset.id='ux23-disabled-tab-fieldset';
+  el.before(fieldset);fieldset.append(el);fieldset.disabled=true;
+ });
+ await page.waitForFunction(()=>document.querySelector('[data-inspector-tab=page]')?.getAttribute('aria-selected')==='true');
+ assert.equal(await pageTab.evaluate(el=>document.activeElement===el),true,
+  'Revoking the focused tab via a disabled fieldset must recover focus');
+ assert.equal(await page.evaluate(async()=>{
+  const {setInspectorTab}=await import('/property-inspector.js');
+  return setInspectorTab('content',{focus:true});
+ }),false,'Programmatic selection must reject inherited fieldset disablement');
+ await page.screenshot({path:'test-results/header-fieldset-disabled-tab-recovery.png',animations:'disabled'});
+ await page.locator('#ux23-disabled-tab-fieldset').evaluate(fieldset=>fieldset.replaceWith(fieldset.firstElementChild));
+ await pageTab.evaluate(el=>{
+  const fieldset=document.createElement('fieldset');
+  fieldset.id='ux23-legend-tab-fieldset';fieldset.disabled=true;
+  const legend=document.createElement('legend');
+  el.before(fieldset);fieldset.append(legend);legend.append(el);
+ });
+ assert.equal(await page.evaluate(async()=>{
+  const {setInspectorTab}=await import('/property-inspector.js');
+  return setInspectorTab('page',{focus:true});
+ }),true,'A tab in the first legend remains enabled inside a disabled fieldset');
+ assert.equal(await pageTab.evaluate(el=>document.activeElement===el),true);
+ await page.locator('#ux23-legend-tab-fieldset').evaluate(fieldset=>fieldset.replaceWith(fieldset.firstElementChild.firstElementChild));
+ await documentTab.click();
  await contentTab.evaluate(el=>el.setAttribute('aria-disabled','true'));
  // Synthetic clicks and API calls must not activate permission-revoked tabs.
  const denied=await page.evaluate(async()=>{
