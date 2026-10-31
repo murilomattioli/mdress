@@ -1,3 +1,13 @@
+## UX-023 — permissões dinâmicas nas abas e deep links (31/10/2026)
+
+**Implementação:** a seleção de abas do inspetor agora recusa cliques sintéticos e chamadas programáticas direcionadas a abas desabilitadas, inertes ou ocultas por CSS. Quando a aba ativa perde permissão, o inspetor escolhe a próxima disponível, atualiza `aria-selected` e os painéis, e recupera o foco do tab ou de um controle do painel anterior. A navegação por ArrowLeft a partir de uma aba revogada começa pela última aba disponível; ArrowRight, pela primeira. O fluxo legítimo de pré-selecionar abas enquanto o painel inteiro está recolhido continua funcionando. Atalhos `revealInspectorControl` não expandem nem rolam controles de uma aba revogada.
+
+**Regressões Playwright:** `scripts/inspector-header-qa.mjs` cobre bloqueio de clique/API, tab oculto por `content-visibility`, revogação da aba selecionada, recuperação de foco de um campo do painel, deep link bloqueado e pré-seleção com inspetor recolhido. Evidências: `test-results/header-revoked-tab-focus-recovery.png` e `test-results/header-revoked-panel-focus-recovery.png`.
+
+**Homologação:** avaliar manualmente o comportamento das abas, a posição do foco e a legibilidade das capturas; CI verde não equivale a aprovação visual. Manter PR #27 em draft e issue #23 aberta até a revisão do usuário. Sem merge, release ou Cloudflare.
+
+---
+
 ## UX-023 — lifecycle da toolbar e navegação por abas (31/10/2026)
 
 **Implementação:** `app/toolbar-overflow.js` agora expõe uma função de descarte idempotente por instância, limpa `ResizeObserver`, `MutationObserver`, `requestAnimationFrame` e listeners globais, e desfaz o wrapper sem duplicar as setas. A remoção da toolbar/shell do DOM também descarta os recursos automaticamente; mover apenas a toolbar para outro pai preserva seu novo destino. Alterações de DOM sem relação com a toolbar deixam de disparar recálculo de layout. Os botões de rolagem apontam para o scrollport real via `aria-controls`.
