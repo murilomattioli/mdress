@@ -129,6 +129,55 @@ try{
  await dynamicItems.nth(0).evaluate(el=>el.hidden=false);
  await page.keyboard.press('Escape');
  await dynamicHost.evaluate(el=>el.remove());
+ // Feature flags may remove menu actions from the DOM entirely (not merely
+ // mark them disabled). A detached item must not remain in keyboard order,
+ // trigger callbacks, or strand focus when the final action disappears.
+ await page.evaluate(async()=>{
+  const {createInspectorHeader}=await import('/design-system/inspector-header.js');
+  const host=document.createElement('div');host.id='ux23-detached-menu-host';host.className='design-inspector';
+  const toggle=document.createElement('button');toggle.type='button';toggle.textContent='Ações removíveis';
+  host.append(createInspectorHeader({toggle,menuVisibility:'always',menuItems:[
+   {label:'Removível A',onSelect:()=>window.__ux23DetachedAction='A'},
+   {label:'Removível B',onSelect:()=>window.__ux23DetachedAction='B'},
+   {label:'Removível C',onSelect:()=>window.__ux23DetachedAction='C'}
+  ]}));
+  document.body.append(host);
+ });
+ const detachedHost=page.locator('#ux23-detached-menu-host');
+ const detachedTrigger=detachedHost.locator('.ds-header-menu-trigger');
+ await detachedTrigger.focus();await detachedTrigger.press('Enter');
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Removível A');
+ await page.evaluate(()=>{
+  const host=document.querySelector('#ux23-detached-menu-host');
+  window.__ux23DetachedButtons=[...host.querySelectorAll('[role=menuitem]')];
+  window.__ux23DetachedButtons[0].remove();
+ });
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Removível B');
+ await page.evaluate(()=>window.__ux23DetachedButtons[0].click());
+ assert.equal(await page.evaluate(()=>window.__ux23DetachedAction),undefined,
+  'A detached menuitem must never execute its stale callback');
+ await page.evaluate(()=>window.__ux23DetachedButtons[1].remove());
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Removível C');
+ await page.screenshot({path:'test-results/header-removed-menu-actions-focus.png'});
+ await page.evaluate(()=>window.__ux23DetachedButtons[2].remove());
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-detached-menu-host');
+  return host.querySelector('.ds-header-menu-trigger').hidden&&
+   document.activeElement===host.querySelector('button')&&
+   !host.querySelector('[role=menu]').matches(':popover-open');
+ });
+ await page.evaluate(()=>{
+  const host=document.querySelector('#ux23-detached-menu-host');
+  host.querySelector('[role=menu]').append(window.__ux23DetachedButtons[0]);
+ });
+ await page.waitForFunction(()=>!document.querySelector('#ux23-detached-menu-host .ds-header-menu-trigger').hidden);
+ await detachedTrigger.focus();await detachedTrigger.press('Enter');
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Removível A');
+ await page.keyboard.press('Enter');
+ assert.equal(await page.evaluate(()=>window.__ux23DetachedAction),'A',
+  'A reinserted action is available again without recreating the header');
+ await detachedHost.evaluate(el=>el.remove());
+ await page.evaluate(()=>{delete window.__ux23DetachedButtons;delete window.__ux23DetachedAction;});
  // Large action menus need typeahead, accent-insensitive matching, repeat-key
  // cycling and page navigation without breaking IME composition.
  await page.evaluate(async()=>{
