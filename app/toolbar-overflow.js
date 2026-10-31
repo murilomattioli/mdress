@@ -41,19 +41,30 @@ export function attachToolbarOverflow(toolbar){
  const actionSelector='button,select,input,[tabindex]';
  // Conditional modes can hide groups, remove nodes or mark actions aria-disabled.
  // These are unavailable for keyboard users even when disabled=false.
- const focusable=el=>{
-  if(!el?.isConnected||el.matches(':disabled,[aria-disabled="true"]')||el.tabIndex<0||
-     el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
-     !el.getClientRects().length)return false;
-  // content-visibility:hidden leaves a layout rectangle even though its
-  // contents are not available to keyboard users. Inspect ancestor styles:
-  // a descendant may still report its own display as visible.
+ const visibleInTree=el=>{
+  if(!el?.isConnected||!el.getClientRects().length||
+     el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]'))return false;
+  // A layout rectangle does not imply visibility with content-visibility.
   for(let node=el;node;node=node.parentElement){
    const style=getComputedStyle(node);
    if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
       style.contentVisibility==='hidden')return false;
   }
   return true;
+ };
+ const focusable=el=>visibleInTree(el)&&el.tabIndex>=0&&
+  !el.matches(':disabled,[aria-disabled="true"]');
+ const focusFallback=()=>{
+  const editor=document.querySelector('#source');
+  if(focusable(editor)){editor.focus({preventScroll:true});return;}
+  if(visibleInTree(toolbar)){
+   toolbar.tabIndex=-1;toolbar.focus({preventScroll:true});return;
+  }
+  // A mode switch can hide both editor and toolbar. Do not leave focus in
+  // an invisible toolbar or on <body> when another page control is usable.
+  const outside=[...document.querySelectorAll('button,a[href],input,select,textarea,[tabindex]')]
+   .find(el=>!shell.contains(el)&&focusable(el));
+  outside?.focus({preventScroll:true});
  };
  const recoverActionFocus=()=>{
   const origin=lastFocusedAction;
@@ -71,11 +82,7 @@ export function attachToolbarOverflow(toolbar){
    lastFocusedIndex=actions.indexOf(next);}
   else{
    // A workspace-mode change can hide the whole toolbar. Do not focus it.
-   const editor=document.querySelector('#source');
-   if(focusable(editor))editor.focus({preventScroll:true});
-   else if(toolbar.getClientRects().length&&!toolbar.closest('[hidden],[inert],[aria-hidden="true"]')){
-    toolbar.tabIndex=-1;toolbar.focus({preventScroll:true});
-   }
+   focusFallback();
    lastFocusedAction=null;lastFocusedIndex=-1;
   }
  };
@@ -97,12 +104,7 @@ export function attachToolbarOverflow(toolbar){
     const action=[...toolbar.querySelectorAll(actionSelector)].find(focusable);
     if(action)action.focus({preventScroll:true});
     else{
-     const editor=document.querySelector('#source');
-     if(focusable(editor))editor.focus({preventScroll:true});
-     else if(toolbar.getClientRects().length&&
-      !toolbar.closest('[hidden],[inert],[aria-hidden="true"]')){
-      toolbar.tabIndex=-1;toolbar.focus({preventScroll:true});
-     }
+     focusFallback();
     }
    }
   }
