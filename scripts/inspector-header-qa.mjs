@@ -578,6 +578,14 @@ try{
   const host=document.querySelector('#ux23-reparent-host');
   return !host.querySelector('[role=menu]').matches(':popover-open')&&
    document.activeElement!==document.body&&!host.contains(document.activeElement);
+ },null,{timeout:4000}).catch(async error=>{
+  const snapshot=await page.evaluate(()=>{
+   const host=document.querySelector('#ux23-reparent-host');
+   return {open:host.querySelector('[role=menu]').matches(':popover-open'),
+    hostDisabled:host.parentElement?.getAttribute('aria-disabled'),
+    focus:document.activeElement?.outerHTML?.slice(0,180)};
+  });
+  throw new Error('Reparented host permission did not revoke focus: '+JSON.stringify(snapshot),{cause:error});
  });
  await page.locator('#ux23-reparent-host [role=menuitem]').evaluate(el=>el.click());
  assert.equal(await page.evaluate(()=>window.__ux23ReparentSelected),undefined,
