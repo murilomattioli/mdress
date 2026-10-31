@@ -1642,6 +1642,18 @@ try {
   }
   await mobileThemeTrigger.click();
   const mobilePopup=ux.locator('.ds-select-popover');
+  if(!await mobilePopup.count()){
+   const snapshot=await mobileThemeTrigger.evaluate(el=>({
+    disabled:el.disabled,tabIndex:el.tabIndex,
+    ancestors:[...function*(node){for(;node;node=node.parentElement)yield node;}(el)]
+     .map(node=>({tag:node.tagName,id:node.id,classes:node.className,
+      hidden:node.hidden,disabled:node.disabled,ariaHidden:node.getAttribute('aria-hidden'),
+      ariaDisabled:node.getAttribute('aria-disabled'),inert:node.inert,
+      rects:node.getClientRects().length,display:getComputedStyle(node).display,
+      visibility:getComputedStyle(node).visibility,contentVisibility:getComputedStyle(node).contentVisibility}))
+   }));
+   throw new Error('Visible mobile combobox did not open: '+JSON.stringify(snapshot));
+  }
   const popupBounds=await mobilePopup.evaluate(el=>{
    const rect=el.getBoundingClientRect();
    return {left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom,
