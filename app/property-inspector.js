@@ -21,10 +21,11 @@ const keyboardTabAvailable=tab=>{
  if(!tab?.isConnected||tabInDisabledFieldset(tab)||tab.matches(':disabled,[aria-disabled="true"]')||
     tab.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
     !tab.getClientRects().length)return false;
+ const visibility=getComputedStyle(tab).visibility;
+ if(visibility==='hidden'||visibility==='collapse')return false;
  for(let node=tab;node;node=node.parentElement){
   const style=getComputedStyle(node);
-  if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
-     style.contentVisibility==='hidden')return false;
+  if(style.display==='none'||style.contentVisibility==='hidden')return false;
  }
  return true;
 };
@@ -34,11 +35,12 @@ const keyboardTabAvailable=tab=>{
 const tabSelectable=tab=>{
  if(!tab?.isConnected||tabInDisabledFieldset(tab)||tab.matches(':disabled,[aria-disabled="true"]')||
     tab.closest('[inert],[aria-hidden="true"],[aria-disabled="true"]'))return false;
+ const visibility=getComputedStyle(tab).visibility;
+ if(visibility==='hidden'||visibility==='collapse')return false;
  for(let node=tab;node;node=node.parentElement){
   if(node.hidden)return false;
   const style=getComputedStyle(node);
-  if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
-     style.contentVisibility==='hidden')return false;
+  if(style.display==='none'||style.contentVisibility==='hidden')return false;
   if(node.matches('.inspector-tabs'))break;
  }
  return true;
