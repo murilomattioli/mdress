@@ -21,8 +21,9 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   const buttons=menuItems.map(item=>{
    const button=document.createElement('button');button.type='button';button.setAttribute('role','menuitem');button.tabIndex=-1;button.textContent=item.label;button.disabled=Boolean(item.disabled);
    button.onclick=()=>{
-    // aria-disabled does not prevent native clicks; respect runtime changes.
-    if(!available().includes(button))return;
+    // Enter can dispatch a native button click while an IME candidate is
+    // being confirmed. Composition must never execute an inspector action.
+    if(composing||!available().includes(button))return;
     menu.hidePopover();more.focus();item.onSelect();
    };
    menu.append(button);return button;
@@ -145,7 +146,13 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   menu.onkeydown=e=>{
    // Escape/arrows are used by IME candidate windows. Never dismiss the
    // menu or change the selected action while composition is in progress.
-   if(composing||e.isComposing||e.keyCode===229)return;
+   if(composing||e.isComposing||e.keyCode===229){
+    // A native popover may still dismiss on Escape, and Tab may move focus,
+    // even though the application ignores these keys during IME composition.
+    // Keep Enter's default IME confirmation; the click handler guards it.
+    if(e.key==='Escape'||e.key==='Tab')e.preventDefault();
+    return;
+   }
    const items=available(),index=items.indexOf(document.activeElement);
    if(['ArrowDown','ArrowUp','Home','End','PageDown','PageUp'].includes(e.key)){
     // Arrow/page navigation starts a new search context. Otherwise a quick
