@@ -132,7 +132,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    menu.style.left=Math.max(left+8,Math.min(left+width-menuWidth-8,r.right-menuWidth))+'px';
    menu.style.top=Math.max(top+8,Math.min(top+height-menuHeight-8,desiredTop))+'px';
   };
-  let frame=0,lastFocusedItem=null,menuResizeObserver=null,tracking=false,hiddenResizeWatching=false;
+  let frame=0,lastFocusedItem=null,menuResizeObserver=null,documentMoveObserver=null,tracking=false,hiddenResizeWatching=false;
   // A top-layer menu can outlive the interactivity of its accordion host.
   // Never return focus to a disabled/inert/hidden trigger when permissions
   // change: that would strand keyboard users on <body>.
@@ -212,6 +212,20 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    if(frame)return;
    frame=requestAnimationFrame(()=>{frame=0;position();});
   };
+  // Moving an entire inspector host can bypass a detached ancestor observer
+  // when native popover dismissal and a rapid reopen happen in one frame.
+  // Observe *only* DOM moves while open, and rebind permission observers to
+  // the new ancestor chain before accepting further menu interactions.
+  const onDocumentMove=records=>{
+   const moved=records.some(record=>[...record.addedNodes,...record.removedNodes]
+    .some(node=>node===header||node.contains?.(header)));
+   if(!moved)return;
+   if(!header.isConnected){
+    if(isOpen())menu.hidePopover();
+    stopTracking();return;
+   }
+   watchHostAncestry();position();
+  };
   const startTracking=()=>{
    // A reparented auto popover can close and reopen before its async toggle
    // event finishes. Even when listeners are already installed, refresh the
@@ -221,6 +235,8 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    tracking=true;
    window.addEventListener('resize',schedulePosition);
    window.addEventListener('scroll',schedulePosition,true);
+   documentMoveObserver=new MutationObserver(onDocumentMove);
+   documentMoveObserver.observe(document.documentElement,{childList:true,subtree:true});
    document.addEventListener('pointerdown',clearOutsidePointer,true);
    watchHostAncestry();
    window.visualViewport?.addEventListener('resize',schedulePosition);
@@ -242,6 +258,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    window.visualViewport?.removeEventListener('resize',schedulePosition);
    window.visualViewport?.removeEventListener('scroll',schedulePosition);
    menuResizeObserver?.disconnect();menuResizeObserver=null;
+   documentMoveObserver?.disconnect();documentMoveObserver=null;
    if(frame){cancelAnimationFrame(frame);frame=0;}
   };
   // A CSS-only breakpoint can remove the last menu action. The trigger
