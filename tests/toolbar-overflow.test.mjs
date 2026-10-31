@@ -25,7 +25,7 @@ test('keyboard focus reveals clipped actions without shifting visible controls',
 
 test('toolbar overflow tolerates fractional layout measurements',()=>{
  assert.deepEqual(toolbarOverflowState({scrollLeft:0,scrollWidth:402,clientWidth:400}),{
-  overflow:false,canScrollPrevious:false,canScrollNext:true
+  overflow:false,canScrollPrevious:false,canScrollNext:false
  });
  assert.deepEqual(toolbarOverflowState({scrollLeft:0,scrollWidth:401,clientWidth:400}),{
   overflow:false,canScrollPrevious:false,canScrollNext:false
@@ -46,4 +46,13 @@ test('oversized toolbar controls reveal the leading edge without oscillating',()
  assert.equal(focusedToolbarDelta({left:106,right:406},viewport),0);
  assert.equal(focusedToolbarDelta({left:50,right:350},viewport),-56);
  assert.equal(focusedToolbarDelta({left:106,right:406},viewport),0);
+});
+
+test('overflow controls stay disabled when the scrollbar is below the visual tolerance',()=>{
+ assert.deepEqual(toolbarOverflowState({scrollLeft:1.8,scrollWidth:402,clientWidth:400}),{
+  overflow:false,canScrollPrevious:false,canScrollNext:false
+ });
+ assert.deepEqual(toolbarOverflowState({scrollLeft:1.8,scrollWidth:403,clientWidth:400}),{
+  overflow:true,canScrollPrevious:true,canScrollNext:false
+ });
 });
