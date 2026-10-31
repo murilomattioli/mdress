@@ -205,6 +205,23 @@ try{
  await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Beta');
  assert.equal(await focusedLabel(),'Beta','Disabling a middle action focuses the next available action');
  await page.screenshot({path:'test-results/header-typeahead-permission-neighbor-390.png'});
+ // High text zoom can make one menu item taller than the scrollport.
+ // Home must reveal its leading edge without alternating top/bottom on
+ // subsequent keyboard events or layout updates.
+ const oversizedMenuItem=typeHost.getByRole('menuitem',{name:'Alpha'});
+ await oversizedMenuItem.evaluate(el=>{el.style.height='400px';});
+ await page.keyboard.press('Home');
+ await page.waitForFunction(()=>{
+  const menu=document.querySelector('#ux23-typeahead-host [role=menu]');
+  return menu&&menu.scrollTop<2;
+ });
+ for(let attempt=0;attempt<3;attempt++){
+  await page.keyboard.press('Home');
+  assert.ok(await typeHost.getByRole('menu').evaluate(el=>el.scrollTop)<2,
+   'Oversized menu actions must not oscillate between their top and bottom edges');
+ }
+ await page.screenshot({path:'test-results/header-typeahead-oversized-action-390.png'});
+ await oversizedMenuItem.evaluate(el=>{el.style.height='';});
  assert.equal(await page.evaluate(()=>{
   const focused=document.activeElement;
   focused.dispatchEvent(new KeyboardEvent('keydown',{key:'b',bubbles:true,isComposing:true}));
