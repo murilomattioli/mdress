@@ -661,6 +661,45 @@ try{
  await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host [role=menu]')?.matches(':popover-open'));
  await page.keyboard.press('Escape');
  await page.locator('#ux23-responsive-host-style').evaluate(el=>el.remove());
+ // CSS-only responsive permission changes can hide *individual* actions.
+ // No mutation event fires on menuitems when a media query starts matching.
+ // The open menu must recover focus, close if empty, and become usable again.
+ await page.evaluate(()=>{
+  const style=document.createElement('style');style.id='ux23-responsive-actions-style';
+  style.textContent=[
+   '@media(max-width:380px){#ux23-edge-menu-host [role=menuitem]:first-child{display:none!important}}',
+   '@media(max-width:360px){#ux23-edge-menu-host [role=menuitem]{display:none!important}}'
+  ].join('');
+  document.head.append(style);
+ });
+ const responsiveMenu=page.locator('#ux23-edge-menu-host [role=menu]');
+ await responsiveTrigger.focus();await responsiveTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host [role=menu]')?.matches(':popover-open'));
+ assert.equal(await responsiveMenu.locator('[role=menuitem]').first().evaluate(el=>el===document.activeElement),true);
+ await page.setViewportSize({width:375,height:320});
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-edge-menu-host');
+  const items=host.querySelectorAll('[role=menuitem]');
+  return host.querySelector('[role=menu]').matches(':popover-open')&&
+   getComputedStyle(items[0]).display==='none'&&document.activeElement===items[1];
+ });
+ await page.screenshot({path:'test-results/header-responsive-actions-focus-375.png'});
+ await page.setViewportSize({width:350,height:320});
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-edge-menu-host');
+  return !host.querySelector('[role=menu]').matches(':popover-open')&&
+   host.querySelector('.ds-header-menu-trigger').hidden&&
+   document.activeElement===host.querySelector('.ds-accordion-toggle');
+ });
+ await page.screenshot({path:'test-results/header-responsive-actions-empty-350.png'});
+ await page.setViewportSize({width:390,height:320});
+ await page.waitForFunction(()=>!document.querySelector('#ux23-edge-menu-host .ds-header-menu-trigger').hidden);
+ await responsiveTrigger.focus();await responsiveTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host [role=menu]')?.matches(':popover-open'));
+ assert.equal(await responsiveMenu.locator('[role=menuitem]').first().evaluate(el=>el===document.activeElement),true,
+  'Restoring viewport makes previously hidden actions available without rebuilding the menu');
+ await page.keyboard.press('Escape');
+ await page.locator('#ux23-responsive-actions-style').evaluate(el=>el.remove());
  // Synthetic fixed fixture must not intercept the real inspector's hover test.
  await page.locator('#ux23-edge-menu-host').evaluate(el=>el.remove());
  for(const width of [1024,390]){
