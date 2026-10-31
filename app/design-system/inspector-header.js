@@ -33,12 +33,25 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   const menu=document.createElement('div');menu.className='ds-header-menu';menu.id='ds-header-menu-'+(++nextMenuId);
   menu.setAttribute('popover','auto');menu.setAttribute('role','menu');menu.setAttribute('aria-label',more.getAttribute('aria-label'));
   more.setAttribute('aria-controls',menu.id);
+  // A top-layer popover is not governed by ancestor visibility. A feature
+  // switch can disable or hide its host while the menu is open; late clicks
+  // must not bypass the host's current interactive state.
+  const headerInteractive=()=>{
+   if(!header.isConnected||more.matches(':disabled')||
+      more.closest('[inert],[aria-hidden="true"],[aria-disabled="true"]'))return false;
+   for(let node=header;node;node=node.parentElement){
+    if(node.hidden)return false;
+    const style=getComputedStyle(node);
+    if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse')return false;
+   }
+   return true;
+  };
   const buttons=menuItems.map(item=>{
    const button=document.createElement('button');button.type='button';button.setAttribute('role','menuitem');button.tabIndex=-1;button.textContent=item.label;button.disabled=Boolean(item.disabled);
    button.onclick=()=>{
     // Enter can dispatch a native button click while an IME candidate is
     // being confirmed. Composition must never execute an inspector action.
-    if(composing||!available().includes(button))return;
+    if(composing||!isOpen()||!headerInteractive()||!available().includes(button))return;
     menu.hidePopover();more.focus();item.onSelect();
    };
    menu.append(button);return button;
@@ -87,6 +100,11 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    menu.style.top=Math.max(top+8,Math.min(top+height-menuHeight-8,desiredTop))+'px';
   };
   let frame=0,lastFocusedItem=null,menuResizeObserver=null;
+  const hostObserver=new MutationObserver(()=>{
+   if(!isOpen())return;
+   if(!headerInteractive()){menu.hidePopover();return;}
+   syncAvailability();schedulePosition();
+  });
   menu.addEventListener('focusin',event=>{
    if(buttons.includes(event.target))lastFocusedItem=event.target;
   });
@@ -105,6 +123,11 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    window.addEventListener('resize',schedulePosition);
    window.addEventListener('scroll',schedulePosition,true);
    document.addEventListener('pointerdown',clearOutsidePointer,true);
+   for(let node=header;node;node=node.parentElement){
+    hostObserver.observe(node,{attributes:true,attributeFilter:[
+     'disabled','hidden','inert','aria-hidden','aria-disabled','class','style'
+    ]});
+   }
    window.visualViewport?.addEventListener('resize',schedulePosition);
    window.visualViewport?.addEventListener('scroll',schedulePosition);
    // A menu can grow after opening (font/layout settling, viewport CSS
@@ -118,6 +141,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    window.removeEventListener('resize',schedulePosition);
    window.removeEventListener('scroll',schedulePosition,true);
    document.removeEventListener('pointerdown',clearOutsidePointer,true);
+   hostObserver.disconnect();
    window.visualViewport?.removeEventListener('resize',schedulePosition);
    window.visualViewport?.removeEventListener('scroll',schedulePosition);
    menuResizeObserver?.disconnect();menuResizeObserver=null;
@@ -157,7 +181,7 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   // removal can also blur the focused item before the observer callback.
   new MutationObserver(syncAvailability).observe(menu,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled','hidden','aria-disabled','aria-hidden','inert','class','style']});
   more.onclick=()=>{
-   if(more.hidden||!available().length)return;
+   if(more.hidden||!headerInteractive()||!available().length)return;
    if(isOpen()){menu.hidePopover();return;}
    menu.showPopover();position();focusItem(available()[0]);
   };
