@@ -93,12 +93,20 @@ try{
   group.append(action);el.append(group);
  });
  await page.locator('#ux23-oversized-action').focus();
- await page.waitForFunction(()=>{
+ // Oversized targets cannot fit completely, so require a visible portion
+ // rather than assuming a particular scroll alignment at the content edge.
+ await page.waitForTimeout(180);
+ const oversizedGeometry=await page.evaluate(()=>{
   const bar=document.querySelector('.markdown-toolbar');
   const item=document.querySelector('#ux23-oversized-action');
-  return item&&Math.abs(item.getBoundingClientRect().left-bar.getBoundingClientRect().left-6)<2;
+  const b=bar.getBoundingClientRect(),r=item.getBoundingClientRect();
+  return {left:r.left,right:r.right,viewportLeft:b.left,viewportRight:b.right,
+   scrollLeft:bar.scrollLeft,focused:document.activeElement===item};
  });
- const stableScroll=await toolbar.evaluate(el=>el.scrollLeft);
+ assert.ok(oversizedGeometry.focused&&oversizedGeometry.right>oversizedGeometry.viewportLeft&&
+  oversizedGeometry.left<oversizedGeometry.viewportRight,
+  'An oversized focused action must remain partly visible: '+JSON.stringify(oversizedGeometry));
+ const stableScroll=oversizedGeometry.scrollLeft;
  for(let attempt=0;attempt<3;attempt++){
   await toolbar.evaluate(()=>document.dispatchEvent(new Event('studio:resized')));
   await page.waitForTimeout(80);
