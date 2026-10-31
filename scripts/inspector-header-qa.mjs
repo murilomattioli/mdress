@@ -579,6 +579,29 @@ try{
   delete window.__ux23FakeViewport;
   delete window.__ux23OriginalVisualViewport;
  });
+ // A CSS media query can hide an open accordion without changing any
+ // DOM attributes. Resize must revoke its top-layer popover and recover focus.
+ await page.evaluate(()=>{
+  const style=document.createElement('style');style.id='ux23-responsive-host-style';
+  style.textContent='@media(max-width:380px){#ux23-edge-menu-host{display:none!important}}';
+  document.head.append(style);
+ });
+ const responsiveTrigger=page.locator('#ux23-edge-menu-host .ds-header-menu-trigger');
+ await responsiveTrigger.focus();await responsiveTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.setViewportSize({width:375,height:320});
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-edge-menu-host');
+  return getComputedStyle(host).display==='none'&&
+   !host.querySelector('[role=menu]').matches(':popover-open')&&
+   document.activeElement!==document.body&&!host.contains(document.activeElement);
+ });
+ await page.screenshot({path:'test-results/header-responsive-host-revoked-375.png'});
+ await page.setViewportSize({width:390,height:320});
+ await responsiveTrigger.focus();await responsiveTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.keyboard.press('Escape');
+ await page.locator('#ux23-responsive-host-style').evaluate(el=>el.remove());
  // Synthetic fixed fixture must not intercept the real inspector's hover test.
  await page.locator('#ux23-edge-menu-host').evaluate(el=>el.remove());
  for(const width of [1024,390]){
