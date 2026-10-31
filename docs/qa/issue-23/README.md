@@ -1,3 +1,15 @@
+## UX-023 — recuperação de foco em hosts revogados e mudanças responsivas (31/10/2026)
+
+Quando um menu do inspetor está aberto e seu cabeçalho é desativado (`aria-disabled`, `inert`, `fieldset disabled`), ocultado por CSS ou removido do DOM, o foco deve sair do popover para um controle **visível, habilitado e fora do host revogado**. O componente prioriza o editor Markdown quando disponível e usa outro controle acessível como fallback, sem restaurar foco para o gatilho inválido nem deixá-lo em `<body>`.
+
+O observador acompanha remoções de nós ancestrais e libera listeners/ResizeObserver ao desmontar um cabeçalho aberto. O posicionamento também revalida a visibilidade do host durante `resize` e `visualViewport`, cobrindo mudanças de `@media` que não alteram atributos do DOM. Ações antigas continuam bloqueadas.
+
+**Regressões Playwright Chromium:** `scripts/inspector-header-qa.mjs` agora verifica foco fora de hosts desabilitados, inertes, ocultos e removidos durante a abertura; cobre ainda uma media query que oculta o host durante resize e restauração posterior. Novas capturas: `header-revoked-host-focus.png` e `header-responsive-host-revoked-375.png`.
+
+**Homologação humana:** revisar visualmente as capturas e navegar com teclado/IME real. Não confundir aprovação de testes com aprovação de UX. PR #27 permanece draft, issue #23 aberta; não executar merge, release ou deploy antes da homologação.
+
+---
+
 ## UX-023 — revogação de ações após fechamento, desativação ou desmontagem (31/10/2026)
 
 O menu compartilhado não executa callbacks de `menuitem` fora de um popover **aberto**, mesmo que um script dispare `.click()` em um botão oculto. Um cabeçalho removido do DOM também não pode executar ações antigas. Ao mudar permissões ou visibilidade de um **ancestral do cabeçalho** (`aria-disabled`, `inert`, `fieldset disabled`, `display:none`), o popover aberto é fechado; o trigger recusa cliques enquanto o host não é interativo. Ao restaurar o host, o mesmo componente pode abrir novamente.
