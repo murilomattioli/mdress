@@ -213,6 +213,10 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    frame=requestAnimationFrame(()=>{frame=0;position();});
   };
   const startTracking=()=>{
+   // A reparented auto popover can close and reopen before its async toggle
+   // event finishes. Even when listeners are already installed, refresh the
+   // host ancestry so permission revocation on the *new* wrapper is observed.
+   watchHostAncestry();
    if(tracking)return;
    tracking=true;
    window.addEventListener('resize',schedulePosition);
