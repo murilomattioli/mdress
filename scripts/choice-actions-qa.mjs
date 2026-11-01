@@ -30,6 +30,70 @@ async function assertHandoff(page,description){
   description+': '+JSON.stringify(focus));
 }
 try{
+ const permissionPage=await browser.newPage({viewport:{width:1024,height:900}});
+ try{
+  await permissionPage.goto(url,{waitUntil:'networkidle'});
+  await permissionPage.locator('#designToggle').click();
+ // A synthetic click may race with inherited disabled/ARIA/inert/CSS
+ // permissions or target a detached action. Quick actions must not run the
+ // adapter or announce an uncommitted selection in those states.
+ const quickGuards=await permissionPage.evaluate(async()=>{
+  const {createChoiceActions}=await import('/design-system/choice-actions.js');
+  const panel=document.querySelector('#inspector-document');
+  const fixtures=[];
+  const make=(firstLegend=false)=>{
+   const fieldset=document.createElement('fieldset');
+   const legend=document.createElement('legend');legend.textContent='Quick action QA';
+   const container=document.createElement('div');
+   const source=document.createElement('select');
+   source.add(new Option('Primeiro','first'));source.add(new Option('Segundo','second'));
+   let edits=0,accept=true;
+   const readChoices=()=>[...source.options].map(option=>({
+    label:option.label,selected:option.selected,
+    apply:()=>{if(!accept)return false;source.value=option.value;edits++;return true;}
+   }));
+   container.append(source);
+   const group=createChoiceActions({label:'QA',source,readChoices});
+   container.append(group);
+   if(firstLegend){legend.append(container);fieldset.append(legend);}
+   else fieldset.append(legend,container);
+   panel.append(fieldset);fixtures.push(fieldset);
+   return {fieldset,source,group,button:group.querySelector('[data-action="next"]'),
+    edits:()=>edits,reject:()=>{accept=false;}};
+  };
+  const click=btn=>btn.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  const item=make(),b=item.button;
+  item.fieldset.disabled=true;click(b);
+  const disabled=item.edits()===0;
+  item.fieldset.disabled=false;
+  item.fieldset.setAttribute('aria-disabled','true');click(b);
+  const aria=item.edits()===0;
+  item.fieldset.removeAttribute('aria-disabled');
+  item.fieldset.inert=true;click(b);
+  const inert=item.edits()===0;
+  item.fieldset.inert=false;
+  item.fieldset.hidden=true;click(b);
+  const hidden=item.edits()===0;
+  item.fieldset.hidden=false;
+  item.fieldset.style.contentVisibility='hidden';click(b);
+  const contentHidden=item.edits()===0;
+  item.fieldset.style.contentVisibility='';
+  item.reject();click(b);
+  const declined=item.edits()===0&&item.group.querySelector('[role="status"]').textContent==='';
+  item.group.remove();click(b);
+  const detached=item.edits()===0;
+  const legend=make(true);legend.fieldset.disabled=true;click(legend.button);
+  const legendAllowed=legend.edits()===1&&legend.source.value==='second';
+  return {disabled,aria,inert,hidden,contentHidden,declined,detached,legendAllowed};
+ });
+ assert.deepEqual(Object.values(quickGuards),Array(8).fill(true),
+  'Quick actions must respect live permissions, detached callbacks and declined native commits');
+ await permissionPage.screenshot({path:'test-results/ux-audit/quick-synthetic-permissions.png',animations:'disabled'});
+ await permissionPage.evaluate(()=>[...document.querySelectorAll('#inspector-document fieldset')]
+  .filter(el=>el.querySelector('legend')?.textContent==='Quick action QA')
+  .forEach(el=>el.remove()));
+
+ }finally{await permissionPage.close();}
  for(const theme of ['graphite','studio']){
   for(const width of [1440,390]){
    const page=await browser.newPage({viewport:{width,height:900}});

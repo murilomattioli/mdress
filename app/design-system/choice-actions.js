@@ -8,18 +8,38 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
  group.setAttribute('role','group');group.setAttribute('aria-label','Alternar '+label);
  const status=document.createElement('span');status.className='ds-quick-status';status.setAttribute('role','status');
  const buttons=[];
+ // A synthetic click can race with a disabled fieldset, hidden panel or
+ // detached source before a MutationObserver updates the quick-action UI.
+ // Validate both the visible action and its native source at dispatch time.
+ const actionable=button=>{
+  if(!button.isConnected||!group.contains(button)||button.disabled||button.hidden||
+     !source.isConnected||source.matches?.(':disabled'))return false;
+  if(group.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
+     source.parentElement?.closest('[hidden],[inert],[aria-disabled="true"]'))return false;
+  if(getComputedStyle(button).visibility!=='visible'||!button.getClientRects().length)return false;
+  for(let node=button;node;node=node.parentElement){
+   const style=getComputedStyle(node);
+   if(style.display==='none'||style.contentVisibility==='hidden')return false;
+  }
+  return true;
+ };
  for(const config of actions){
   const {action,title,icon}=config;
   const button=document.createElement('button');button.type='button';button.className='ds-quick-action';button.dataset.action=action;
   button.setAttribute('aria-label',label+' — '+title);button.title=title;
   const glyph=document.createElement('ds-icon');glyph.setAttribute('name',icon);button.append(glyph);
   button.onclick=()=>{
+   if(!actionable(button))return;
    if(config.onSelect){config.onSelect();refresh();return;}
    const choices=readChoices();if(choices.length<2)return;
    const current=choices.findIndex(choice=>choice.selected);
    let index=action==='previous'?(current<0?choices.length-1:(current-1+choices.length)%choices.length):(current+1)%choices.length;
    if(action==='random'){const candidates=choices.map((_,i)=>i).filter(i=>i!==current);index=candidates[Math.floor(Math.random()*candidates.length)];}
-   const choice=choices[index];choice.apply();status.textContent=choice.label;button.title=title+' · '+choice.label;
+   const choice=choices[index];
+   // A stale adapter may decline a commit after native permissions change.
+   // Do not announce a selection that never reached the source of truth.
+   if(choice.apply()===false){refresh();return;}
+   status.textContent=choice.label;button.title=title+' · '+choice.label;
    refresh();
   };
   buttons.push({button,config});group.append(button);
