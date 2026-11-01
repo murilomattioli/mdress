@@ -446,5 +446,39 @@ try{
  dialog=page.getByRole('dialog',{name:/Cores/});const hex=dialog.getByRole('textbox',{name:'Cor hexadecimal',exact:true});await hex.fill('#13579B');await hex.press('Enter');
  assert.equal(await mesh.inputValue(),'#13579b');await hex.fill('#ABC123');await hex.press('Enter');assert.equal(await mesh.inputValue(),'#abc123');
  await dialog.getByRole('button',{name:'Fechar seletor de cores',exact:true}).click();await page.close();
+ // A non-modal picker must advance from its source in both Tab directions.
+ // Closing during keydown otherwise drops Shift+Tab focus onto <body>.
+ const tabPage=await browser.newPage({viewport:{width:390,height:780},reducedMotion:'reduce'});
+ await tabPage.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173');
+ await tabPage.evaluate(async()=>{
+  const host=document.createElement('div');host.id='ux23-tab-exit';
+  host.style.cssText='position:fixed;left:24px;top:80px;z-index:1000;background:white;padding:12px';
+  const before=document.createElement('button');before.id='ux23-tab-before';before.textContent='Anterior';
+  const source=document.createElement('input');source.id='ux23-tab-source';source.type='color';source.value='#336699';
+  const after=document.createElement('button');after.id='ux23-tab-after';after.textContent='Próximo';
+  host.append(before,source,after);document.body.append(host);
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(source);
+ });
+ const tabDialog=tabPage.locator('dialog.mdress-color-picker');
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-saved-color').last().focus();
+ await tabPage.keyboard.press('Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-after',
+  'Forward Tab must advance to the next document control after the source');
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-forward-390.png',animations:'disabled'});
+ await tabPage.evaluate(async()=>{
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(document.getElementById('ux23-tab-source'));
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-header button:enabled').first().focus();
+ await tabPage.keyboard.press('Shift+Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-before',
+  'Reverse Tab must advance to the previous document control before the source');
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-reverse-390.png',animations:'disabled'});
+ await tabPage.close();
  console.log('Color picker: palette, spectrum pointer/keyboard, RGB, invalid HEX, persistence, saved colors, Escape/focus and overflow passed at 1440/768/390/320.');
 }finally{await browser.close();}
