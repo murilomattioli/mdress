@@ -210,9 +210,8 @@ try{
  await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
  assert.equal(await dynamicTrigger.getAttribute('aria-expanded'),'false',
   'Hiding the trigger itself closes its top-layer popover');
- assert.equal(await page.evaluate(()=>document.activeElement!==document.body&&
-  !document.querySelector('#ux23-dynamic-menu-host').contains(document.activeElement)),true,
-  'A revoked trigger restores focus outside the unavailable header');
+ assert.equal(await dynamicHost.locator('.ds-accordion-header > button').first().evaluate(el=>document.activeElement===el),true,
+  'A CSS-hidden menu trigger returns focus to its still-usable accordion toggle');
  await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el.click());
  assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
   'A revoked trigger cannot dispatch a stale menu action');

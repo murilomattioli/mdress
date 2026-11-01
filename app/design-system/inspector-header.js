@@ -150,8 +150,8 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   // Never return focus to a disabled/inert/hidden trigger when permissions
   // change: that would strand keyboard users on <body>.
   const restoreFocusOutsideHost=()=>{
-   const usable=el=>{
-    if(!el?.isConnected||header.contains(el)||el.tabIndex<0||
+   const usable=(el,allowInsideHost=false)=>{
+    if(!el?.isConnected||(!allowInsideHost&&header.contains(el))||el.tabIndex<0||
        el.matches(':disabled,[aria-disabled="true"]')||
        el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
        !el.getClientRects().length)return false;
@@ -168,6 +168,9 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
     }
     return true;
    };
+   // A menu trigger may disappear while its accordion toggle remains
+   // usable. Return focus to that section instead of jumping to the editor.
+   if(usable(toggle,true)){toggle.focus({preventScroll:true});return;}
    const editor=document.querySelector('#source');
    const target=usable(editor)?editor:
     [...document.querySelectorAll('button,a[href],input,select,textarea,[tabindex]')].find(usable);
