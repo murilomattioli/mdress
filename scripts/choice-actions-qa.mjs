@@ -89,6 +89,68 @@ try{
  assert.deepEqual(Object.values(quickGuards),Array(8).fill(true),
   'Quick actions must respect live permissions, detached callbacks and declined native commits');
  await permissionPage.screenshot({path:'test-results/ux-audit/quick-synthetic-permissions.png',animations:'disabled'});
+ // A header action can be outside the first legend while its native select
+ // is inside it. ARIA/inert on the source, or a new disabled ancestor after
+ // reparenting, must disable the visible actions and reject synthetic clicks.
+ const quickSourceStates=await permissionPage.evaluate(async()=>{
+  const {createChoiceActions}=await import('/design-system/choice-actions.js');
+  const panel=document.querySelector('#inspector-document');
+  const root=document.createElement('fieldset');
+  root.id='ux23-quick-source-permissions';
+  const legend=document.createElement('legend');legend.textContent='Quick source permissions';
+  const source=document.createElement('select');source.id='ux23-quick-native';
+  source.add(new Option('Primeiro','a'));source.add(new Option('Segundo','b'));
+  legend.append(source);
+  const host=document.createElement('div');
+  const fallback=document.createElement('button');fallback.type='button';fallback.textContent='Próximo campo';
+  root.append(legend,host,fallback);panel.append(root);
+  let commits=0;
+  const readChoices=()=>[...source.options].map(option=>({
+   label:option.label,selected:option.selected,
+   apply:()=>{source.value=option.value;commits++;return true;}
+  }));
+  const group=createChoiceActions({label:'Fonte dinâmica',source,readChoices,
+   onUnavailableFocus:()=>fallback.focus({preventScroll:true})});
+  host.append(group);
+  const next=group.querySelector('[data-action="next"]');
+  const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+  const click=()=>next.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  source.setAttribute('aria-disabled','true');click();await tick();
+  const sourceAria=commits===0&&next.disabled;
+  source.removeAttribute('aria-disabled');await tick();
+  const ariaRestored=!next.disabled;
+  source.inert=true;click();await tick();
+  const sourceInert=commits===0&&next.disabled;
+  source.inert=false;await tick();
+  legend.setAttribute('aria-disabled','true');click();await tick();
+  const ancestorAria=commits===0&&next.disabled;
+  legend.removeAttribute('aria-disabled');await tick();
+  next.focus();source.setAttribute('aria-disabled','true');await tick();
+  const focusHandoff=document.activeElement===fallback&&next.disabled;
+  source.removeAttribute('aria-disabled');await tick();
+  root.disabled=true;click();await tick();
+  const legendException=source.matches(':disabled')===false&&next.disabled&&commits===0;
+  root.disabled=false;await tick();
+  const dynamic=document.createElement('fieldset');dynamic.disabled=true;
+  dynamic.id='ux23-quick-dynamic';
+  dynamic.append(document.createElement('legend'));root.after(dynamic);
+  dynamic.append(source);click();await tick();
+  const movedDisabled=next.disabled&&commits===0;
+  legend.append(source);await tick();
+  const movedRestored=!next.disabled;
+  click();const committed=commits===1&&source.value==='b';
+  source.setAttribute('aria-disabled','true');await tick();
+  return {sourceAria,ariaRestored,sourceInert,ancestorAria,focusHandoff,
+   legendException,movedDisabled,movedRestored,committed};
+ });
+ assert.deepEqual(Object.values(quickSourceStates),Array(9).fill(true),
+  'Quick actions must synchronize source/ancestor permissions, fieldset legend and reparenting');
+ await permissionPage.screenshot({path:'test-results/ux-audit/quick-source-revoked-1024.png',animations:'disabled'});
+ await permissionPage.locator('#ux23-quick-native').evaluate(el=>el.removeAttribute('aria-disabled'));
+ await permissionPage.waitForFunction(()=>!document.querySelector('#ux23-quick-source-permissions [data-action="next"]').disabled);
+ await permissionPage.screenshot({path:'test-results/ux-audit/quick-source-restored-1024.png',animations:'disabled'});
+ await permissionPage.locator('#ux23-quick-source-permissions').evaluate(el=>el.remove());
+ await permissionPage.locator('#ux23-quick-dynamic').evaluate(el=>el.remove());
  await permissionPage.evaluate(()=>[...document.querySelectorAll('#inspector-document fieldset')]
   .filter(el=>el.querySelector('legend')?.textContent==='Quick action QA')
   .forEach(el=>el.remove()));
