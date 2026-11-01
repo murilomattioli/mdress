@@ -103,7 +103,12 @@ try{
    ['ux23-inert-commit',host=>{host.inert=true;}],
    ['ux23-aria-commit',host=>{host.setAttribute('aria-disabled','true');}],
    ['ux23-css-commit',host=>{host.style.display='none';}],
-   ['ux23-visibility-commit',host=>{host.style.visibility='hidden';}],
+   // visibility is inherited but can be explicitly overridden by the
+   // enhanced trigger's CSS. Revoke its effective visibility, not merely
+   // the ancestor declaration (which may leave a visible descendant).
+   ['ux23-visibility-commit',(host,_select,trigger)=>{
+    host.style.visibility='hidden';trigger.style.visibility='hidden';
+   }],
    ['ux23-disabled-source-commit',(_host,select)=>{select.disabled=true;}]
   ];
   const revoked=[];
@@ -111,7 +116,7 @@ try{
    const control=create(id);
    const stale=optionFor(control.trigger);
    if(!stale)throw Error('Missing option for '+id);
-   revoke(control.fieldset,control.select);
+   revoke(control.fieldset,control.select,control.trigger);
    stale.click();
    revoked.push({id,value:control.select.value,edits:control.edits()});
   }
