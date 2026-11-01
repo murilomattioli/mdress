@@ -15,7 +15,9 @@ try{
   {name:'anonymous-shared-label',label:'Shared color',key:null,replacements:1,expectHandoff:false},
   {name:'anonymous-unique-label',label:'Original only',key:null,replacements:1,expectHandoff:false},
   {name:'keyed-remount',label:'Shared color',key:'ux23-logical-color',replacements:1,expectHandoff:true},
-  {name:'duplicate-key',label:'Shared color',key:'ux23-duplicate',replacements:2,expectHandoff:false}
+  {name:'id-remount',label:'Shared color',key:null,id:'ux23-stable-color',replacements:1,expectHandoff:true},
+  {name:'duplicate-key',label:'Shared color',key:'ux23-duplicate',replacements:2,expectHandoff:false},
+  {name:'duplicate-id',label:'Shared color',key:null,id:'ux23-duplicate-id',replacements:2,expectHandoff:false}
  ];
  for(const scenario of cases){
   await page.evaluate(async scenario=>{
@@ -23,18 +25,18 @@ try{
    const host=document.createElement('div');
    host.id='ux23-color-identity';
    host.style.cssText='position:fixed;left:80px;top:80px;z-index:1000;background:white;padding:16px';
-   const make=(value,label,key)=>{
+   const make=(value,label,key,id)=>{
     const el=document.createElement('input');
-    el.type='color';el.value=value;
+    el.type='color';el.value=value;if(id)el.id=id;
     if(label!==null)el.setAttribute('aria-label',label);
     if(key)el.dataset.mdressSourceKey=key;
     host.append(el);
     return el;
    };
-   const original=make('#336699',scenario.label,scenario.key);
+   const original=make('#336699',scenario.label,scenario.key,scenario.id);
    for(let i=0;i<scenario.replacements;i++){
     const replacementLabel=scenario.name==='anonymous-unique-label'?'Different color':scenario.label;
-    make(i?'#445566':'#8899aa',replacementLabel,scenario.key);
+    make(i?'#445566':'#8899aa',replacementLabel,scenario.key,scenario.id);
    }
    document.body.append(host);
    openColorPicker(original);
