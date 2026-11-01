@@ -220,9 +220,17 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    // documentElement, then to body, before the mutation observer runs.
    // Retain its position if it is no longer available; intentional navigation
    // away from a still-usable item clears ownership as usual.
-   if(event.target===lastFocusedItem&&available().includes(event.target)&&
-      event.relatedTarget&&event.relatedTarget!==document.body)
-    lastFocusedItem=null;
+   if(event.target!==lastFocusedItem)return;
+   if(available().includes(event.target)&&event.relatedTarget&&
+      event.relatedTarget!==document.body){lastFocusedItem=null;return;}
+   // Chromium can run the mutation observer while a newly hidden action
+   // still owns native focus, then blur it to <body> after the callback.
+   // Recheck after that blur rather than waiting for another DOM mutation.
+   queueMicrotask(()=>{
+    if(isOpen()&&lastFocusedItem===event.target&&
+       !available().includes(event.target)&&document.activeElement===document.body)
+     syncAvailability();
+   });
   });
   const clearOutsidePointer=event=>{
    if(!menu.contains(event.target))lastFocusedItem=null;
