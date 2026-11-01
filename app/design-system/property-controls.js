@@ -191,7 +191,12 @@ function watchDisabledNativeFocus(input){
  };
 }
 function nativeCommit(input,next){
- if(input.disabled)return false;
+ // The hidden native control remains the source of truth. Its disabled
+ // property does NOT include an ancestor fieldset, whereas :disabled does
+ // (including the first-legend exception). Portalled option buttons can
+ // receive synthetic clicks before a MutationObserver closes the popup.
+ // Detached dynamic controls must not commit late UI callbacks either.
+ if(!input.isConnected||input.matches(':disabled'))return false;
  // A repeated selection, unchanged hex value or re-entered slider value is
  // not a document edit. Let the native control normalize the candidate first
  // (notably color casing and range snapping), then emit only real changes.
