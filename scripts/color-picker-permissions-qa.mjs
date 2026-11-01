@@ -172,6 +172,21 @@ try{
  assert.deepEqual(stale.afterSwitch,{original:'#010203',replacement:'#0a0b0c'},
   'A superseded picker cannot edit either native source');
  await page.waitForFunction(()=>document.querySelectorAll('dialog.mdress-color-picker').length===0);
+ // Responsive CSS can revoke a source without any attribute mutation.
+ // The resize path must dismiss the portalled editor before a stale commit.
+ const responsiveStyle=await page.addStyleTag({content:
+  '@media (max-width: 700px) { #ux23-color-source { visibility:hidden !important; } }'});
+ await page.evaluate(async()=>{
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(document.getElementById('ux23-color-source'));
+ });
+ await dialog.waitFor({state:'visible'});
+ await page.setViewportSize({width:600,height:900});
+ await dialog.waitFor({state:'detached'});
+ assert.equal(await page.locator('#ux23-color-source').inputValue(),'#010203',
+  'Responsive hiding must close the picker without changing the source');
+ await responsiveStyle.evaluate(el=>el.remove());
+ await page.setViewportSize({width:1024,height:900});
  assert.deepEqual(errors,[],'No runtime errors while revoking the portalled picker');
- console.log('Color picker permission guards passed: 7 blocked openings, 9 revocations, legend, async sample and stale callbacks');
+ console.log('Color picker permission guards passed: 7 blocked openings, 9 revocations, legend, async sample and stale callbacks and responsive hiding');
 }finally{await browser.close();}
