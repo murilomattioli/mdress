@@ -325,6 +325,16 @@ export function openColorPicker(input){
   // still invalidate even if revoked and restored in the same microtask.
   if(records.some(record=>record.type==='attributes'&&
     ['disabled','hidden','inert','aria-hidden','aria-disabled'].includes(record.attributeName)))editRevision++;
+  // An input may be recycled from point A to B and back to A in one
+  // microtask. Comparing its final key alone misses that ownership change,
+  // and an in-flight EyeDropper could then write into the wrong point.
+  // Identity mutation of the original source is always a revoked session.
+  if(records.some(record=>record.type==='attributes'&&record.target===input&&
+    ['id','data-mdress-source-key'].includes(record.attributeName))){
+   editRevision++;
+   dismissRevoked();
+   return;
+  }
   if(!dialog.open)return;
   if(!liveSource()){dismissRevoked();return;}
   watchSourceTree();
@@ -337,7 +347,7 @@ export function openColorPicker(input){
   if(watched.length===ancestors.length&&watched.every((node,i)=>node===ancestors[i]))return;
   permissions.disconnect();watched=ancestors;
   for(const node of ancestors)permissions.observe(node,{
-   attributes:true,attributeFilter:['disabled','hidden','inert','aria-hidden','aria-disabled','class','style']
+   attributes:true,attributeFilter:['disabled','hidden','inert','aria-hidden','aria-disabled','class','style','id','data-mdress-source-key']
   });
   // Observe document (not documentElement): a second observe() call on the
   // same target would replace its attribute watcher for root theme/permissions.
