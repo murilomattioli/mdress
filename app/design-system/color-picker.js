@@ -283,9 +283,18 @@ export function openColorPicker(input){
     // Recreate the document's sequential keyboard order, including positive
     // tabindex values (which precede tabindex=0). DOM-only ordering can send
     // Tab backwards or Shift+Tab forwards in an embedded inspector.
-    const outside=[...document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]')]
-     .filter(el=>!dialog.contains(el)&&el.tabIndex>=0&&sourceAvailable(el))
-     .map((el,order)=>({el,order}))
+    const candidates=[...document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]')]
+     .filter(el=>!dialog.contains(el)&&el.tabIndex>=0&&sourceAvailable(el));
+    // Native radio groups expose one sequential Tab stop: the checked radio,
+    // or the first available radio when none is checked. Landing on an
+    // unchecked sibling can change the user's selection on keyboard exit.
+    const tabStops=candidates.filter(el=>{
+     if(el.tagName!=='INPUT'||el.type!=='radio'||!el.name)return true;
+     const group=candidates.filter(candidate=>candidate.tagName==='INPUT'&&
+      candidate.type==='radio'&&candidate.name===el.name&&candidate.form===el.form);
+     return el===(group.find(candidate=>candidate.checked)||group[0]);
+    });
+    const outside=tabStops.map((el,order)=>({el,order}))
      .sort((a,b)=>{
       const ap=a.el.tabIndex>0,bp=b.el.tabIndex>0;
       if(ap!==bp)return ap?-1:1;
@@ -301,8 +310,10 @@ export function openColorPicker(input){
      // They have no slot in the sequential order, so choose the closest
      // ordinary Tab stop relative to their DOM position, not the first
      // unrelated page control. Fall back to the document's Tab-order edge.
-     const regular=outside.filter(el=>el.tabIndex===0);
-     const adjacent=regular.filter(el=>source.compareDocumentPosition(el)&
+     // A pointer-only source has no sequential slot. Choose the nearest
+     // available DOM neighbor, including positive-tabindex controls, rather
+     // than ignoring a visible adjacent action or using the sorted Tab order.
+     const adjacent=tabStops.filter(el=>source.compareDocumentPosition(el)&
       (e.shiftKey?Node.DOCUMENT_POSITION_PRECEDING:Node.DOCUMENT_POSITION_FOLLOWING));
      destination=e.shiftKey?adjacent.at(-1):adjacent[0];
     }
