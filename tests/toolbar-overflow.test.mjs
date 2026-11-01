@@ -56,3 +56,22 @@ test('overflow controls stay disabled when the scrollbar is below the visual tol
   overflow:true,canScrollPrevious:true,canScrollNext:false
  });
 });
+
+test('RTL toolbar arrows follow physical directions with negative scrollLeft',()=>{
+ const dimensions={scrollWidth:700,clientWidth:400};
+ assert.deepEqual(toolbarOverflowState({...dimensions,scrollLeft:0},'rtl'),{
+  overflow:true,canScrollPrevious:true,canScrollNext:false
+ });
+ assert.deepEqual(toolbarOverflowState({...dimensions,scrollLeft:-150},'rtl'),{
+  overflow:true,canScrollPrevious:true,canScrollNext:true
+ });
+ assert.deepEqual(toolbarOverflowState({...dimensions,scrollLeft:-300},'rtl'),{
+  overflow:true,canScrollPrevious:false,canScrollNext:true
+ });
+ assert.deepEqual(toolbarOverflowState({...dimensions,scrollLeft:-299.6},'rtl'),{
+  overflow:true,canScrollPrevious:false,canScrollNext:true
+ });
+ assert.deepEqual(toolbarOverflowState({scrollWidth:401,clientWidth:400,scrollLeft:0},'rtl'),{
+  overflow:false,canScrollPrevious:false,canScrollNext:false
+ });
+});
