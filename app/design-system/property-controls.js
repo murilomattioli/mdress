@@ -466,7 +466,7 @@ function enhanceNumber(label,input,title){
  minus.onclick=()=>increment(-1,minus);plus.onclick=()=>increment(1,plus);
  input.addEventListener('input',event=>{
   if(restoring)return;
-  if(sourceUnavailable(input)){event.stopImmediatePropagation();return;}
+  if(sourceUnavailable(input)){rollbackDraft();event.stopImmediatePropagation();return;}
   editing=true;update();
   // Native number fields emit `input` for empty, out-of-bounds and off-step
   // drafts. Do not leak those invalid values to document-level listeners;
@@ -480,7 +480,7 @@ function enhanceNumber(label,input,title){
   // Disabling a focused number can synchronously emit a native change
   // before MutationObserver runs. That event must not commit its draft.
   if(sourceUnavailable(input)){
-   if(editing)rollbackDraft();
+   rollbackDraft();
    event.preventDefault();event.stopImmediatePropagation();update();return;
   }
   if(!valid()){
