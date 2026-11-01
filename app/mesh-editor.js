@@ -56,6 +56,9 @@ export function drawMeshEditor(themeInput,onApply,onPreview){
   const heading=make('div',{class:'mesh-point-heading'});heading.append(make('strong',{text:'Ponto '+(i+1)}));row.append(heading);
   const color=make('input',{type:'color',value:point.color,'aria-label':'Cor do ponto '+(i+1)});
   color.id='meshPointColor'+i;color.dataset.opacity=point.opacity??1;
+  // Stable across color/opacity edits, but not across point replacement or
+  // reindexing after deletion. Used by the shared picker remount guard.
+  color.dataset.mdressSourceKey=['mesh',i,point.x,point.y,point.radius,point.strength].join(':');
   color.addEventListener('coloropacitychange',e=>{points[i]={...points[i],opacity:e.detail};commitPoints(points);});
   color.value=point.color;color.onchange=e=>{points[i]={...points[i],color:e.target.value};commitPoints(points);};
   const colorRow=make('label',{class:'property-row',text:'Cor'});colorRow.append(color);row.append(colorRow);
