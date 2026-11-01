@@ -56,6 +56,19 @@ export function openColorPicker(input){
  const pickerId=++nextPickerId;active=dialog;
  let restoreFocus=true,handoffOnClose=false,opacity=opacityPercent(input.dataset.opacity),editRevision=0;
  const events=new AbortController();
+ // Some IMEs emit unflagged Escape/Tab while composing. Protect native
+ // keyboard defaults as well as picker handlers, without cancelling Enter
+ // used to confirm a candidate in an editable field.
+ let composing=false;
+ const isImeKey=e=>composing||e.isComposing||e.keyCode===229;
+ dialog.addEventListener('compositionstart',()=>{composing=true;});
+ dialog.addEventListener('compositionend',()=>{composing=false;});
+ dialog.addEventListener('keydown',e=>{
+  if(!isImeKey(e))return;
+  if(['Escape','Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(e.key)||
+     (e.key==='Enter'&&e.target.closest?.('button')))e.preventDefault();
+  e.stopPropagation();
+ },true);
  // Dynamic mesh rows reuse numeric IDs after deleting a point. A remounted
  // source may only inherit an open picker if its logical point identity
  // still matches; never redirect edits to a different point at that index.
@@ -252,17 +265,27 @@ export function openColorPicker(input){
   // Media-query visibility can change on resize without a DOM mutation.
   if(!liveSource()){dismissRevoked();return;}
   const target=liveSource();if(!target){dismissRevoked();return;}
-  const a=target.getBoundingClientRect(),gap=8,edge=12,w=dialog.offsetWidth,h=dialog.offsetHeight;
-  const below=innerHeight-a.bottom-gap-edge,above=a.top-gap-edge;
+  // A mobile keyboard or pinch zoom can shrink/offset the visual viewport
+  // without changing innerHeight. Keep the entire portalled picker inside
+  // that rectangle and let its contents scroll when vertical space is tight.
+  const visual=window.visualViewport;
+  const view={left:visual?.offsetLeft??0,top:visual?.offsetTop??0,
+   width:visual?.width??innerWidth,height:visual?.height??innerHeight};
+  const gap=8,edge=12;
+  dialog.style.maxWidth=Math.max(1,view.width-edge*2)+'px';
+  dialog.style.maxHeight=Math.max(1,view.height-edge*2)+'px';
+  const a=target.getBoundingClientRect(),w=dialog.offsetWidth,h=dialog.offsetHeight;
+  const right=view.left+view.width,bottom=view.top+view.height;
+  const below=bottom-a.bottom-gap-edge,above=a.top-view.top-gap-edge;
   let top=a.bottom+gap,left=a.right-w;
   if(below<h){
    if(above>=h)top=a.top-gap-h;
-   else if(a.left-gap-edge>=w){left=a.left-gap-w;top=a.top;}
-   else if(innerWidth-a.right-gap-edge>=w){left=a.right+gap;top=a.top;}
+   else if(a.left-view.left-gap-edge>=w){left=a.left-gap-w;top=a.top;}
+   else if(right-a.right-gap-edge>=w){left=a.right+gap;top=a.top;}
    else top=below>=above?a.bottom+gap:a.top-gap-h;
   }
-  dialog.style.left=Math.max(edge,Math.min(innerWidth-w-edge,left))+'px';
-  dialog.style.top=Math.max(edge,Math.min(innerHeight-h-edge,top))+'px';
+  dialog.style.left=Math.max(view.left+edge,Math.min(right-w-edge,left))+'px';
+  dialog.style.top=Math.max(view.top+edge,Math.min(bottom-h-edge,top))+'px';
  }
  document.addEventListener('pointerdown',e=>{
   if(!dialog.contains(e.target)&&e.target!==anchor()){restoreFocus=false;dialog.close();}
@@ -271,6 +294,8 @@ export function openColorPicker(input){
   if(dialog.open&&!dialog.contains(e.target)&&e.target!==anchor()){restoreFocus=false;dialog.close();}
  },{signal:events.signal});
  window.addEventListener('resize',reposition,{signal:events.signal});
+ window.visualViewport?.addEventListener('resize',reposition,{signal:events.signal});
+ window.visualViewport?.addEventListener('scroll',reposition,{signal:events.signal});
  document.addEventListener('scroll',reposition,{capture:true,signal:events.signal});
  const observer=new ResizeObserver(reposition);observer.observe(dialog);
  // The picker is portalled into <body>. Observe permission changes on the
