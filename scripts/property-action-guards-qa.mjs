@@ -58,8 +58,12 @@ try{
    f.fieldset.style.display='none';assertBlocked(kind+'Display',f);f.fieldset.style.display='';
    f.fieldset.style.contentVisibility='hidden';
    assertBlocked(kind+'ContentVisibility',f);f.fieldset.style.contentVisibility='';
-   f.fieldset.style.visibility='hidden';
-   assertBlocked(kind+'Visibility',f);f.fieldset.style.visibility='';
+   // CSS visibility can be overridden on descendants. Revoke the actual
+   // interactive target, rather than assuming every hidden ancestor wins.
+   const target=kind==='color'?f.label.querySelector('.ds-color-hex'):
+    f.label.querySelector('.ds-scrub-step:last-child');
+   target.style.visibility='hidden';
+   assertBlocked(kind+'Visibility',f);target.style.visibility='';
    if(kind==='range'){
     const numeric=f.label.querySelector('.ds-prop-number');
     const progress=f.label.querySelector('.ds-prop-track');
