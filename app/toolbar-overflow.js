@@ -237,7 +237,7 @@ export function attachToolbarOverflow(toolbar){
  });
  toolbarObserver.observe(toolbar,{
   childList:true,subtree:true,attributes:true,
-  attributeFilter:['disabled','aria-disabled','hidden','class','style']
+  attributeFilter:['disabled','aria-disabled','aria-hidden','inert','hidden','class','style']
  });
  // Toolbar subtree observation alone misses mode changes on the wrapping
  // shell, body or inspector workspace. Observe ancestor attributes so an
