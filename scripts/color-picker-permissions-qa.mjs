@@ -11,8 +11,10 @@ try{
  await page.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173',{waitUntil:'networkidle'});
  await page.locator('#designToggle').click();
  await page.evaluate(()=>{
-  const panel=document.querySelector('#inspector-document');
-  if(!panel)throw Error('Inspector document panel unavailable');
+  const panel=document.querySelector('#themesView');
+  if(!panel||panel.classList.contains('hidden'))throw Error('Visible inspector unavailable');
+  // Keep the QA-only source outside tab panels: tab switching must not
+  // silently turn every permission test into a blocked hidden-source case.
   const fieldset=document.createElement('fieldset');
   fieldset.id='ux23-color-permissions';
   const legend=document.createElement('legend');legend.textContent='QA permissões de cor';
@@ -23,6 +25,16 @@ try{
   window.__ux23ColorEdits=0;
   input.addEventListener('change',()=>window.__ux23ColorEdits++);
  });
+ const fixture=await page.evaluate(()=>{
+  const input=document.getElementById('ux23-color-source');
+  return {visibility:getComputedStyle(input).visibility,rects:input.getClientRects().length,
+   inspectorVisible:getComputedStyle(document.getElementById('themesView')).visibility,
+   ancestors:[...function*(node){for(;node;node=node.parentElement)yield node;} (input)]
+    .map(node=>({tag:node.tagName,id:node.id,classes:node.className,
+     visibility:getComputedStyle(node).visibility,display:getComputedStyle(node).display}))};
+ });
+ assert.equal(fixture.visibility,'visible','Color fixture must be visible before testing revocation: '+JSON.stringify(fixture));
+ assert.ok(fixture.rects,'Color fixture must have layout before testing revocation');
  const check=async(name,setup,restore)=>{
   const result=await page.evaluate(async({setup,restore})=>{
    const {openColorPicker}=await import('/design-system/color-picker.js');
