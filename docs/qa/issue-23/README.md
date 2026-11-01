@@ -1,3 +1,29 @@
+## UX-023 — identidade de fontes recicladas no color picker (01/11/2026)
+
+**Correção:** o diálogo de cores agora invalida uma sessão quando o próprio `input[type=color]` conectado é reutilizado para outro ponto lógico, alterando `id` ou `data-mdress-source-key`. O mesmo vale após remover e reinserir o nó com outra identidade. A verificação ocorre no momento do commit, sem depender da execução posterior do `MutationObserver`. Uma simples mudança de `aria-label` não revoga o controle, porque rótulos não definem identidade.
+
+**Condição de corrida assíncrona:** o observador também acompanha alterações de identidade da fonte original e revoga a sessão mesmo se a chave mudar A→B→A dentro de uma única microtask. Isso impede que um resultado tardio do EyeDropper seja aplicado ao ponto lógico incorreto, apesar de a chave final voltar ao valor original.
+
+**Regressão Playwright:** `node scripts/color-picker-source-identity-qa.mjs` inclui casos de reciclagem do mesmo elemento (com ID, chave e origem anônima), reinserção com outra chave, alteração apenas de rótulo e EyeDropper pendente durante A→B→A por ID/chave. O Browser Smoke executa esse teste obrigatoriamente. Evidência adicional: `test-results/color-picker/source-identity-connected-before-recycle.png`.
+
+**Homologação humana:** testar no editor Mesh a troca rápida de pontos, inclusive exclusão/reordenação enquanto o seletor está aberto; conferir que o popup fecha sem modificar outro ponto e que a edição normal continua utilizável. Capturas e CI não substituem revisão visual/interativa. Manter PR #27 draft e issue #23 aberta; sem merge, release ou Cloudflare.
+
+**PowerShell:**
+```powershell
+cd F:\Projects\lumu\tools\mdress
+git fetch origin
+git switch feat/23-property-controls-ux-qa
+git pull --ff-only origin feat/23-property-controls-ux-qa
+npm install --include=dev
+npx playwright install chromium
+npm run dev
+# Em outro terminal:
+node scripts/color-picker-source-identity-qa.mjs
+npm run qa:supervised
+```
+
+---
+
 ## UX-023 — verificabilidade do overflow da toolbar (01/11/2026)
 
 **QA funcional e visual:** o novo `scripts/toolbar-discoverability-qa.mjs` valida 8 combinações (2 temas × 4 larguras: 1440, 1024, 768 e 390 px). Cada cenário monta uma toolbar de overflow determinístico e verifica **8 ações acessíveis por Tab**, revelação visual do item focado, botões de rolagem com nome acessível e `aria-controls` válido, ativação por Enter e alcance do fim da barra. O Browser Smoke bloqueia o PR se a descoberta funcional falhar.
