@@ -27,10 +27,26 @@ const DEFAULTS=['#000000','#FFFFFF','#FF3B30','#FF9500','#FFCC00','#34C759','#5A
 function savedColors(){try{const list=JSON.parse(localStorage.getItem(STORE));return Array.isArray(list)?[...new Set(list.filter(v=>typeof v==='string').map(parseHex).filter(Boolean))].slice(0,12):DEFAULTS;}catch{return DEFAULTS;}}
 function node(tag,cls,text){const el=document.createElement(tag);el.className=cls||'';if(text)el.textContent=text;return el;}
 function button(label,icon){const b=node('button','cp-button');b.type='button';b.setAttribute('aria-label',label);b.title=label;if(icon){const svg=node('ds-icon');svg.setAttribute('name',icon);svg.setAttribute('size','18');b.append(svg);}else b.textContent=label;return b;}
+// A top-layer color dialog is outside its source's fieldset, inert and CSS
+// visibility tree. Recheck the original source at every commit, including
+// synthetic events that can run before a MutationObserver closes the dialog.
+function sourceAvailable(input){
+ if(!input?.isConnected||input.matches(':disabled')||
+    input.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
+    !input.getClientRects().length)return false;
+ const visibility=getComputedStyle(input).visibility;
+ if(visibility==='hidden'||visibility==='collapse')return false;
+ for(let node=input;node;node=node.parentElement){
+  if(node.hidden)return false;
+  const style=getComputedStyle(node);
+  if(style.display==='none'||style.contentVisibility==='hidden')return false;
+ }
+ return true;
+}
 let active=null;
 let nextPickerId=0;
 export function openColorPicker(input){
- if(input.disabled)return;
+ if(!sourceAvailable(input))return;
  active?.close();
  let hex=parseHex(input.value)||'#000000',hsv=rgbToHsv(hexToRgb(hex)),saved=savedColors();
  const dialog=node('dialog','mdress-color-picker');
@@ -84,6 +100,7 @@ export function openColorPicker(input){
  for(const control of [opacityRange,opacityValue]){control.min='0';control.max='100';control.step='1';control.setAttribute('aria-label',control===opacityRange?'Opacidade':'Opacidade em porcentagem');}
  const opacitySuffix=node('span','','%');opacityRow.append(opacityLabel,opacityRange,opacityValue,opacitySuffix);
  function applyOpacity(control){
+  if(!sourceAvailable(input)){dismissRevoked();return;}
   const value=control.valueAsNumber;
   if(!Number.isFinite(value)||!Number.isInteger(value)||value<0||value>100){
    showFieldError(control,'Use um valor inteiro entre 0% e 100%.');
@@ -157,12 +174,12 @@ export function openColorPicker(input){
   const rgb=hexToRgb(hex);channels.forEach(({range,number},i)=>{range.value=number.value=rgb[i];number.removeAttribute('aria-invalid');number.removeAttribute('aria-errormessage');const low=[...rgb],high=[...rgb];low[i]=0;high[i]=255;range.style.background=`linear-gradient(to right,${rgbToHex(low)},${rgbToHex(high)})`;});
  }
  function commit(value,keepHSV=false){
-  if(input.disabled){dialog.close();return;}
+  if(!sourceAvailable(input)){dismissRevoked();return;}
   // The user's palette, HEX, RGB or spectrum edit takes precedence over an
   // asynchronous EyeDropper response, even when the source HEX is unchanged.
   editRevision++;
   hex=value;if(!keepHSV)hsv=rgbToHsv(hexToRgb(hex));status.textContent='';delete status.dataset.error;sync();
-  const target=anchor();if(target){
+  const target=input;if(sourceAvailable(target)){
    // Native color inputs normalize case; compare semantic colors, not raw strings.
    // Enter followed by change and reselecting a swatch must not duplicate edits.
    const changed=parseHex(target.value)!==hex;
@@ -174,13 +191,13 @@ export function openColorPicker(input){
  // picker or the document, and asynchronous failures must not resurrect UI.
  let picking=false;
  pipette.onclick=async()=>{
-  if(picking||!dialog.open||active!==dialog||input.disabled)return;
+  if(picking||!dialog.open||active!==dialog||!sourceAvailable(input))return;
   const source=anchor(),sourceHex=parseHex(source?.value),sourceOpacity=source?.dataset.opacity,revision=editRevision;
-  if(!source||source.disabled)return;
+  if(source!==input||!sourceAvailable(source))return;
   // A stale native rejection must not show an error for a later color edit,
   // just as a stale successful sample must not overwrite that edit.
-  const sampleIsCurrent=()=>dialog.open&&active===dialog&&!input.disabled&&
-   revision===editRevision&&anchor()===source&&!source.disabled&&
+  const sampleIsCurrent=()=>dialog.open&&active===dialog&&sourceAvailable(input)&&
+   revision===editRevision&&anchor()===source&&
    parseHex(source.value)===sourceHex&&source.dataset.opacity===sourceOpacity;
   picking=true;pipette.setAttribute('aria-busy','true');pipette.setAttribute('aria-disabled','true');
   if(!errorOwner){status.textContent='';delete status.dataset.error;}
@@ -230,31 +247,47 @@ export function openColorPicker(input){
  window.addEventListener('resize',reposition,{signal:events.signal});
  document.addEventListener('scroll',reposition,{capture:true,signal:events.signal});
  const observer=new ResizeObserver(reposition);observer.observe(dialog);
- // A disabled source can no longer accept edits: dismiss its popover and
- // transfer keyboard focus instead of stranding focus inside a dead editor.
- const disabledObserver=new MutationObserver(records=>{
-  // A disable/re-enable transition within one task must invalidate an
-  // outstanding native sample even if the final state is enabled.
-  if(records.length)editRevision++;
-  if(!input.disabled||!dialog.open)return;
-  restoreFocus=false;handoffOnClose=true;dialog.close();
+ // The picker is portalled into <body>. Observe permission changes on the
+ // source and its ancestors, plus DOM reparenting, while it is open. CSS
+ // visibility overrides are evaluated on the actual input, not ancestors.
+ let watched=[];
+ const permissions=new MutationObserver(records=>{
+  if(records.some(record=>record.type==='attributes'))editRevision++;
+  if(!dialog.open)return;
+  if(!sourceAvailable(input)){dismissRevoked();return;}
+  watchSourceTree();
  });
- disabledObserver.observe(input,{attributes:true,attributeFilter:['disabled']});
+ function watchSourceTree(){
+  const ancestors=[];
+  for(let node=input;node;node=node.parentElement)ancestors.push(node);
+  if(watched.length===ancestors.length&&watched.every((node,i)=>node===ancestors[i]))return;
+  permissions.disconnect();watched=ancestors;
+  for(const node of ancestors)permissions.observe(node,{
+   attributes:true,attributeFilter:['disabled','hidden','inert','aria-hidden','aria-disabled','class','style']
+  });
+  permissions.observe(document.documentElement,{childList:true,subtree:true});
+ }
+ function dismissRevoked(){
+  if(!dialog.open)return;
+  restoreFocus=false;handoffOnClose=true;dialog.close();
+ }
+ watchSourceTree();
  dialog.addEventListener('close',()=>{
-  events.abort();observer.disconnect();disabledObserver.disconnect();
+  events.abort();observer.disconnect();permissions.disconnect();
   dialog.remove();
   // Closing is asynchronous. If another picker has opened, restoring the
   // previous source's focus would dismiss the replacement on focusin.
   const superseded=active!==dialog;
   if(!superseded)active=null;
   const target=anchor();
-  if(!superseded&&restoreFocus&&target&&!target.disabled)target.focus();
-   else if(!superseded&&handoffOnClose){
-    const scope=input.closest('.design-inspector')||document;
-    const usable=el=>el!==input&&!el.disabled&&el.tabIndex>=0&&el.getClientRects().length&&
-     !el.closest('[hidden],[inert],[aria-hidden="true"]')&&getComputedStyle(el).visibility!=='hidden';
-    [...scope.querySelectorAll('button,input,select,textarea,[tabindex]')].find(usable)?.focus({preventScroll:true});
-   }
+  if(!superseded&&restoreFocus&&sourceAvailable(target))target.focus();
+  else if(!superseded&&handoffOnClose){
+   // A revoked fieldset must not receive focus through its descendants.
+   const scope=input.closest('.design-inspector')||document;
+   const candidates=[...scope.querySelectorAll('button,input,select,textarea,[tabindex]'),
+    document.getElementById('designToggle'),document.getElementById('railDesign'),document.getElementById('source')];
+   candidates.find(el=>el!==input&&el?.tabIndex>=0&&sourceAvailable(el))?.focus({preventScroll:true});
+  }
  },{once:true});
  selectTab(0);renderSaved();sync();dialog.show();reposition();tabButtons[0].focus({preventScroll:true});
 }
