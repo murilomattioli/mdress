@@ -95,26 +95,29 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
   childList:true,subtree:true,attributes:true,
   attributeFilter:['disabled','hidden','selected','aria-pressed','aria-disabled','inert']
  });
- // Source and action group can have different ancestor chains. Follow both
- // after reparenting, including disabled fieldsets created after enhancement.
- // Observe direct children only: unrelated subtree changes do not refresh UX.
- const ancestryObserver=new MutationObserver(records=>{
-  const relevant=records.some(record=>record.type==='attributes'||
-   [...record.addedNodes,...record.removedNodes].some(node=>
-    node===source||node===group||node.contains?.(source)||node.contains?.(group)));
-  if(!relevant)return;
-  watchAncestors();refresh();
- });
+ // Source and header can live in separate subtrees. Attribute observers
+ // follow each current ancestor; a document-level *childList-only* observer
+ // detects moves even after a source has been fully detached and reinserted.
+ // This avoids observing every unrelated app attribute mutation.
+ const ancestryObserver=new MutationObserver(refresh);
  const watchAncestors=()=>{
   ancestryObserver.disconnect();
   const ancestors=new Set();
   for(const element of [source,group])
    for(let node=element;node;node=node.parentElement)ancestors.add(node);
   for(const node of ancestors)ancestryObserver.observe(node,{
-   attributes:true,childList:true,
+   attributes:true,
    attributeFilter:['disabled','aria-disabled','inert','hidden','aria-hidden','class','style']
   });
  };
+ const moveObserver=new MutationObserver(records=>{
+  const moved=records.some(record=>
+   [...record.addedNodes,...record.removedNodes].some(node=>
+    node===source||node===group||node.contains?.(source)||node.contains?.(group)));
+  if(!moved)return;
+  watchAncestors();refresh();
+ });
+ moveObserver.observe(document.documentElement,{childList:true,subtree:true});
  watchAncestors();
  return group;
 }
