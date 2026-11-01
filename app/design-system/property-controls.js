@@ -10,7 +10,14 @@ const enhanced=new WeakSet();
 // IME candidate navigation belongs to the OS, including legacy keyCode=229.
 // Guard every keyboard entry point of the portalled select, not only search.
 const isImeKeyEvent=event=>event.isComposing||event.keyCode===229;
-const controllers=[];
+// Controllers belong to native controls, not a process-lifetime array. Dynamic
+// mesh rows can be removed and recreated hundreds of times in one session.
+// A WeakMap avoids retaining detached controls and their entire subtrees.
+const controllers=new WeakMap();
+const registerController=(control,update)=>{
+ controllers.set(control,update);
+ control.setAttribute('data-ds-sync-control','');
+};
 let openSelect=null;
 let nextUid=0;
 const $=(id)=>document.getElementById(id);
@@ -298,7 +305,7 @@ function enhanceRange(label,input,title){
  });
  const output=label.querySelector('output');if(output)output.classList.add('property-visually-hidden');
  new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled','min','max','step']});
- controllers.push(update);update();
+ registerController(input,update);update();
 }
 function enhanceNumber(label,input,title){
  label.classList.add('ds-property-row','ds-property-row--number');
@@ -423,7 +430,7 @@ function enhanceNumber(label,input,title){
   event.preventDefault();rollbackDraft();update();
  });
  new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled','min','max','step']});
- controllers.push(update);update();
+ registerController(input,update);update();
 }
 function enhanceColor(label,input,title){
  label.classList.add('ds-property-row','ds-property-row--color');
@@ -550,7 +557,7 @@ function enhanceColor(label,input,title){
   if(records.length&&picking){dropperEpoch++;picking=false;}
   update();
  }).observe(input,{attributes:true,attributeFilter:['disabled']});
- controllers.push(update);update();
+ registerController(input,update);update();
 }
 function enhanceBinary(label,input,title){
  label.classList.add('ds-property-row','ds-property-row--binary');
@@ -593,7 +600,7 @@ function enhanceBinary(label,input,title){
  });
  input.addEventListener('change',update);
  new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
- controllers.push(update);update();
+ registerController(input,update);update();
 }
 // Keyboard navigation must never land on a disabled segment (including disabled optgroups).
 export function nextEnabledSegmentIndex(disabled,current,key){
@@ -708,7 +715,7 @@ function enhanceSegment(label,select,title){
   subtree:true,childList:true,characterData:true,attributes:true,
   attributeFilter:['disabled','hidden','label','value']
  });
- select.addEventListener('change',update);controllers.push(update);update();
+ select.addEventListener('change',update);registerController(select,update);update();
 }
 function closePopup({restoreFocus=true}={}){
  if(!openSelect)return;
@@ -1160,7 +1167,7 @@ function makeListbox(label,select,title){
  trigger.addEventListener('keydown',e=>{if(isImeKeyEvent(e))return;if(['Enter',' ','ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();open();}});
  select.addEventListener('change',()=>queueMicrotask(update));
  const observer=new MutationObserver(update);observer.observe(select,{childList:true,subtree:true,attributes:true,attributeFilter:['selected','label','disabled','hidden','value'],characterData:true});
- controllers.push(update);update();
+ registerController(select,update);update();
 }
 function accordionChevron(){
  // Drawn SVG, not a font glyph. Same geometry in every browser/theme.
@@ -1251,7 +1258,11 @@ export function enhancePropertyControls(root=document){
  }
 }
 export function syncPropertyControls(){
- for(const update of controllers)update();
+ // Query only controls currently in the document. A detached/replaced mesh
+ // row must not be updated or retain its listeners through this global sync.
+ // Reattached controls are discovered again without a second enhancement.
+ for(const control of document.querySelectorAll('[data-ds-sync-control]'))
+  controllers.get(control)?.();
 }
 /** Upgrade native selects anywhere, retaining their IDs, options and change events. */
 export function enhanceSelects(root=document){
