@@ -462,3 +462,10 @@ O popover reposiciona-se em `resize`, `scroll` e resize do `visualViewport` enqu
 **PowerShell para homologação:** `git fetch origin; git switch feat/23-property-controls-ux-qa; git pull --ff-only origin feat/23-property-controls-ux-qa; npm install --include=dev; npx playwright install chromium; npm run dev`. Em outro terminal: `node scripts/inspector-header-qa.mjs; npm run qa:supervised`. Retomada: `npm run qa:resume-capture`. Galeria: `test-results/ux-audit/supervised/index.html`.
 
 Não há aprovação automática da UX, merge, release ou publicação Cloudflare.
+
+
+## Identidade de fontes anônimas no color picker — 01/11/2026
+
+Um `aria-label` é nome acessível, **não** identificador estável. Um picker aberto em um `input[type=color]` sem `id` ou `data-mdress-source-key` não deve migrar para outro campo com o mesmo rótulo (ou ambos sem rótulo) depois de uma remoção. Remontagem só é permitida quando o ID ou a chave lógica identifica **exatamente um** input; chaves/IDs duplicados invalidam a transferência. A fonte original anônima continua editável enquanto conectada.
+
+Regressão obrigatória: `node scripts/color-picker-source-identity-qa.mjs` (Browser Smoke). Casos: sem nome, nome compartilhado, nome exclusivo, remount por chave lógica e chave ambígua. Evidências: `test-results/color-picker/source-identity-*.png`. Esses cenários comprovam segurança de associação, **não** homologação visual; avaliar screenshots e fluxo interativo antes de fechar a issue.
