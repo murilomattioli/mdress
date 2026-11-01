@@ -46,6 +46,8 @@ jobs:
         run: node scripts/alert-dialog-qa.mjs
       - name: Color picker — opacity validation and disabled-source focus handoff
         run: node scripts/color-picker-qa.mjs
+      - name: Portalled color picker — permission revocation, focus and async EyeDropper
+        run: node scripts/color-picker-permissions-qa.mjs
       - name: PDF weight interactions
         run: node scripts/pdf-weight-qa.mjs
       - name: Component UX Audit
