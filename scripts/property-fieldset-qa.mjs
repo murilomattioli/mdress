@@ -160,6 +160,7 @@ try{
   const s=await state();
   assert.equal(s.range,true,label+' range');assert.deepEqual(s.rangeStep,[true,true],label+' range steps');
   assert.deepEqual(s.numberStep,[true,true],label+' number steps');
+  assert.equal(await host.locator('#ux23-number').evaluate(el=>el.readOnly),true,label+' native numeric lock');
   assert.equal(s.slider,true,label+' scrub');assert.equal(s.hex,true,label+' hex');
   assert.equal(s.pipette,true,label+' EyeDropper');
   assert.deepEqual(s.binary,[true,true],label+' binary');
@@ -176,6 +177,7 @@ try{
   await page.waitForFunction(()=>!document.querySelector('#ux23-choice').closest('label').querySelector('.ds-select-trigger').disabled);
   const s=await state();
   assert.equal(s.range,false);assert.equal(s.hex,false);assert.equal(s.select,false);
+  assert.equal(await host.locator('#ux23-number').evaluate(el=>el.readOnly),false,'Native numeric unlock');
   assert.deepEqual(s.binary,[false,false]);assert.deepEqual(s.segment,[false,false,false]);
  };
  await host.locator('#ux23-color').evaluate(el=>el.closest('label').querySelector('.ds-color-pipette').click());
@@ -210,11 +212,13 @@ try{
    const input=document.querySelector('#ux23-inherited '+selector);
    return input?.closest('label')?.querySelector(enhanced)?.disabled===true;
   },{selector,enhanced});
+  if(selector==='#ux23-number')assert.equal(await source.evaluate(el=>el.readOnly),true,'Source ARIA locks typing');
   await source.evaluate(el=>el.removeAttribute('aria-disabled'));
   await page.waitForFunction(({selector,enhanced})=>{
    const input=document.querySelector('#ux23-inherited '+selector);
    return input?.closest('label')?.querySelector(enhanced)?.disabled===false;
   },{selector,enhanced});
+  if(selector==='#ux23-number')assert.equal(await source.evaluate(el=>el.readOnly),false,'Source ARIA restores typing');
  }
  // A native number input remains editable by the browser when only ARIA
  // revokes it. Its capture handler must restore the last committed value
