@@ -31,6 +31,9 @@ function button(label,icon){const b=node('button','cp-button');b.type='button';b
 // visibility tree. Recheck the original source at every commit, including
 // synthetic events that can run before a MutationObserver closes the dialog.
 function sourceAvailable(input){
+ // Chromium may return the previous computed visibility in the same task
+ // as an inline revocation. Block the target's explicit hidden state first.
+ if(input?.style?.visibility==='hidden'||input?.style?.visibility==='collapse')return false;
  if(!input?.isConnected||input.matches(':disabled')||
     input.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
     !input.getClientRects().length)return false;
