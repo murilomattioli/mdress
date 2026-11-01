@@ -57,8 +57,12 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
       more.closest('[inert],[aria-hidden="true"],[aria-disabled="true"]'))return false;
    // CSS visibility can be overridden by a visible descendant; display:none
    // and content-visibility:hidden on ancestors cannot.
-   const visibility=getComputedStyle(more).visibility;
-   if(visibility==='hidden'||visibility==='collapse')return false;
+   const triggerStyle=getComputedStyle(more);
+   // Hiding the trigger itself (rather than its accordion ancestor) must
+   // revoke a top-layer menu immediately, including synthetic click paths.
+   if(more.hidden||!more.getClientRects().length||
+      triggerStyle.display==='none'||triggerStyle.contentVisibility==='hidden'||
+      triggerStyle.visibility==='hidden'||triggerStyle.visibility==='collapse')return false;
    // The menu trigger itself is intentionally hidden when the final action
    // disappears. That does not revoke the accordion host or its toggle:
    // the keyboard focus must still return to that toggle, not the editor.
@@ -181,6 +185,12 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    hostObserver.disconnect();watchedAncestors=ancestors;
    for(const node of ancestors)hostObserver.observe(node,{
     attributes:true,childList:true,
+    attributeFilter:['disabled','hidden','inert','aria-hidden','aria-disabled','class','style']
+   });
+   // The trigger is a child of the header, not one of its ancestors. A CSS
+   // permission change on that button otherwise leaves its popover open.
+   hostObserver.observe(more,{
+    attributes:true,
     attributeFilter:['disabled','hidden','inert','aria-hidden','aria-disabled','class','style']
    });
   };

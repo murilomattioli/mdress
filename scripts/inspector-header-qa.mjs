@@ -202,6 +202,35 @@ try{
  });
  const dynamicHost=page.locator('#ux23-dynamic-menu-host');
  const dynamicTrigger=dynamicHost.locator('.ds-header-menu-trigger');
+ // Hiding only the menu trigger must revoke an already-open top-layer menu.
+ // Ancestor observers alone cannot see attributes on this child button.
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await dynamicTrigger.evaluate(el=>{el.style.display='none';});
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ assert.equal(await dynamicTrigger.getAttribute('aria-expanded'),'false',
+  'Hiding the trigger itself closes its top-layer popover');
+ assert.equal(await page.evaluate(()=>document.activeElement!==document.body&&
+  !document.querySelector('#ux23-dynamic-menu-host').contains(document.activeElement)),true,
+  'A revoked trigger restores focus outside the unavailable header');
+ await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'A revoked trigger cannot dispatch a stale menu action');
+ await page.screenshot({path:'test-results/header-trigger-display-none-revoked.png',animations:'disabled'});
+ await dynamicTrigger.evaluate(el=>{
+  el.style.removeProperty('display');el.style.contentVisibility='hidden';el.click();
+ });
+ assert.equal(await dynamicHost.locator('[role=menu]').evaluate(el=>el.matches(':popover-open')),false,
+  'A content-visibility-hidden trigger cannot open through a synthetic click');
+ await dynamicTrigger.evaluate(el=>el.style.removeProperty('content-visibility'));
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await dynamicTrigger.evaluate(el=>el.style.contentVisibility='hidden');
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ assert.equal(await dynamicTrigger.getAttribute('aria-expanded'),'false',
+  'Content visibility revocation must dismiss the active menu');
+ await page.screenshot({path:'test-results/header-trigger-content-visibility-revoked.png',animations:'disabled'});
+ await dynamicTrigger.evaluate(el=>el.style.removeProperty('content-visibility'));
  // The mobile inspector uses visibility:hidden on a layout parent and
  // visibility:visible on the interactive child. A header must honor the
  // *effective* visibility of its trigger rather than denying the ancestor.
