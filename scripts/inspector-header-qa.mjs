@@ -202,6 +202,50 @@ try{
  });
  const dynamicHost=page.locator('#ux23-dynamic-menu-host');
  const dynamicTrigger=dynamicHost.locator('.ds-header-menu-trigger');
+ // The mobile inspector uses visibility:hidden on a layout parent and
+ // visibility:visible on the interactive child. A header must honor the
+ // *effective* visibility of its trigger rather than denying the ancestor.
+ await dynamicHost.evaluate(host=>{
+  const wrapper=document.createElement('div');wrapper.id='ux23-visibility-override-host';
+  host.before(wrapper);wrapper.append(host);
+  wrapper.style.visibility='hidden';host.style.visibility='visible';
+ });
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ assert.equal(await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el===document.activeElement),true,
+  'An explicitly visible inspector menu remains keyboard-accessible under a hidden ancestor');
+ await page.screenshot({path:'test-results/header-menu-visibility-override-host.png',animations:'disabled'});
+ await page.keyboard.press('Escape');
+ await dynamicHost.evaluate(host=>{
+  host.style.removeProperty('visibility');
+  const wrapper=host.parentElement;wrapper.before(host);wrapper.remove();
+ });
+ // Visibility inheritance also applies inside the portalled menu. A child
+ // with visibility:visible must remain available under a hidden wrapper,
+ // while the same child without the override must be skipped.
+ await dynamicHost.locator('[role=menuitem]').first().evaluate(item=>{
+  const wrapper=document.createElement('div');wrapper.id='ux23-visibility-override-action';
+  item.before(wrapper);wrapper.append(item);
+  wrapper.style.visibility='hidden';item.style.visibility='visible';
+ });
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ assert.equal(await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el===document.activeElement),true,
+  'Effective visibility overrides inherited hidden state for a menu action');
+ await page.screenshot({path:'test-results/header-menu-visibility-override-action.png',animations:'disabled'});
+ await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el.style.removeProperty('visibility'));
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Segunda');
+ await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'An action inheriting visibility:hidden cannot execute a synthetic click');
+ await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el.style.visibility='visible');
+ await page.keyboard.press('Home');
+ assert.equal(await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el===document.activeElement),true,
+  'Restoring visibility must restore the original roving menu position');
+ await page.keyboard.press('Escape');
+ await dynamicHost.locator('#ux23-visibility-override-action').evaluate(wrapper=>{
+  const item=wrapper.firstElementChild;item.style.removeProperty('visibility');
+  wrapper.before(item);wrapper.remove();
+ });
  // Live renaming (document edits, localization and undo) must update the
  // accessible name of both the trigger and its associated top-layer menu.
  await dynamicHost.locator('button').first().evaluate(el=>el.textContent='Seção atualizada');
