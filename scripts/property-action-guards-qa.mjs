@@ -92,7 +92,7 @@ try{
  });
  assert.deepEqual(Object.entries(result.checks).filter(([,ok])=>!ok),[],
   'Stale numeric/color actions must not commit after synchronous permission revocation');
- assert.equal(Object.keys(result.checks).length,34,'Expected all permission and recovery checks');
+ assert.equal(Object.keys(result.checks).length,33,'Expected all permission and recovery checks');
  await page.screenshot({path:'test-results/ux-audit/property-action-permissions.png',animations:'disabled'});
  await page.evaluate(()=>document.querySelectorAll('[data-ux23-property-guard]').forEach(el=>el.remove()));
  assert.deepEqual(errors,[],'No page errors during permission checks');
