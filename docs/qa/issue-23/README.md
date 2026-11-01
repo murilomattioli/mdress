@@ -532,3 +532,11 @@ A saída de um picker não modal deve continuar a navegação a partir da fonte 
 - Evidências: `test-results/color-picker/tab-exit-pointer-positive-*.png` e `tab-exit-radio-*.png` (incluídas no bundle do Browser Smoke).
 
 A aprovação depende de inspeção humana das imagens e interação com teclado real; os testes de foco não substituem homologação visual. Nenhum merge, deploy ou release é autorizado por esses checks.
+
+## Toolbar — direção RTL e setas físicas (01/11/2026)
+
+A toolbar de uma interface RTL pode expor `scrollLeft` negativo (0 na borda direita, `-max` na esquerda). Os botões **Rolar para a esquerda/direita** representam direções físicas, não a ordem lógica de comandos: no início RTL, a seta esquerda deve estar habilitada e a direita desabilitada; na borda oposta, o inverso. Cliques e Enter devem mover o scroll na direção correspondente sem ocultar comandos nem gerar erro.
+
+- Unitário: `tests/toolbar-overflow.test.mjs` valida os limites RTL, o meio do scroll e arredondamento fracionário.
+- Chromium: `scripts/toolbar-discoverability-qa.mjs` executa cenário RTL 390px e registra `toolbar-rtl-{right-edge,middle,left-edge}-390.png` em `test-results/ux-audit`.
+- Critério humano: inspecionar direção das setas, foco, recorte de comandos e os três screenshots; testes verdes **não** homologam UX.
