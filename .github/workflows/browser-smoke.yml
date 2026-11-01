@@ -40,6 +40,8 @@ jobs:
         run: node scripts/inspector-header-qa.mjs
       - name: Quick actions — dynamic focus handoff and mobile hit targets
         run: node scripts/choice-actions-qa.mjs
+      - name: Property controls — stale numeric and color actions under permissions
+        run: node scripts/property-action-guards-qa.mjs
       - name: Alert dialogs — keyboard, cancellation and focus restoration
         run: node scripts/alert-dialog-qa.mjs
       - name: Color picker — opacity validation and disabled-source focus handoff
