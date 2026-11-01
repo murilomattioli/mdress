@@ -216,6 +216,25 @@ try{
    return input?.closest('label')?.querySelector(enhanced)?.disabled===false;
   },{selector,enhanced});
  }
+ // A native number input remains editable by the browser when only ARIA
+ // revokes it. Its capture handler must restore the last committed value
+ // before any stale synthetic input/change reaches document listeners.
+ const numberGuard=await page.evaluate(()=>{
+  const input=document.getElementById('ux23-number'),before=input.value;
+  let bubbled=0;
+  const observe=()=>bubbled++;
+  document.addEventListener('input',observe);
+  input.setAttribute('aria-disabled','true');
+  input.value='9';
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+  input.dispatchEvent(new Event('change',{bubbles:true}));
+  const after=input.value;
+  input.removeAttribute('aria-disabled');
+  document.removeEventListener('input',observe);
+  return {before,after,bubbled};
+ });
+ assert.equal(numberGuard.after,numberGuard.before,'Revoked number draft must roll back');
+ assert.equal(numberGuard.bubbled,0,'Revoked number events must not reach app observers');
  await host.screenshot({path:output+'/fieldset-source-aria-restored-390.png',animations:'disabled'});
  assert.deepEqual(errors,[]);
  console.log('Inherited fieldset QA passed: six control types, first legend, dynamic reparenting, stale EyeDropper; six screenshots.');
