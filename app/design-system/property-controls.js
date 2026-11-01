@@ -207,6 +207,12 @@ function nativeCommit(input,next){
  input.dispatchEvent(new Event('change',{bubbles:true}));
  return true;
 }
+// Validate the *visible action* at event time. Hidden native sources are
+// deliberately visually concealed, so testing their own geometry would reject
+// legitimate inspector edits; the button/field carries effective permissions.
+function propertyActionAvailable(source,action){
+ return source.isConnected&&!source.matches(':disabled')&&visibleFocusTree(action);
+}
 function scrubStep(title,direction){
  const node=button('ds-number-step ds-scrub-step','');
  node.setAttribute('aria-label',(direction<0?'Diminuir ':'Aumentar ')+title);
@@ -273,7 +279,8 @@ function enhanceRange(label,input,title){
    (!boundsValid?'Verifique os limites e o incremento da faixa.':!valid()?validationMessage(numeric,min,max,unit):''):'');
   if(!Number.isNaN(value))field.setAttribute('data-value',formatControlValue(value,unit));
  };
- const increment=direction=>{
+ const increment=(direction,origin)=>{
+  if(!propertyActionAvailable(input,origin))return;
   const {min,max,step,valid:boundsValid}=rangeConstraints(input);
   if(!boundsValid||(editing&&!valid()))return;
   // A valid, uncommitted precision draft is the value the user sees.
@@ -283,13 +290,14 @@ function enhanceRange(label,input,title){
   if(next===null)return;
   editing=false;nativeCommit(input,next);update();
  };
- minus.onclick=()=>increment(-1);plus.onclick=()=>increment(1);
+ minus.onclick=()=>increment(-1,minus);plus.onclick=()=>increment(1,plus);
  // A real slider gesture supersedes a stale numeric draft and its error.
  const nativeUpdate=()=>{editing=false;update();};
  input.addEventListener('input',nativeUpdate);
  input.addEventListener('change',nativeUpdate);
  numeric.addEventListener('input',()=>{editing=true;update();});
  numeric.addEventListener('change',()=>{
+  if(!propertyActionAvailable(input,numeric)){editing=false;update();return;}
   const {min,max,step,valid:boundsValid}=syncConstraints();
   if(!boundsValid||!valid()){editing=true;update();return;}
   const value=numeric.valueAsNumber;
@@ -305,6 +313,7 @@ function enhanceRange(label,input,title){
  const initial=Number(input.defaultValue);
  if(input.hasAttribute('value')&&Number.isFinite(initial))field.title='Clique duas vezes na régua para restaurar';
  if(input.hasAttribute('value'))progress.addEventListener('dblclick',()=>{
+  if(!propertyActionAvailable(input,progress))return;
   const {min,max,step,valid}=rangeConstraints(input);
   if(valid)nativeCommit(input,normalizeRange(initial,min,max,step));
  });
@@ -328,7 +337,10 @@ function enhanceNumber(label,input,title){
   const track=document.createElement('span');track.className='ds-scrub-number-track';
   slider=document.createElement('input');slider.type='range';slider.className='ds-scrub-range';slider.setAttribute('aria-label',title+' — deslizar');
   track.append(slider);controls.insertBefore(track,input);
-  slider.addEventListener('input',()=>nativeCommit(input,slider.value));
+  slider.addEventListener('input',()=>{
+   if(propertyActionAvailable(input,slider))nativeCommit(input,slider.value);
+   else slider.value=input.value;
+  });
  }
  const restoreSliderFocus=slider?watchDisabledNativeFocus(slider):()=>{};
  const bounds=()=>({min:input.min===''?-Infinity:Number(input.min),max:input.max===''?Infinity:Number(input.max)});
@@ -400,13 +412,14 @@ function enhanceNumber(label,input,title){
   restoreNativeFocus();
   restoreSliderFocus();
  };
- const increment=direction=>{
+ const increment=(direction,origin)=>{
+  if(!propertyActionAvailable(input,origin))return;
   const next=stepTarget(direction);
   if(next===null)return;
   nativeCommit(input,next);
   update();
  };
- minus.onclick=()=>increment(-1);plus.onclick=()=>increment(1);
+ minus.onclick=()=>increment(-1,minus);plus.onclick=()=>increment(1,plus);
  input.addEventListener('input',event=>{
   if(restoring)return;
   editing=true;update();
@@ -504,13 +517,13 @@ function enhanceColor(label,input,title){
  };
  pipette.addEventListener('click',async event=>{
   event.preventDefault();event.stopPropagation();
-  if(input.disabled||picking||!canPick)return;
+  if(!propertyActionAvailable(input,pipette)||picking||!canPick)return;
   setPipetteError('');
   const epoch=++dropperEpoch,sourceColor=input.value;
   picking=true;update();
   try{
    const result=await new window.EyeDropper().open();
-   if(epoch===dropperEpoch&&!input.disabled&&input.isConnected&&
+   if(epoch===dropperEpoch&&propertyActionAvailable(input,pipette)&&
     input.value===sourceColor&&isHex(result?.sRGBHex)){
     // Native input/change events below are our own commit, not an external
     // edit that should invalidate this request.
@@ -540,6 +553,7 @@ function enhanceColor(label,input,title){
   setError(isHex(hex.value.trim())?'':'Use uma cor hexadecimal com seis dígitos (#RRGGBB).');
  });
  hex.addEventListener('change',()=>{
+  if(!propertyActionAvailable(input,hex)){editing=false;update();return;}
   const v=hex.value.trim();
   if(!isHex(v)){editing=true;setError('Use uma cor hexadecimal com seis dígitos (#RRGGBB).');return;}
   editing=false;setError('');nativeCommit(input,v);update();
