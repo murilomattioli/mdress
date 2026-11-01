@@ -276,11 +276,19 @@ export function openColorPicker(input){
   if(e.key==='Tab'){
    const items=[...dialog.querySelectorAll('button,input,[tabindex]')].filter(el=>!el.disabled&&el.tabIndex>=0&&el.getClientRects().length);
    if(document.activeElement===(e.shiftKey?items[0]:items.at(-1))){
-    // Tab/Shift+Tab intentionally leaves this non-modal picker. Returning
-    // focus to the source on close would trap keyboard users in a loop.
-    // Keep source restoration for Escape and the explicit Close button.
+    // Closing during keydown leaves the browser with no native Tab target:
+    // Shift+Tab can otherwise land on <body>. Continue from the original
+    // source's position in document tab order, in the requested direction.
+    const outside=[...document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]')]
+     .filter(el=>!dialog.contains(el)&&el.tabIndex>=0&&sourceAvailable(el));
+    const index=outside.indexOf(anchor());
+    const step=e.shiftKey?-1:1;
+    const destination=index>=0&&outside.length>1?
+     outside[(index+step+outside.length)%outside.length]:outside[0];
     restoreFocus=false;
+    e.preventDefault();
     dialog.close();
+    destination?.focus();
    }
   }
  });
