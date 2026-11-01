@@ -94,6 +94,58 @@ try{
  await dialog.getByRole('button',{name:'Fechar seletor de cores'}).click();
  await dialog.waitFor({state:'detached'});
  await page.locator('#ux23-color-identity').evaluate(el=>el.remove());
+
+ // Recycling a connected native input is a different risk from DOM remount:
+ // a virtualized Mesh row can change its logical point without ever removing
+ // the element. Synthetic events can fire before MutationObserver callbacks.
+ for(const scenario of [
+  {name:'connected-key-reused',key:'point-a',id:'',mutation:'key',allow:false},
+  {name:'connected-id-reused',key:null,id:'point-a',mutation:'id',allow:false},
+  {name:'connected-anonymous-gains-key',key:null,id:'',mutation:'key',allow:false},
+  {name:'reinserted-key-reused',key:'point-a',id:'',mutation:'reinsert',allow:false},
+  {name:'connected-label-change',key:'point-a',id:'',mutation:'label',allow:true}
+ ]){
+  await page.evaluate(async scenario=>{
+   const {openColorPicker}=await import('/design-system/color-picker.js');
+   const host=document.createElement('div');host.id='ux23-recycled-source';
+   host.style.cssText='position:fixed;left:80px;top:80px;z-index:1000';
+   const input=document.createElement('input');input.type='color';input.value='#336699';
+   if(scenario.key)input.dataset.mdressSourceKey=scenario.key;
+   if(scenario.id)input.id=scenario.id;
+   input.setAttribute('aria-label','Mesh point A');
+   host.append(input);document.body.append(host);openColorPicker(input);
+  },scenario);
+  const picker=page.locator('dialog.mdress-color-picker');
+  await picker.waitFor({state:'visible'});
+  if(scenario.name==='connected-key-reused')
+   await page.screenshot({path:'test-results/color-picker/source-identity-connected-before-recycle.png',animations:'disabled'});
+  const result=await page.evaluate(scenario=>{
+   const host=document.querySelector('#ux23-recycled-source');
+   const input=host.querySelector('input[type="color"]');
+   const picker=document.querySelector('dialog.mdress-color-picker[open]');
+   let changes=0;input.addEventListener('change',()=>changes++);
+   if(scenario.mutation==='key')input.dataset.mdressSourceKey='point-b';
+   if(scenario.mutation==='id')input.id='point-b';
+   if(scenario.mutation==='label')input.setAttribute('aria-label','Mesh point B');
+   if(scenario.mutation==='reinsert'){
+    input.remove();
+    input.dataset.mdressSourceKey='point-b';
+    host.append(input);
+   }
+   const hex=picker.querySelector('.cp-hex');
+   hex.value='#123456';hex.dispatchEvent(new Event('change',{bubbles:true}));
+   return {value:input.value,changes,stillOpen:picker.open};
+  },scenario);
+  assert.equal(result.value,scenario.allow?'#123456':'#336699',
+   'Recycled connected source must not receive stale picker edits: '+scenario.name+' '+JSON.stringify(result));
+  assert.equal(result.changes,scenario.allow?1:0,
+   'Recycled source must not dispatch an invalid change: '+scenario.name+' '+JSON.stringify(result));
+  assert.equal(result.stillOpen,scenario.allow,
+   'Identity change must dismiss the picker immediately: '+scenario.name+' '+JSON.stringify(result));
+  if(scenario.allow)await picker.getByRole('button',{name:'Fechar seletor de cores'}).click();
+  await picker.waitFor({state:'detached'});
+  await page.locator('#ux23-recycled-source').evaluate(el=>el.remove());
+ }
  assert.deepEqual(errors,[],'No browser errors during color source identity transitions');
- console.log('Color picker source identity QA passed: anonymous, labelled, keyed and ambiguous remounts.');
+ console.log('Color picker source identity QA passed: anonymous, labelled, keyed, ambiguous remounts and connected-node recycling.');
 }finally{await browser.close();}
