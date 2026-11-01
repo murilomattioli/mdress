@@ -536,6 +536,36 @@ try{
  assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-before',
   'Shift+Tab from a pointer-only source must return to its preceding page control');
  await tabPage.screenshot({path:'test-results/color-picker/tab-exit-pointer-only-reverse-390.png',animations:'disabled'});
+ // Revoking the immediate neighbors must not send focus to a disabled
+ // control or back to <body>; hand off to the next usable sibling.
+ await tabPage.evaluate(async()=>{
+  const host=document.getElementById('ux23-tab-exit');
+  const earlier=document.createElement('button');earlier.id='ux23-tab-earlier';earlier.textContent='Anterior disponível';
+  const later=document.createElement('button');later.id='ux23-tab-later';later.textContent='Próximo disponível';
+  host.prepend(earlier);host.append(later);
+  document.getElementById('ux23-tab-before').disabled=true;
+  document.getElementById('ux23-tab-after').setAttribute('aria-disabled','true');
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(document.getElementById('ux23-tab-source'));
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-saved-color').last().focus();
+ await tabPage.keyboard.press('Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-later',
+  'Tab must skip aria-disabled neighbors when a color source is pointer-only');
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-pointer-only-disabled-forward-390.png',animations:'disabled'});
+ await tabPage.evaluate(async()=>{
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(document.getElementById('ux23-tab-source'));
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-header button:enabled').first().focus();
+ await tabPage.keyboard.press('Shift+Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-earlier',
+  'Shift+Tab must skip disabled neighbors when a color source is pointer-only');
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-pointer-only-disabled-reverse-390.png',animations:'disabled'});
  await tabPage.close();
  console.log('Color picker: palette, spectrum pointer/keyboard, RGB, invalid HEX, persistence, saved colors, Escape/focus and overflow passed at 1440/768/390/320.');
 }finally{await browser.close();}
