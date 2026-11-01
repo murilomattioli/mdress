@@ -1,3 +1,27 @@
+## UX-023 — permissões herdadas após mover controles entre fieldsets (01/11/2026)
+
+**Correção funcional:** o acompanhamento de `<fieldset disabled>` agora usa um observador compartilhado e callbacks em `WeakMap`, evitando observadores presos a fieldsets antigos. Controles já aprimorados acompanham movimentações para fieldsets criados posteriormente, saídas para pais habilitados, alternância de `disabled` no novo pai e reordenação da primeira `<legend>`. A exceção HTML da primeira legenda continua respeitada. O observador só atualiza controles afetados por mutações de permissão ou movimentação; não reprocessa todo o inspector em cada mudança do documento.
+
+**Playwright obrigatório:** `scripts/property-fieldset-qa.mjs` agora cobre os seis tipos de controle após reparenting, alternância da exceção da legenda e cancelamento de um EyeDropper pendente ao desabilitar o novo fieldset. Evidências adicionais: `fieldset-reparent-{disabled,enabled,restored}-390.png` em `test-results/ux-audit`. As capturas exigem avaliação humana de legibilidade, alvos e feedback de estado.
+
+**PowerShell — testar sem merge:**
+```powershell
+git fetch origin
+git switch feat/23-property-controls-ux-qa
+git pull --ff-only origin feat/23-property-controls-ux-qa
+npm install --include=dev
+npx playwright install chromium
+npm run dev
+# Em outro terminal:
+npm test
+node scripts/property-fieldset-qa.mjs
+npm run qa:supervised
+```
+
+**Gate:** PR #27 permanece draft e issue #23 aberta até homologação visual/interativa humana. Sem merge, release ou deploy.
+
+---
+
 ## UX-023 — foco ao sair do Color Picker: ordem Tab e fontes pointer-only (01/11/2026)
 
 **Correções verificáveis:** o fechamento por Tab/Shift+Tab agora respeita a ordem sequencial de teclado do documento, inclusive `tabindex` positivo (valores positivos crescentes antes de `tabindex=0`, com desempate pela ordem DOM). Antes, uma fonte com `tabindex=2` e controles vizinhos com `tabindex=1/3` enviava o foco para o controle errado. Para fontes nativas acionáveis pelo ponteiro mas com `tabindex=-1`, o handoff procura o controle anterior/próximo na ordem DOM dos Tab stops regulares, em vez de saltar para o primeiro elemento não relacionado da página.
