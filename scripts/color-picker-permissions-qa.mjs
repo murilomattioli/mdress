@@ -52,8 +52,8 @@ try{
   ['display none','fieldset.style.display="none"'],
   ['content visibility','fieldset.style.contentVisibility="hidden"'],
   ['CSS visibility','input.style.visibility="hidden"'],
-  ['root ARIA permission','document.documentElement.setAttribute("aria-disabled","true")'],
-  ['detached source','input.remove()']
+  ['detached source','input.remove()'],
+  ['root ARIA permission','document.documentElement.setAttribute("aria-disabled","true")']
  ];
  for(const [name,revoke] of revokeCases){
   await page.evaluate(async()=>{
