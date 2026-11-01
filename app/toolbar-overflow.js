@@ -34,7 +34,18 @@ export function attachToolbarOverflow(toolbar){
   const glyph=document.createElement('ds-icon');
   glyph.setAttribute('name',icon);glyph.setAttribute('aria-hidden','true');
   node.append(glyph);node.hidden=true;
-  node.addEventListener('click',()=>toolbar.scrollBy({left:direction*Math.max(140,Math.round(toolbar.clientWidth*.7)),behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'}));
+  node.addEventListener('click',()=>{
+   // A synthetic click can arrive before the mutation/resize frame updates
+   // disabled and hidden. Revalidate the live host permissions and scroll
+   // boundary instead of trusting the previous frame's arrow state.
+   if(disposed||node.disabled||!visibleInTree(node)||!visibleInTree(toolbar))return;
+   const state=toolbarOverflowState(toolbar);
+   if(!(direction<0?state.canScrollPrevious:state.canScrollNext))return;
+   toolbar.scrollBy({
+    left:direction*Math.max(140,Math.round(toolbar.clientWidth*.7)),
+    behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'
+   });
+  });
   return node;
  };
  const previous=button(-1,'Rolar ferramentas para a esquerda','chevron-left');
