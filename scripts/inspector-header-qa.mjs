@@ -232,6 +232,20 @@ try{
  assert.equal(await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el===document.activeElement),true,
   'Effective visibility overrides inherited hidden state for a menu action');
  await page.screenshot({path:'test-results/header-menu-visibility-override-action.png',animations:'disabled'});
+ await page.evaluate(()=>{
+  window.__ux23VisibilityTrace=[];
+  const menu=document.querySelector('#ux23-dynamic-menu-host [role=menu]');
+  for(const name of ['focusin','focusout','toggle']){
+   menu.addEventListener(name,event=>window.__ux23VisibilityTrace.push({
+    event:name,target:event.target?.textContent?.trim().slice(0,30),
+    related:event.relatedTarget?.outerHTML?.slice(0,100),
+    active:document.activeElement?.outerHTML?.slice(0,100)
+   }),true);
+  }
+  new MutationObserver(()=>window.__ux23VisibilityTrace.push({
+   event:'mutation',active:document.activeElement?.outerHTML?.slice(0,100)
+  })).observe(menu,{attributes:true,subtree:true,attributeFilter:['style']});
+ });
  await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el.style.removeProperty('visibility'));
  await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Segunda',null,{timeout:3500}).catch(async error=>{
   const snapshot=await page.evaluate(()=>{
@@ -240,6 +254,7 @@ try{
    return {active:document.activeElement?.outerHTML?.slice(0,240),
     open:host.querySelector('[role=menu]').matches(':popover-open'),
     triggerHidden:host.querySelector('.ds-header-menu-trigger').hidden,
+    trace:window.__ux23VisibilityTrace,
     styles:items.map(el=>({label:el.textContent,visibility:getComputedStyle(el).visibility,
      parentVisibility:getComputedStyle(el.parentElement).visibility,
      disabled:el.matches(':disabled'),rects:el.getClientRects().length}))};
