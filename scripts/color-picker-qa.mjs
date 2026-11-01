@@ -631,6 +631,34 @@ try{
   'Shift+Tab into a radio group must focus its checked member');
  assert.equal(await tabPage.locator('#ux23-tab-radio-1').isChecked(),true);
  await tabPage.screenshot({path:'test-results/color-picker/tab-exit-radio-reverse-390.png',animations:'disabled'});
+ // Without a selected radio, the first enabled group member is the native
+ // entry point. A disabled first member must not receive keyboard focus.
+ await tabPage.evaluate(async()=>{
+  const source=document.getElementById('ux23-tab-source');
+  source.after(document.getElementById('ux23-tab-radios'));
+  document.getElementById('ux23-tab-radio-1').checked=false;
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(source);
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-saved-color').last().focus();
+ await tabPage.keyboard.press('Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-radio-0',
+  'Unchecked radio group must focus its first enabled member');
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-radio-unchecked-390.png',animations:'disabled'});
+ await tabPage.evaluate(async()=>{
+  document.getElementById('ux23-tab-radio-0').disabled=true;
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(document.getElementById('ux23-tab-source'));
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-saved-color').last().focus();
+ await tabPage.keyboard.press('Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-radio-1',
+  'Radio group must skip a disabled first member');
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-radio-disabled-390.png',animations:'disabled'});
  await tabPage.close();
  console.log('Color picker: palette, spectrum pointer/keyboard, RGB, invalid HEX, persistence, saved colors, Escape/focus and overflow passed at 1440/768/390/320.');
 }finally{await browser.close();}
