@@ -56,7 +56,13 @@ export function openColorPicker(input){
  const pickerId=++nextPickerId;active=dialog;
  let restoreFocus=true,handoffOnClose=false,opacity=opacityPercent(input.dataset.opacity),editRevision=0;
  const events=new AbortController();
- const anchor=()=>input.isConnected?input:[...document.querySelectorAll('input[type="color"]')].find(el=>input.id?el.id===input.id:el.getAttribute('aria-label')===input.getAttribute('aria-label'));
+ // Dynamic mesh rows reuse numeric IDs after deleting a point. A remounted
+ // source may only inherit an open picker if its logical point identity
+ // still matches; never redirect edits to a different point at that index.
+ const sourceKey=input.dataset.mdressSourceKey;
+ const anchor=()=>input.isConnected?input:[...document.querySelectorAll('input[type="color"]')].find(el=>
+  (!sourceKey||el.dataset.mdressSourceKey===sourceKey)&&
+  (input.id?el.id===input.id:el.getAttribute('aria-label')===input.getAttribute('aria-label')));
  // A dynamic mesh editor remounts its native input after each commit.
  // Continue editing the same logical color source while the dialog is open.
  const liveSource=()=>{const target=anchor();return target?.type==='color'&&sourceAvailable(target)?target:null;};
