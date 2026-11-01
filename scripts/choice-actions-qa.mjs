@@ -138,12 +138,16 @@ try{
   const movedDisabled=next.disabled&&commits===0;
   legend.append(source);await tick();
   const movedRestored=!next.disabled;
+  source.remove();click();await tick();
+  const detachedSource=next.disabled&&commits===0;
+  legend.append(source);await tick();
+  const reattachedSource=!next.disabled;
   click();const committed=commits===1&&source.value==='b';
   source.setAttribute('aria-disabled','true');await tick();
   return {sourceAria,ariaRestored,sourceInert,ancestorAria,focusHandoff,
-   legendException,movedDisabled,movedRestored,committed};
+   legendException,movedDisabled,movedRestored,detachedSource,reattachedSource,committed};
  });
- assert.deepEqual(Object.values(quickSourceStates),Array(9).fill(true),
+ assert.deepEqual(Object.values(quickSourceStates),Array(11).fill(true),
   'Quick actions must synchronize source/ancestor permissions, fieldset legend and reparenting');
  await permissionPage.screenshot({path:'test-results/ux-audit/quick-source-revoked-1024.png',animations:'disabled'});
  await permissionPage.locator('#ux23-quick-native').evaluate(el=>el.removeAttribute('aria-disabled'));
