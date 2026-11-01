@@ -112,6 +112,34 @@ try{
  await toolbar.screenshot({path:'test-results/ux-audit/toolbar-disabled-group-focus-recovered.png',animations:'disabled'});
  await toolbar.locator('#ux23-visibility-group').evaluate(el=>el.remove());
  await toolbar.locator('#ux23-replaced-group').evaluate(el=>el.remove());
+ // Revoking aria-hidden or inert on a focused toolbar descendant must
+ // trigger recovery without a resize/scroll. The subtree MutationObserver
+ // must watch these permissions, not only disabled and class/style.
+ await toolbar.evaluate(el=>{
+  const group=document.createElement('div');group.className='tool-group';
+  group.id='ux23-permission-group';
+  for(const name of ['before','focused','after']){
+   const button=document.createElement('button');button.type='button';
+   button.id='ux23-permission-'+name;button.textContent=name;group.append(button);
+  }
+  el.append(group);
+ });
+ await page.locator('#ux23-permission-focused').focus();
+ await page.locator('#ux23-permission-focused').evaluate(el=>el.setAttribute('aria-hidden','true'));
+ await page.waitForFunction(()=>document.activeElement?.id==='ux23-permission-after',
+  null,{timeout:3000});
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-aria-hidden-action-focus-recovered.png',animations:'disabled'});
+ await page.locator('#ux23-permission-focused').evaluate(el=>el.removeAttribute('aria-hidden'));
+ await page.locator('#ux23-permission-focused').focus();
+ await page.locator('#ux23-permission-group').evaluate(el=>{el.inert=true;});
+ await page.waitForFunction(()=>{
+  const group=document.querySelector('#ux23-permission-group');
+  return document.activeElement!==document.body&&!group.contains(document.activeElement);
+ },null,{timeout:3000});
+ assert.equal(await page.evaluate(()=>document.activeElement?.id==='source'),true,
+  'An inert toolbar group must hand focus to the editor');
+ await toolbar.screenshot({path:'test-results/ux-audit/toolbar-inert-group-focus-recovered.png',animations:'disabled'});
+ await toolbar.locator('#ux23-permission-group').evaluate(el=>el.remove());
  // At large zoom an action may be wider than the whole toolbar viewport.
  // Repeated layout notifications must not alternate between its two edges.
  await toolbar.evaluate(el=>{
