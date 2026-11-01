@@ -22,6 +22,12 @@ const registerController=(control,update)=>{
 // One document observer avoids retaining detached controls via per-fieldset
 // observers. It also follows already-enhanced controls moved into a *new*
 // fieldset (or into/out of its first legend) without re-enhancing the DOM.
+// ARIA-disabled and inert containers revoke enhanced actions even though
+// native :disabled only reflects HTML disabled/fieldset semantics. Native
+// source controls are sometimes visually hidden, so do not test their layout.
+const sourceUnavailable=source=>source.matches(':disabled')||
+ source.matches('[aria-disabled="true"],[inert]')||
+ Boolean(source.parentElement?.closest('[aria-disabled="true"],[inert]'));
 const disabledAncestorCallbacks=new WeakMap();
 let disabledAncestryObserver=null;
 function watchDisabledAncestors(control,update){
@@ -36,7 +42,7 @@ function watchDisabledAncestors(control,update){
   };
   for(const record of records){
    if(record.type==='attributes'){
-    if(record.target.tagName==='FIELDSET')collect(record.target);
+    collect(record.target);
     continue;
    }
    // Reordering the first direct-child legend changes which controls are
@@ -52,7 +58,7 @@ function watchDisabledAncestors(control,update){
   }
  });
  disabledAncestryObserver.observe(document.documentElement,{
-  subtree:true,childList:true,attributes:true,attributeFilter:['disabled']
+  subtree:true,childList:true,attributes:true,attributeFilter:['disabled','aria-disabled','inert']
  });
 }
 
@@ -220,9 +226,9 @@ function feedbackFor(label,control){
 function watchDisabledNativeFocus(input){
  let hadFocus=false;
  input.addEventListener('focus',()=>{hadFocus=true;});
- input.addEventListener('blur',()=>{if(!input.matches(':disabled'))hadFocus=false;});
+ input.addEventListener('blur',()=>{if(!sourceUnavailable(input))hadFocus=false;});
  return ()=>{
-  if(!input.matches(':disabled')){hadFocus=document.activeElement===input;return;}
+  if(!sourceUnavailable(input)){hadFocus=document.activeElement===input;return;}
   if(hadFocus&&(document.activeElement===input||document.activeElement===document.body))
    focusInspectorNeighbor(input,{visibleOnly:true});
   hadFocus=false;
@@ -234,7 +240,7 @@ function nativeCommit(input,next){
  // (including the first-legend exception). Portalled option buttons can
  // receive synthetic clicks before a MutationObserver closes the popup.
  // Detached dynamic controls must not commit late UI callbacks either.
- if(!input.isConnected||input.matches(':disabled'))return false;
+ if(!input.isConnected||sourceUnavailable(input))return false;
  // A repeated selection, unchanged hex value or re-entered slider value is
  // not a document edit. Let the native control normalize the candidate first
  // (notably color casing and range snapping), then emit only real changes.
@@ -249,7 +255,7 @@ function nativeCommit(input,next){
 // deliberately visually concealed, so testing their own geometry would reject
 // legitimate inspector edits; the button/field carries effective permissions.
 function propertyActionAvailable(source,action){
- return source.isConnected&&!source.matches(':disabled')&&visibleFocusTree(action);
+ return source.isConnected&&!sourceUnavailable(source)&&visibleFocusTree(action);
 }
 function scrubStep(title,direction){
  const node=button('ds-number-step ds-scrub-step','');
@@ -296,9 +302,9 @@ function enhanceRange(label,input,title){
   const value=Number(input.value);
   const pct=boundsValid?(clamp(value,min,max)-min)/(max-min)*100:0;
   field.style.setProperty('--ds-range-progress',pct+'%');
-  if(input.matches(':disabled'))editing=false;
+  if(sourceUnavailable(input))editing=false;
   const focusedPrecision=document.activeElement===numeric;
-  numeric.disabled=input.matches(':disabled');
+  numeric.disabled=sourceUnavailable(input);
   const {step}=rangeConstraints(input);
   // A partially typed or invalid precision value belongs to the editor until
   // corrected or cancelled. Disable steppers rather than silently replacing
@@ -307,13 +313,13 @@ function enhanceRange(label,input,title){
   // Stepper availability follows the visible valid draft, not stale native state.
   const stepperValue=editing&&!invalidDraft?numeric.valueAsNumber:value;
   const focusedStepper=[minus,plus].find(button=>document.activeElement===button);
-  minus.disabled=input.matches(':disabled')||!boundsValid||invalidDraft||rangeStepTarget(stepperValue,-1,min,max,step)===null;
-  plus.disabled=input.matches(':disabled')||!boundsValid||invalidDraft||rangeStepTarget(stepperValue,1,min,max,step)===null;
+  minus.disabled=sourceUnavailable(input)||!boundsValid||invalidDraft||rangeStepTarget(stepperValue,-1,min,max,step)===null;
+  plus.disabled=sourceUnavailable(input)||!boundsValid||invalidDraft||rangeStepTarget(stepperValue,1,min,max,step)===null;
   if(focusedStepper?.disabled)focusInspectorNeighbor(focusedStepper,{visibleOnly:true});
-  if(input.matches(':disabled')&&focusedPrecision)focusInspectorNeighbor(numeric,{visibleOnly:true});
+  if(sourceUnavailable(input)&&focusedPrecision)focusInspectorNeighbor(numeric,{visibleOnly:true});
   restoreNativeFocus();
   if(!editing)numeric.value=input.value;
-  setError(!input.matches(':disabled')&&editing?
+  setError(!sourceUnavailable(input)&&editing?
    (!boundsValid?'Verifique os limites e o incremento da faixa.':!valid()?validationMessage(numeric,min,max,unit):''):'');
   if(!Number.isNaN(value))field.setAttribute('data-value',formatControlValue(value,unit));
  };
@@ -389,7 +395,7 @@ function enhanceNumber(label,input,title){
  // bases and absent bounds. The previous synthetic 0..999 range blocked
  // negative and large values even when the HTML input allowed them.
  const stepTarget=direction=>{
-  if(input.matches(':disabled')||!valid())return null;
+  if(sourceUnavailable(input)||!valid())return null;
   const probe=input.cloneNode(false);
   probe.value=input.value;
   try{
@@ -422,7 +428,7 @@ function enhanceNumber(label,input,title){
   // Disabling a numeric field must discard its uncommitted draft, just like
   // the range and hex controls. Otherwise an invalid number can remain in
   // the native source of truth after the inspector becomes read-only.
-  if(input.matches(':disabled')&&editing)rollbackDraft();
+  if(sourceUnavailable(input)&&editing)rollbackDraft();
   const ok=valid();
   if(!editing&&ok)committed=input.value;
   const {min,max}=bounds();
@@ -435,14 +441,14 @@ function enhanceNumber(label,input,title){
    // position, not a fake zero from Number('') or a NaN CSS percentage.
    const shown=ok?input.valueAsNumber:Number(committed);
    const hasPosition=usable&&Number.isFinite(shown)&&shown>=min&&shown<=max;
-   slider.disabled=input.matches(':disabled')||!usable||!ok;
+   slider.disabled=sourceUnavailable(input)||!usable||!ok;
    if(hasPosition){
     slider.value=String(shown);
     controls.style.setProperty('--ds-range-progress',
      clamp((shown-min)/(max-min)*100,0,100)+'%');
    }else controls.style.setProperty('--ds-range-progress','0%');
   }
-  setError(!input.matches(':disabled')&&editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
+  setError(!sourceUnavailable(input)&&editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
   const focusedStepper=[minus,plus].find(button=>document.activeElement===button);
   minus.disabled=stepTarget(-1)===null;
   plus.disabled=stepTarget(1)===null;
@@ -460,7 +466,7 @@ function enhanceNumber(label,input,title){
  minus.onclick=()=>increment(-1,minus);plus.onclick=()=>increment(1,plus);
  input.addEventListener('input',event=>{
   if(restoring)return;
-  if(input.matches(':disabled')){event.stopImmediatePropagation();return;}
+  if(sourceUnavailable(input)){event.stopImmediatePropagation();return;}
   editing=true;update();
   // Native number fields emit `input` for empty, out-of-bounds and off-step
   // drafts. Do not leak those invalid values to document-level listeners;
@@ -473,7 +479,7 @@ function enhanceNumber(label,input,title){
   if(restoring)return;
   // Disabling a focused number can synchronously emit a native change
   // before MutationObserver runs. That event must not commit its draft.
-  if(input.matches(':disabled')){
+  if(sourceUnavailable(input)){
    if(editing)rollbackDraft();
    event.preventDefault();event.stopImmediatePropagation();update();return;
   }
@@ -527,7 +533,7 @@ function enhanceColor(label,input,title){
  let editing=false;
  const update=()=>{
   const v=input.value.toUpperCase();
-  if(input.matches(':disabled')){
+  if(sourceUnavailable(input)){
    editing=false;setPipetteError('');
    // Invalidate an in-flight native picker immediately. If this source is
    // re-enabled before the old promise settles, its result is still stale.
@@ -538,10 +544,10 @@ function enhanceColor(label,input,title){
   if(!editing){hex.value=v;setError('');}
   const focusedHex=document.activeElement===hex;
   const focusedPipette=document.activeElement===pipette;
-  hex.disabled=input.matches(':disabled');
+  hex.disabled=sourceUnavailable(input);
   // Keep the busy button keyboard-focusable. Native disabled during a
   // pending EyeDropper request silently moves keyboard focus to <body>.
-  pipette.disabled=input.matches(':disabled')||!canPick;
+  pipette.disabled=sourceUnavailable(input)||!canPick;
   if(picking){
    pipette.setAttribute('aria-busy','true');
    pipette.setAttribute('aria-disabled','true');
@@ -549,8 +555,8 @@ function enhanceColor(label,input,title){
    pipette.removeAttribute('aria-busy');
    pipette.removeAttribute('aria-disabled');
   }
-  if(input.matches(':disabled')&&focusedHex)focusInspectorNeighbor(hex,{visibleOnly:true});
-  if(input.matches(':disabled')&&focusedPipette)focusInspectorNeighbor(pipette,{visibleOnly:true});
+  if(sourceUnavailable(input)&&focusedHex)focusInspectorNeighbor(hex,{visibleOnly:true});
+  if(sourceUnavailable(input)&&focusedPipette)focusInspectorNeighbor(pipette,{visibleOnly:true});
   restoreNativeFocus();
   swatch.style.backgroundColor=v;
  };
@@ -573,7 +579,7 @@ function enhanceColor(label,input,title){
     picking=false;editing=false;nativeCommit(input,result.sRGBHex);update();
    }
   }catch(error){
-   if(epoch===dropperEpoch&&!input.matches(':disabled')&&error?.name!=='AbortError')
+   if(epoch===dropperEpoch&&!sourceUnavailable(input)&&error?.name!=='AbortError')
     setPipetteError('Não foi possível capturar a cor. Tente novamente.');
   }finally{
    // An older promise must not clear a newer request's busy state or focus.
@@ -641,22 +647,22 @@ function enhanceBinary(label,input,title){
   on.setAttribute('aria-pressed',String(input.checked));
   // The native checkbox remains the source of truth for disabled state.
   // In particular, bottomSectionEnabled is disabled when no section is selected.
-  off.disabled=input.matches(':disabled');on.disabled=input.matches(':disabled');
+  off.disabled=sourceUnavailable(input);on.disabled=sourceUnavailable(input);
   // Exactly one sequential Tab stop; arrows and Home/End change selection.
-  off.tabIndex=!input.matches(':disabled')&&!input.checked?0:-1;
-  on.tabIndex=!input.matches(':disabled')&&input.checked?0:-1;
+  off.tabIndex=!sourceUnavailable(input)&&!input.checked?0:-1;
+  on.tabIndex=!sourceUnavailable(input)&&input.checked?0:-1;
   // When a document update selects the other choice while keyboard focus
   // remains on the old one, move focus to the only sequential Tab stop.
   // Otherwise the focused button becomes tabIndex=-1 and Tab can skip the
   // group or unexpectedly revisit its selected choice.
-  if(focused&&input.matches(':disabled'))focusInspectorNeighbor(focused,{visibleOnly:true});
+  if(focused&&sourceUnavailable(input))focusInspectorNeighbor(focused,{visibleOnly:true});
   else if(focused&&focused.tabIndex<0)(input.checked?on:off).focus({preventScroll:true});
  };
  // Synthetic events can arrive before the observer reconciles inherited
  // fieldset, inert/ARIA or CSS permissions. The native checkbox is hidden,
  // so validate the visible button's tree as well as native :disabled.
  const actionable=btn=>input.isConnected&&btn.isConnected&&group.contains(btn)&&
-  !input.matches(':disabled')&&!btn.disabled&&visibleFocusTree(btn);
+  !sourceUnavailable(input)&&!btn.disabled&&visibleFocusTree(btn);
  const commit=(val,origin)=>{
   if(!actionable(origin)||input.checked===val)return;
   input.checked=val;input.dispatchEvent(new Event('input',{bubbles:true}));
@@ -718,7 +724,7 @@ function enhanceSegment(label,select,title){
  // A removed/relabelled option or detached segment button must never commit
  // a stale value, even when a queued click precedes MutationObserver.
  const actionable=(option,btn)=>select.isConnected&&btn.isConnected&&
-  group.contains(btn)&&!btn.disabled&&!select.matches(':disabled')&&
+  group.contains(btn)&&!btn.disabled&&!sourceUnavailable(select)&&
   visibleFocusTree(btn)&&option.isConnected&&option.closest('select')===select&&
   visibleSelectOptions(select).includes(option)&&!isSelectOptionDisabled(option)&&
   option.value===btn.dataset.value&&labelFor(option)===btn.textContent&&
@@ -764,7 +770,7 @@ function enhanceSegment(label,select,title){
   const focusedBeforeDisable=elements.indexOf(document.activeElement);
   for(const [index,btn] of elements.entries()){
    btn.setAttribute('aria-pressed',String(btn.dataset.value===select.value));
-   btn.disabled=select.matches(':disabled')||isSelectOptionDisabled(rendered[index].option);
+   btn.disabled=sourceUnavailable(select)||isSelectOptionDisabled(rendered[index].option);
   }
   if(focusRecovery){
    const {focusedIndex,focusedOption}=focusRecovery;
@@ -955,13 +961,13 @@ function makeListbox(label,select,title){
  select.replaceWith(field);field.append(name,trigger,select);
  if(select.hasAttribute('data-choice-actions')){
   field.classList.add('ds-property-select--quick');
-  const actions=createChoiceActions({label:title,source:select,onUnavailableFocus:origin=>focusInspectorNeighbor(origin,{visibleOnly:true}),readChoices:()=>select.matches(':disabled')?[]:visibleSelectOptions(select).filter(option=>!isSelectOptionDisabled(option)).map(option=>({label:option.textContent,selected:option.selected,apply:()=>nativeCommit(select,option.value)}))});
+  const actions=createChoiceActions({label:title,source:select,onUnavailableFocus:origin=>focusInspectorNeighbor(origin,{visibleOnly:true}),readChoices:()=>sourceUnavailable(select)?[]:visibleSelectOptions(select).filter(option=>!isSelectOptionDisabled(option)).map(option=>({label:option.textContent,selected:option.selected,apply:()=>nativeCommit(select,option.value)}))});
   field.insertBefore(actions,trigger);
  }
  let triggerOwnedFocus=false;
  trigger.addEventListener('focus',()=>{triggerOwnedFocus=true;});
  trigger.addEventListener('blur',()=>{
-  if(!select.matches(':disabled'))triggerOwnedFocus=false;
+  if(!sourceUnavailable(select))triggerOwnedFocus=false;
  });
  const popupId='ds-select-list-'+(++nextUid);
  const searchable=select.hasAttribute('data-searchable');
@@ -974,18 +980,18 @@ function makeListbox(label,select,title){
   if(thumbnail)trigger.prepend(thumbnail);
   // Disabling a focused trigger can synchronously move focus to body.
   // Capture focus BEFORE setting disabled, including when the portal is closed.
-  const disabled=select.matches(':disabled');
+  const disabled=sourceUnavailable(select);
   const triggerWasFocused=document.activeElement===trigger||
    (disabled&&triggerOwnedFocus&&document.activeElement===document.body);
   trigger.disabled=disabled;
   if(disabled)triggerOwnedFocus=false;
-  if(select.matches(':disabled')&&openSelect?.trigger===trigger){
+  if(sourceUnavailable(select)&&openSelect?.trigger===trigger){
    const focusInPopup=openSelect.popup.contains(document.activeElement);
    closePopup({restoreFocus:false});
    if(focusInPopup||triggerWasFocused)focusInspectorNeighbor(trigger,{visibleOnly:true});
    return;
   }
-  if(select.matches(':disabled')&&triggerWasFocused){
+  if(sourceUnavailable(select)&&triggerWasFocused){
    focusInspectorNeighbor(trigger,{visibleOnly:true});
    return;
   }
@@ -1040,13 +1046,13 @@ function makeListbox(label,select,title){
   }
  };
  const open=(preferredValue=null,restoredSearch=null)=>{
-  if(select.matches(':disabled')||!focusTargetAvailable(trigger))return;
+  if(sourceUnavailable(select)||!focusTargetAvailable(trigger))return;
   if(openSelect?.trigger===trigger){closePopup();return;}
   closePopup({restoreFocus:false});
   select.dispatchEvent(new Event('mdress:select-open'));
   // Listeners may synchronously remove or revoke the source while loading a
   // font catalog. Never create a top-layer popup for a revoked anchor.
-  if(!select.isConnected||select.matches(':disabled')||!focusTargetAvailable(trigger))return;
+  if(!select.isConnected||sourceUnavailable(select)||!focusTargetAvailable(trigger))return;
   const popup=document.createElement('div');popup.id=popupId;popup.className='ds-select-popover';
   popup.setAttribute('popover','manual');
   popup.setAttribute('role','listbox');popup.setAttribute('aria-label',title);
@@ -1114,7 +1120,7 @@ function makeListbox(label,select,title){
     if(!item.isConnected||!opt.isConnected||opt.closest('select')!==select||
      !visibleSelectOptions(select).includes(opt)||opt.value!==item.dataset.value||
      (opt.label||opt.textContent)!==text.textContent||
-     !select.isConnected||select.matches(':disabled')||!focusTargetAvailable(trigger)){
+     !select.isConnected||sourceUnavailable(select)||!focusTargetAvailable(trigger)){
      const ownedFocus=popup.contains(document.activeElement);
      closePopup({restoreFocus:false});
      if(ownedFocus)focusInspectorNeighbor(trigger,{visibleOnly:true});
@@ -1174,7 +1180,7 @@ function makeListbox(label,select,title){
   more.addEventListener('click',()=>{
    // Pagination is also portalled: stale detached buttons must be inert.
    if(openSelect?.popup!==popup||!more.isConnected||more.hidden||
-    !select.isConnected||select.matches(':disabled')||!focusTargetAvailable(trigger))return;
+    !select.isConnected||sourceUnavailable(select)||!focusTargetAvailable(trigger))return;
    const firstNew=buttons.length;
    limit+=60;renderOptions();
    // Newly revealed disabled options must not strand focus on a hidden
