@@ -1,3 +1,28 @@
+## UX-023 — color picker: teclado IME e visual viewport (01/11/2026)
+
+**Implementação:** o seletor de cores mantém o foco e não fecha ao receber Escape, Tab ou setas durante composição IME, inclusive quando o navegador omite `isComposing` e `keyCode=229`. Enter continua disponível para confirmar candidatos em campos editáveis, mas não ativa acidentalmente botões/abas. Após `compositionend`, atalhos e edição voltam a funcionar.
+
+**Viewport móvel:** o popup usa o retângulo real de `visualViewport` (dimensões e offsets), limita largura/altura e permite rolagem interna quando o teclado virtual reduz a área útil. Eventos `visualViewport.scroll`/`resize` reposicionam o diálogo; os listeners são liberados ao fechar.
+
+**Regressão Chromium obrigatória:** `node scripts/color-picker-viewport-ime-qa.mjs`, executado pelo Browser Smoke. Exercita teclas nativas durante composição, retomada após IME, mudança de aba e viewport deslocado/reduzido. Evidências: `test-results/color-picker/ime-hex-native-390.png`, `visual-viewport-390.png`, `visual-viewport-keyboard-390.png` e `visual-viewport-resized-390.png`.
+
+**Revisão humana pendente:** testar teclado virtual e IME real em dispositivo; conferir as quatro capturas, legibilidade dos controles com altura útil pequena e rolagem interna. Teste automatizado não aprova UX visual. Sem merge, release ou deploy Cloudflare; PR #27 permanece draft.
+
+**PowerShell:**
+```powershell
+git fetch origin
+git switch feat/23-property-controls-ux-qa
+git pull --ff-only origin feat/23-property-controls-ux-qa
+npm install --include=dev
+npx playwright install chromium
+npm run dev
+# Outro terminal:
+node scripts/color-picker-viewport-ime-qa.mjs
+npm run qa:supervised
+```
+
+---
+
 ## UX-023 — intenção do ponteiro e movimento reduzido (31/10/2026)
 
 **Correções:** o controlador de overflow não confunde um clique deliberado em espaço não focável com perda de foco causada por ocultação/desabilitação posterior. Cliques fora da toolbar **ou no fundo do shell** descartam o último comando/seta focados, evitando roubar o foco de volta quando o componente é alterado. Cliques nas próprias ações preservam o rastreamento necessário à recuperação legítima. A rolagem com `prefers-reduced-motion: reduce` agora utiliza `behavior: 'auto'` (valor padronizado), em vez de `instant` (não padronizado).
