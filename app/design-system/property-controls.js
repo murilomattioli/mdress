@@ -18,6 +18,16 @@ const registerController=(control,update)=>{
  controllers.set(control,update);
  control.setAttribute('data-ds-sync-control','');
 };
+// Fieldset disabled is inherited, not reflected by native .disabled.
+// Observe ancestor permissions, including the first-legend exception.
+function watchDisabledAncestors(control,update){
+ const observer=new MutationObserver(update);
+ for(let node=control.parentElement;node;node=node.parentElement)
+  if(node.tagName==='FIELDSET')observer.observe(node,{
+   attributes:true,attributeFilter:['disabled'],childList:true
+  });
+}
+
 let openSelect=null;
 let nextUid=0;
 const $=(id)=>document.getElementById(id);
@@ -182,9 +192,9 @@ function feedbackFor(label,control){
 function watchDisabledNativeFocus(input){
  let hadFocus=false;
  input.addEventListener('focus',()=>{hadFocus=true;});
- input.addEventListener('blur',()=>{if(!input.disabled)hadFocus=false;});
+ input.addEventListener('blur',()=>{if(!input.matches(':disabled'))hadFocus=false;});
  return ()=>{
-  if(!input.disabled){hadFocus=document.activeElement===input;return;}
+  if(!input.matches(':disabled')){hadFocus=document.activeElement===input;return;}
   if(hadFocus&&(document.activeElement===input||document.activeElement===document.body))
    focusInspectorNeighbor(input,{visibleOnly:true});
   hadFocus=false;
@@ -258,9 +268,9 @@ function enhanceRange(label,input,title){
   const value=Number(input.value);
   const pct=boundsValid?(clamp(value,min,max)-min)/(max-min)*100:0;
   field.style.setProperty('--ds-range-progress',pct+'%');
-  if(input.disabled)editing=false;
+  if(input.matches(':disabled'))editing=false;
   const focusedPrecision=document.activeElement===numeric;
-  numeric.disabled=input.disabled;
+  numeric.disabled=input.matches(':disabled');
   const {step}=rangeConstraints(input);
   // A partially typed or invalid precision value belongs to the editor until
   // corrected or cancelled. Disable steppers rather than silently replacing
@@ -269,13 +279,13 @@ function enhanceRange(label,input,title){
   // Stepper availability follows the visible valid draft, not stale native state.
   const stepperValue=editing&&!invalidDraft?numeric.valueAsNumber:value;
   const focusedStepper=[minus,plus].find(button=>document.activeElement===button);
-  minus.disabled=input.disabled||!boundsValid||invalidDraft||rangeStepTarget(stepperValue,-1,min,max,step)===null;
-  plus.disabled=input.disabled||!boundsValid||invalidDraft||rangeStepTarget(stepperValue,1,min,max,step)===null;
+  minus.disabled=input.matches(':disabled')||!boundsValid||invalidDraft||rangeStepTarget(stepperValue,-1,min,max,step)===null;
+  plus.disabled=input.matches(':disabled')||!boundsValid||invalidDraft||rangeStepTarget(stepperValue,1,min,max,step)===null;
   if(focusedStepper?.disabled)focusInspectorNeighbor(focusedStepper,{visibleOnly:true});
-  if(input.disabled&&focusedPrecision)focusInspectorNeighbor(numeric,{visibleOnly:true});
+  if(input.matches(':disabled')&&focusedPrecision)focusInspectorNeighbor(numeric,{visibleOnly:true});
   restoreNativeFocus();
   if(!editing)numeric.value=input.value;
-  setError(!input.disabled&&editing?
+  setError(!input.matches(':disabled')&&editing?
    (!boundsValid?'Verifique os limites e o incremento da faixa.':!valid()?validationMessage(numeric,min,max,unit):''):'');
   if(!Number.isNaN(value))field.setAttribute('data-value',formatControlValue(value,unit));
  };
@@ -319,7 +329,7 @@ function enhanceRange(label,input,title){
  });
  const output=label.querySelector('output');if(output)output.classList.add('property-visually-hidden');
  new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled','min','max','step']});
- registerController(input,update);update();
+ watchDisabledAncestors(input,update);registerController(input,update);update();
 }
 function enhanceNumber(label,input,title){
  label.classList.add('ds-property-row','ds-property-row--number');
@@ -351,7 +361,7 @@ function enhanceNumber(label,input,title){
  // bases and absent bounds. The previous synthetic 0..999 range blocked
  // negative and large values even when the HTML input allowed them.
  const stepTarget=direction=>{
-  if(input.disabled||!valid())return null;
+  if(input.matches(':disabled')||!valid())return null;
   const probe=input.cloneNode(false);
   probe.value=input.value;
   try{
@@ -384,7 +394,7 @@ function enhanceNumber(label,input,title){
   // Disabling a numeric field must discard its uncommitted draft, just like
   // the range and hex controls. Otherwise an invalid number can remain in
   // the native source of truth after the inspector becomes read-only.
-  if(input.disabled&&editing)rollbackDraft();
+  if(input.matches(':disabled')&&editing)rollbackDraft();
   const ok=valid();
   if(!editing&&ok)committed=input.value;
   const {min,max}=bounds();
@@ -397,14 +407,14 @@ function enhanceNumber(label,input,title){
    // position, not a fake zero from Number('') or a NaN CSS percentage.
    const shown=ok?input.valueAsNumber:Number(committed);
    const hasPosition=usable&&Number.isFinite(shown)&&shown>=min&&shown<=max;
-   slider.disabled=input.disabled||!usable||!ok;
+   slider.disabled=input.matches(':disabled')||!usable||!ok;
    if(hasPosition){
     slider.value=String(shown);
     controls.style.setProperty('--ds-range-progress',
      clamp((shown-min)/(max-min)*100,0,100)+'%');
    }else controls.style.setProperty('--ds-range-progress','0%');
   }
-  setError(!input.disabled&&editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
+  setError(!input.matches(':disabled')&&editing&&!ok?validationMessage(input,min,max,unitOf(input)):'');
   const focusedStepper=[minus,plus].find(button=>document.activeElement===button);
   minus.disabled=stepTarget(-1)===null;
   plus.disabled=stepTarget(1)===null;
@@ -422,6 +432,7 @@ function enhanceNumber(label,input,title){
  minus.onclick=()=>increment(-1,minus);plus.onclick=()=>increment(1,plus);
  input.addEventListener('input',event=>{
   if(restoring)return;
+  if(input.matches(':disabled')){event.stopImmediatePropagation();return;}
   editing=true;update();
   // Native number fields emit `input` for empty, out-of-bounds and off-step
   // drafts. Do not leak those invalid values to document-level listeners;
@@ -434,7 +445,7 @@ function enhanceNumber(label,input,title){
   if(restoring)return;
   // Disabling a focused number can synchronously emit a native change
   // before MutationObserver runs. That event must not commit its draft.
-  if(input.disabled){
+  if(input.matches(':disabled')){
    if(editing)rollbackDraft();
    event.preventDefault();event.stopImmediatePropagation();update();return;
   }
@@ -448,7 +459,7 @@ function enhanceNumber(label,input,title){
   event.preventDefault();rollbackDraft();update();
  });
  new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled','min','max','step']});
- registerController(input,update);update();
+ watchDisabledAncestors(input,update);registerController(input,update);update();
 }
 function enhanceColor(label,input,title){
  label.classList.add('ds-property-row','ds-property-row--color');
@@ -488,7 +499,7 @@ function enhanceColor(label,input,title){
  let editing=false;
  const update=()=>{
   const v=input.value.toUpperCase();
-  if(input.disabled){
+  if(input.matches(':disabled')){
    editing=false;setPipetteError('');
    // Invalidate an in-flight native picker immediately. If this source is
    // re-enabled before the old promise settles, its result is still stale.
@@ -499,10 +510,10 @@ function enhanceColor(label,input,title){
   if(!editing){hex.value=v;setError('');}
   const focusedHex=document.activeElement===hex;
   const focusedPipette=document.activeElement===pipette;
-  hex.disabled=input.disabled;
+  hex.disabled=input.matches(':disabled');
   // Keep the busy button keyboard-focusable. Native disabled during a
   // pending EyeDropper request silently moves keyboard focus to <body>.
-  pipette.disabled=input.disabled||!canPick;
+  pipette.disabled=input.matches(':disabled')||!canPick;
   if(picking){
    pipette.setAttribute('aria-busy','true');
    pipette.setAttribute('aria-disabled','true');
@@ -510,8 +521,8 @@ function enhanceColor(label,input,title){
    pipette.removeAttribute('aria-busy');
    pipette.removeAttribute('aria-disabled');
   }
-  if(input.disabled&&focusedHex)focusInspectorNeighbor(hex,{visibleOnly:true});
-  if(input.disabled&&focusedPipette)focusInspectorNeighbor(pipette,{visibleOnly:true});
+  if(input.matches(':disabled')&&focusedHex)focusInspectorNeighbor(hex,{visibleOnly:true});
+  if(input.matches(':disabled')&&focusedPipette)focusInspectorNeighbor(pipette,{visibleOnly:true});
   restoreNativeFocus();
   swatch.style.backgroundColor=v;
  };
@@ -534,7 +545,7 @@ function enhanceColor(label,input,title){
     picking=false;editing=false;nativeCommit(input,result.sRGBHex);update();
    }
   }catch(error){
-   if(epoch===dropperEpoch&&!input.disabled&&error?.name!=='AbortError')
+   if(epoch===dropperEpoch&&!input.matches(':disabled')&&error?.name!=='AbortError')
     setPipetteError('Não foi possível capturar a cor. Tente novamente.');
   }finally{
    // An older promise must not clear a newer request's busy state or focus.
@@ -580,7 +591,10 @@ function enhanceColor(label,input,title){
   if(records.length&&picking){dropperEpoch++;picking=false;}
   update();
  }).observe(input,{attributes:true,attributeFilter:['disabled']});
- registerController(input,update);update();
+ watchDisabledAncestors(input,()=>{
+  if(picking){dropperEpoch++;picking=false;}
+  update();
+ });registerController(input,update);update();
 }
 function enhanceBinary(label,input,title){
  label.classList.add('ds-property-row','ds-property-row--binary');
@@ -599,15 +613,15 @@ function enhanceBinary(label,input,title){
   on.setAttribute('aria-pressed',String(input.checked));
   // The native checkbox remains the source of truth for disabled state.
   // In particular, bottomSectionEnabled is disabled when no section is selected.
-  off.disabled=input.disabled;on.disabled=input.disabled;
+  off.disabled=input.matches(':disabled');on.disabled=input.matches(':disabled');
   // Exactly one sequential Tab stop; arrows and Home/End change selection.
-  off.tabIndex=!input.disabled&&!input.checked?0:-1;
-  on.tabIndex=!input.disabled&&input.checked?0:-1;
+  off.tabIndex=!input.matches(':disabled')&&!input.checked?0:-1;
+  on.tabIndex=!input.matches(':disabled')&&input.checked?0:-1;
   // When a document update selects the other choice while keyboard focus
   // remains on the old one, move focus to the only sequential Tab stop.
   // Otherwise the focused button becomes tabIndex=-1 and Tab can skip the
   // group or unexpectedly revisit its selected choice.
-  if(focused&&input.disabled)focusInspectorNeighbor(focused,{visibleOnly:true});
+  if(focused&&input.matches(':disabled'))focusInspectorNeighbor(focused,{visibleOnly:true});
   else if(focused&&focused.tabIndex<0)(input.checked?on:off).focus({preventScroll:true});
  };
  // Synthetic events can arrive before the observer reconciles inherited
@@ -631,7 +645,7 @@ function enhanceBinary(label,input,title){
  });
  input.addEventListener('change',update);
  new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
- registerController(input,update);update();
+ watchDisabledAncestors(input,update);registerController(input,update);update();
 }
 // Keyboard navigation must never land on a disabled segment (including disabled optgroups).
 export function nextEnabledSegmentIndex(disabled,current,key,layoutDirection='ltr'){
@@ -756,7 +770,7 @@ function enhanceSegment(label,select,title){
   subtree:true,childList:true,characterData:true,attributes:true,
   attributeFilter:['disabled','hidden','label','value']
  });
- select.addEventListener('change',update);registerController(select,update);update();
+ select.addEventListener('change',update);watchDisabledAncestors(select,update);registerController(select,update);update();
 }
 function closePopup({restoreFocus=true}={}){
  if(!openSelect)return;
@@ -913,9 +927,14 @@ function makeListbox(label,select,title){
  select.replaceWith(field);field.append(name,trigger,select);
  if(select.hasAttribute('data-choice-actions')){
   field.classList.add('ds-property-select--quick');
-  const actions=createChoiceActions({label:title,source:select,onUnavailableFocus:origin=>focusInspectorNeighbor(origin,{visibleOnly:true}),readChoices:()=>select.disabled?[]:visibleSelectOptions(select).filter(option=>!isSelectOptionDisabled(option)).map(option=>({label:option.textContent,selected:option.selected,apply:()=>nativeCommit(select,option.value)}))});
+  const actions=createChoiceActions({label:title,source:select,onUnavailableFocus:origin=>focusInspectorNeighbor(origin,{visibleOnly:true}),readChoices:()=>select.matches(':disabled')?[]:visibleSelectOptions(select).filter(option=>!isSelectOptionDisabled(option)).map(option=>({label:option.textContent,selected:option.selected,apply:()=>nativeCommit(select,option.value)}))});
   field.insertBefore(actions,trigger);
  }
+ let triggerOwnedFocus=false;
+ trigger.addEventListener('focus',()=>{triggerOwnedFocus=true;});
+ trigger.addEventListener('blur',()=>{
+  if(!select.matches(':disabled'))triggerOwnedFocus=false;
+ });
  const popupId='ds-select-list-'+(++nextUid);
  const searchable=select.hasAttribute('data-searchable');
  const update=()=>{
@@ -927,15 +946,18 @@ function makeListbox(label,select,title){
   if(thumbnail)trigger.prepend(thumbnail);
   // Disabling a focused trigger can synchronously move focus to body.
   // Capture focus BEFORE setting disabled, including when the portal is closed.
-  const triggerWasFocused=document.activeElement===trigger;
-  trigger.disabled=select.disabled;
-  if(select.disabled&&openSelect?.trigger===trigger){
+  const disabled=select.matches(':disabled');
+  const triggerWasFocused=document.activeElement===trigger||
+   (disabled&&triggerOwnedFocus&&document.activeElement===document.body);
+  trigger.disabled=disabled;
+  if(disabled)triggerOwnedFocus=false;
+  if(select.matches(':disabled')&&openSelect?.trigger===trigger){
    const focusInPopup=openSelect.popup.contains(document.activeElement);
    closePopup({restoreFocus:false});
    if(focusInPopup||triggerWasFocused)focusInspectorNeighbor(trigger,{visibleOnly:true});
    return;
   }
-  if(select.disabled&&triggerWasFocused){
+  if(select.matches(':disabled')&&triggerWasFocused){
    focusInspectorNeighbor(trigger,{visibleOnly:true});
    return;
   }
@@ -990,7 +1012,7 @@ function makeListbox(label,select,title){
   }
  };
  const open=(preferredValue=null,restoredSearch=null)=>{
-  if(select.disabled||!focusTargetAvailable(trigger))return;
+  if(select.matches(':disabled')||!focusTargetAvailable(trigger))return;
   if(openSelect?.trigger===trigger){closePopup();return;}
   closePopup({restoreFocus:false});
   select.dispatchEvent(new Event('mdress:select-open'));
@@ -1242,7 +1264,7 @@ function makeListbox(label,select,title){
  trigger.addEventListener('keydown',e=>{if(isImeKeyEvent(e))return;if(['Enter',' ','ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();open();}});
  select.addEventListener('change',()=>queueMicrotask(update));
  const observer=new MutationObserver(update);observer.observe(select,{childList:true,subtree:true,attributes:true,attributeFilter:['selected','label','disabled','hidden','value'],characterData:true});
- registerController(select,update);update();
+ watchDisabledAncestors(select,update);registerController(select,update);update();
 }
 function accordionChevron(){
  // Drawn SVG, not a font glyph. Same geometry in every browser/theme.
