@@ -521,3 +521,14 @@ Não há aprovação automática da UX, merge, release ou publicação Cloudflar
 Um `aria-label` é nome acessível, **não** identificador estável. Um picker aberto em um `input[type=color]` sem `id` ou `data-mdress-source-key` não deve migrar para outro campo com o mesmo rótulo (ou ambos sem rótulo) depois de uma remoção. Remontagem só é permitida quando o ID ou a chave lógica identifica **exatamente um** input; chaves/IDs duplicados invalidam a transferência. A fonte original anônima continua editável enquanto conectada.
 
 Regressão obrigatória: `node scripts/color-picker-source-identity-qa.mjs` (Browser Smoke). Casos: sem nome, nome compartilhado, nome exclusivo, remount por chave lógica/ID estável e chave/ID ambíguos. Evidências: `test-results/color-picker/source-identity-*.png`. Esses cenários comprovam segurança de associação, **não** homologação visual; avaliar screenshots e fluxo interativo antes de fechar a issue.
+
+## Color Picker — saída de Tab com radios e fontes sem Tab stop (01/11/2026)
+
+A saída de um picker não modal deve continuar a navegação a partir da fonte original, sem pular para um controle distante nem modificar uma escolha de rádio. O `scripts/color-picker-qa.mjs` verifica, em Chromium móvel de 390 px:
+
+- Fonte `tabindex="-1"` com vizinhos `tabindex` positivos: Tab e Shift+Tab alcançam o vizinho disponível mais próximo na ordem DOM.
+- Grupo de rádios com opção marcada: Tab e Shift+Tab alcançam somente a opção marcada, ignorando membros desmarcados.
+- Grupo sem opção marcada: foco vai ao primeiro rádio habilitado; com o primeiro desabilitado, avança ao próximo habilitado.
+- Evidências: `test-results/color-picker/tab-exit-pointer-positive-*.png` e `tab-exit-radio-*.png` (incluídas no bundle do Browser Smoke).
+
+A aprovação depende de inspeção humana das imagens e interação com teclado real; os testes de foco não substituem homologação visual. Nenhum merge, deploy ou release é autorizado por esses checks.
