@@ -958,6 +958,9 @@ function makeListbox(label,select,title){
   if(openSelect?.trigger===trigger){closePopup();return;}
   closePopup({restoreFocus:false});
   select.dispatchEvent(new Event('mdress:select-open'));
+  // Listeners may synchronously remove or revoke the source while loading a
+  // font catalog. Never create a top-layer popup for a revoked anchor.
+  if(!select.isConnected||select.matches(':disabled')||!focusTargetAvailable(trigger))return;
   const popup=document.createElement('div');popup.id=popupId;popup.className='ds-select-popover';
   popup.setAttribute('popover','manual');
   popup.setAttribute('role','listbox');popup.setAttribute('aria-label',title);
@@ -1018,7 +1021,14 @@ function makeListbox(label,select,title){
     // inert/ARIA permissions. A synchronous synthetic click can precede the
     // ancestor MutationObserver that closes a revoked popup. Revalidate the
     // live trigger and native source at the moment of the action.
-    if(!select.isConnected||select.matches(':disabled')||!focusTargetAvailable(trigger)){
+    // Detached or obsolete option buttons retain JS listeners. A queued
+    // click must not commit after closing/rebuilding the portal or after the
+    // underlying option is removed, hidden or relabeled before observer flush.
+    if(openSelect?.popup!==popup)return;
+    if(!item.isConnected||!opt.isConnected||opt.closest('select')!==select||
+     !visibleSelectOptions(select).includes(opt)||opt.value!==item.dataset.value||
+     (opt.label||opt.textContent)!==text.textContent||
+     !select.isConnected||select.matches(':disabled')||!focusTargetAvailable(trigger)){
      const ownedFocus=popup.contains(document.activeElement);
      closePopup({restoreFocus:false});
      if(ownedFocus)focusInspectorNeighbor(trigger,{visibleOnly:true});
@@ -1076,6 +1086,9 @@ function makeListbox(label,select,title){
   };
   renderOptions();
   more.addEventListener('click',()=>{
+   // Pagination is also portalled: stale detached buttons must be inert.
+   if(openSelect?.popup!==popup||!more.isConnected||more.hidden||
+    !select.isConnected||select.matches(':disabled')||!focusTargetAvailable(trigger))return;
    const firstNew=buttons.length;
    limit+=60;renderOptions();
    // Newly revealed disabled options must not strand focus on a hidden
