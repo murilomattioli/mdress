@@ -59,7 +59,10 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    // and content-visibility:hidden on ancestors cannot.
    const visibility=getComputedStyle(more).visibility;
    if(visibility==='hidden'||visibility==='collapse')return false;
-   for(let node=more;node;node=node.parentElement){
+   // The menu trigger itself is intentionally hidden when the final action
+   // disappears. That does not revoke the accordion host or its toggle:
+   // the keyboard focus must still return to that toggle, not the editor.
+   for(let node=header;node;node=node.parentElement){
     if(node.hidden)return false;
     const style=getComputedStyle(node);
     if(style.display==='none'||style.contentVisibility==='hidden')return false;
