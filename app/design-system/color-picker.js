@@ -75,7 +75,14 @@ export function openColorPicker(input){
  const sourceKey=input.dataset.mdressSourceKey;
  const sourceId=input.id;
  const anchor=()=>{
-  if(input.isConnected)return input;
+  // Virtualized rows may recycle the SAME native input node for another
+  // logical mesh point without disconnecting it. Connectivity alone is not
+  // proof of ownership: revoke the picker if either identity has changed.
+  // The same check also covers a detached node reinserted under a new key.
+  if(input.isConnected){
+   if(input.dataset.mdressSourceKey!==sourceKey||input.id!==sourceId)return null;
+   return input;
+  }
   // Labels are presentation, not identity: anonymous color inputs can share
   // the same name (or have no name at all). Never hand a detached picker's
   // edits to an unrelated input merely because its aria-label matches.
