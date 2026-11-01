@@ -52,6 +52,8 @@ jobs:
         run: node scripts/color-picker-permissions-qa.mjs
       - name: Color picker — native IME and mobile visual viewport
         run: node scripts/color-picker-viewport-ime-qa.mjs
+      - name: Color picker — stable source identity across dynamic remounts
+        run: node scripts/color-picker-source-identity-qa.mjs
       - name: PDF weight interactions
         run: node scripts/pdf-weight-qa.mjs
       - name: Component UX Audit
