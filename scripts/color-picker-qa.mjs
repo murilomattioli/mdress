@@ -479,6 +479,35 @@ try{
  assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-before',
   'Reverse Tab must advance to the previous document control before the source');
  await tabPage.screenshot({path:'test-results/color-picker/tab-exit-reverse-390.png',animations:'disabled'});
+ // Positive tabindex values take precedence over DOM order. This fixture
+ // deliberately reverses the two adjacent buttons in keyboard order:
+ // after (1) -> source (2) -> before (3), despite before/source/after in DOM.
+ // A DOM-only handoff incorrectly chooses the opposite destination.
+ await tabPage.evaluate(async()=>{
+  document.getElementById('ux23-tab-before').tabIndex=3;
+  document.getElementById('ux23-tab-source').tabIndex=2;
+  document.getElementById('ux23-tab-after').tabIndex=1;
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(document.getElementById('ux23-tab-source'));
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-saved-color').last().focus();
+ await tabPage.keyboard.press('Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-before',
+  'Forward Tab must honor positive tabindex, even when the next target precedes the source in DOM');
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-positive-forward-390.png',animations:'disabled'});
+ await tabPage.evaluate(async()=>{
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(document.getElementById('ux23-tab-source'));
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-header button:enabled').first().focus();
+ await tabPage.keyboard.press('Shift+Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-after',
+  'Reverse Tab must honor positive tabindex, even when the previous target follows the source in DOM');
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-positive-reverse-390.png',animations:'disabled'});
  await tabPage.close();
  console.log('Color picker: palette, spectrum pointer/keyboard, RGB, invalid HEX, persistence, saved colors, Escape/focus and overflow passed at 1440/768/390/320.');
 }finally{await browser.close();}
