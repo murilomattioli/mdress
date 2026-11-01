@@ -566,6 +566,71 @@ try{
  assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-earlier',
   'Shift+Tab must skip disabled neighbors when a color source is pointer-only');
  await tabPage.screenshot({path:'test-results/color-picker/tab-exit-pointer-only-disabled-reverse-390.png',animations:'disabled'});
+ // Pointer-only sources can sit between controls with positive tabindex.
+ // Their nearest DOM neighbors are still valid destinations, even though
+ // the source itself has no sequential Tab stop.
+ await tabPage.evaluate(async()=>{
+  document.getElementById('ux23-tab-earlier').tabIndex=4;
+  document.getElementById('ux23-tab-later').tabIndex=5;
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(document.getElementById('ux23-tab-source'));
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-saved-color').last().focus();
+ await tabPage.keyboard.press('Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-later',
+  'Pointer-only Tab must not skip a positive-tabindex neighbor');
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-pointer-positive-forward-390.png',animations:'disabled'});
+ await tabPage.evaluate(async()=>{
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(document.getElementById('ux23-tab-source'));
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-header button:enabled').first().focus();
+ await tabPage.keyboard.press('Shift+Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-earlier',
+  'Pointer-only Shift+Tab must not skip a positive-tabindex neighbor');
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-pointer-positive-reverse-390.png',animations:'disabled'});
+ // Native radio groups have a single sequential Tab stop. A non-modal
+ // picker must hand focus to the checked radio, never to an unchecked peer
+ // whose focus could silently change the user's selected option.
+ await tabPage.evaluate(async()=>{
+  const source=document.getElementById('ux23-tab-source');
+  const group=document.createElement('div');group.id='ux23-tab-radios';
+  for(let i=0;i<2;i++){
+   const radio=document.createElement('input');radio.type='radio';
+   radio.name='ux23-tab-radio-choice';radio.id='ux23-tab-radio-'+i;
+   radio.setAttribute('aria-label','Opção '+i);radio.checked=i===1;
+   group.append(radio);
+  }
+  source.after(group);
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(source);
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-saved-color').last().focus();
+ await tabPage.keyboard.press('Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-radio-1',
+  'Tab into a radio group must focus its checked member');
+ assert.equal(await tabPage.locator('#ux23-tab-radio-1').isChecked(),true);
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-radio-forward-390.png',animations:'disabled'});
+ await tabPage.evaluate(async()=>{
+  const source=document.getElementById('ux23-tab-source');
+  source.before(document.getElementById('ux23-tab-radios'));
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(source);
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-header button:enabled').first().focus();
+ await tabPage.keyboard.press('Shift+Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-radio-1',
+  'Shift+Tab into a radio group must focus its checked member');
+ assert.equal(await tabPage.locator('#ux23-tab-radio-1').isChecked(),true);
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-radio-reverse-390.png',animations:'disabled'});
  await tabPage.close();
  console.log('Color picker: palette, spectrum pointer/keyboard, RGB, invalid HEX, persistence, saved colors, Escape/focus and overflow passed at 1440/768/390/320.');
 }finally{await browser.close();}
