@@ -96,23 +96,48 @@ try{
   allowedOption.click();
   const allowed={value:legend.select.value,edits:legend.edits(),
    inheritedDisabled:legend.select.matches(':disabled')};
+  // Top-layer options must not bypass CSS, ARIA or inert permissions even
+  // when a synthetic click happens in the same task as the revocation.
+  const revocations=[
+   ['ux23-hidden-commit',host=>{host.hidden=true;}],
+   ['ux23-inert-commit',host=>{host.inert=true;}],
+   ['ux23-aria-commit',host=>{host.setAttribute('aria-disabled','true');}],
+   ['ux23-css-commit',host=>{host.style.display='none';}],
+   ['ux23-visibility-commit',host=>{host.style.visibility='hidden';}],
+   ['ux23-disabled-source-commit',(_host,select)=>{select.disabled=true;}]
+  ];
+  const revoked=[];
+  for(const [id,revoke] of revocations){
+   const control=create(id);
+   const stale=optionFor(control.trigger);
+   if(!stale)throw Error('Missing option for '+id);
+   revoke(control.fieldset,control.select);
+   stale.click();
+   revoked.push({id,value:control.select.value,edits:control.edits()});
+  }
   const detached=create('ux23-detached-commit');
   const staleOption=optionFor(detached.trigger);
   if(!staleOption)throw Error('Missing portalled option for detached test');
   detached.fieldset.remove();
   staleOption.click();
   const stale={value:detached.select.value,edits:detached.edits()};
-  return {blocked,allowed,stale};
+  return {blocked,allowed,stale,revoked};
  });
  assert.deepEqual(nativeCommitGuards,{
   blocked:{value:'first',edits:0,inheritedDisabled:true},
   allowed:{value:'second',edits:1,inheritedDisabled:false},
-  stale:{value:'first',edits:0}
- },'Native commits must respect inherited disabled fieldsets, the first legend and detached sources');
+  stale:{value:'first',edits:0},
+  revoked:['ux23-hidden-commit','ux23-inert-commit','ux23-aria-commit',
+   'ux23-css-commit','ux23-visibility-commit','ux23-disabled-source-commit']
+   .map(id=>({id,value:'first',edits:0}))
+ },'Portalled options must not commit after inherited, CSS, ARIA, inert or detached revocation');
  await page.screenshot({path:'test-results/header-native-commit-guards.png',animations:'disabled'});
  await page.evaluate(()=>{
   document.querySelector('#ux23-inherited-commit')?.remove();
   document.querySelector('#ux23-legend-commit')?.remove();
+  for(const id of ['ux23-hidden-commit','ux23-inert-commit','ux23-aria-commit',
+   'ux23-css-commit','ux23-visibility-commit','ux23-disabled-source-commit'])
+   document.getElementById(id)?.remove();
  });
  // Roving tab navigation must skip dynamically unavailable destinations.
  // A programmatic tab change must not strand focus in the hidden old panel.
