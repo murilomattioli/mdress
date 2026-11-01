@@ -253,7 +253,7 @@ try{
     await page.waitForFunction(previous=>{
      const selected=document.querySelector('#backgroundGallery button[aria-pressed="true"]');
      return Boolean(selected)&&selected.getAttribute('aria-label')!==previous;
-    },previousPreset);
+    },previousPreset,{timeout:10000});
     assert.equal(await gallery.locator('.ds-accordion-body').evaluate(el=>el.hidden),true,
      'Header quick action must not expand the accordion');
     await page.screenshot({path:`test-results/ux-audit/quick-gallery-collapsed-${theme}-${width}.png`,animations:'disabled'});
