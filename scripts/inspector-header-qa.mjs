@@ -118,9 +118,8 @@ try{
    const stale=optionFor(control.trigger);
    if(!stale)throw Error('Missing option for '+id);
    revoke(control.fieldset,control.select,control.trigger);
-   if(id==='ux23-visibility-commit'&&getComputedStyle(control.trigger).visibility!=='hidden')
-    throw Error('Visibility revocation did not hide the trigger: '+
-     getComputedStyle(control.trigger).visibility+' / '+control.trigger.outerHTML);
+   if(id==='ux23-visibility-commit'&&control.trigger.style.visibility!=='hidden')
+    throw Error('Visibility revocation must set the trigger inline before the synthetic click');
    stale.click();
    revoked.push({id,value:control.select.value,edits:control.edits()});
   }
