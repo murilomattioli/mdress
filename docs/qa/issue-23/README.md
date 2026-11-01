@@ -551,3 +551,7 @@ O teste `node scripts/property-rtl-keyboard-qa.mjs` usa Chromium móvel de 390px
 - `color-picker-tabs-rtl-390.png`: abas do seletor portalled com sentido RTL.
 
 Verificar visualmente ordem, espaçamento, contraste, estados selecionados, foco perceptível e alvos de toque. As setas esquerda/direita seguem a posição **física** dos controles; Home/End preservam as extremidades da sequência. Testes automatizados não constituem homologação de UX.
+
+### Permissões herdadas de fieldset
+
+`node scripts/property-fieldset-qa.mjs` verifica no Chromium a 390px a sincronização de disabled em range, número, cor, binário, segmento e select, a exceção do primeiro legend, a retomada após reabilitação e a invalidação de EyeDropper assíncrono quando o fieldset é revogado e restaurado na mesma task. Evidências: `fieldset-{enabled,disabled,restored}-390.png`. A avaliação visual e interativa humana continua obrigatória.
