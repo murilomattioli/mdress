@@ -1,10 +1,16 @@
 // Make overflowed Markdown actions discoverable without hiding keyboard focus.
 const overflowInstances=new WeakMap();
 let nextToolbarId=0;
-export function toolbarOverflowState({scrollLeft,scrollWidth,clientWidth}){
+export function toolbarOverflowState({scrollLeft,scrollWidth,clientWidth},direction='ltr'){
  const max=Math.max(0,scrollWidth-clientWidth);
  const overflow=max>2;
- return {overflow,canScrollPrevious:overflow&&scrollLeft>1,canScrollNext:overflow&&scrollLeft<max-1};
+ // RTL scrollports in Chromium/Firefox/Safari expose a negative scrollLeft:
+ // zero is the right edge, -max is the left edge. Arrows describe physical
+ // directions, so do not apply the LTR boundary checks to RTL toolbars.
+ const rtl=direction==='rtl';
+ return {overflow,
+  canScrollPrevious:overflow&&(rtl?scrollLeft>-max+1:scrollLeft>1),
+  canScrollNext:overflow&&(rtl?scrollLeft< -1:scrollLeft<max-1)};
 }
 export function focusedToolbarDelta(control,viewport,padding=6){
  // At high zoom or very narrow split panes a control can be wider than the
@@ -39,7 +45,7 @@ export function attachToolbarOverflow(toolbar){
    // disabled and hidden. Revalidate the live host permissions and scroll
    // boundary instead of trusting the previous frame's arrow state.
    if(disposed||node.disabled||!visibleInTree(node)||!visibleInTree(toolbar))return;
-   const state=toolbarOverflowState(toolbar);
+   const state=toolbarOverflowState(toolbar,getComputedStyle(toolbar).direction);
    if(!(direction<0?state.canScrollPrevious:state.canScrollNext))return;
    toolbar.scrollBy({
     left:direction*Math.max(140,Math.round(toolbar.clientWidth*.7)),
@@ -133,7 +139,7 @@ export function attachToolbarOverflow(toolbar){
   recoverActionFocus();
   // A hidden/disabled toolbar must not leave visible, tabbable scroll arrows
   // outside it. The shell itself may be hidden by a responsive ancestor.
-  const state=visibleInTree(toolbar)?toolbarOverflowState(toolbar):
+  const state=visibleInTree(toolbar)?toolbarOverflowState(toolbar,getComputedStyle(toolbar).direction):
    {overflow:false,canScrollPrevious:false,canScrollNext:false};
   // Disabling a focused scroll button at the end of its track can dump
   // keyboard users onto <body>. Capture focus before toggling disabled.
