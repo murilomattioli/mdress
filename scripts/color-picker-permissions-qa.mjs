@@ -195,6 +195,42 @@ try{
  assert.deepEqual(stale.afterSwitch,{original:'#010203',replacement:'#0a0b0c'},
   'A superseded picker cannot edit either native source');
  await page.waitForFunction(()=>document.querySelectorAll('dialog.mdress-color-picker').length===0);
+ // Mesh points reuse positional input IDs after deletion. A color-only
+ // redraw must keep editing the same point, but a different point at that
+ // index must not receive a stale picker commit.
+ const meshRemount=await page.evaluate(async()=>{
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  let input=document.getElementById('ux23-color-source');
+  input.dataset.mdressSourceKey='mesh:0:10:12:78:0.8';
+  input.value='#010203';openColorPicker(input);
+  const old=document.querySelector('dialog.mdress-color-picker[open]');
+  const replacement=input.cloneNode();replacement.value='#010203';
+  input.replaceWith(replacement);
+  const hex=old.querySelector('.cp-hex');hex.value='#112233';
+  hex.dispatchEvent(new Event('change',{bubbles:true}));
+  const preserved={dialog:old.open,value:replacement.value};
+  old.close();
+  return preserved;
+ });
+ assert.deepEqual(meshRemount,{dialog:true,value:'#112233'},
+  'Color-only mesh remount must preserve the active logical point');
+ await page.waitForFunction(()=>!document.querySelector('dialog.mdress-color-picker'));
+ const staleMesh=await page.evaluate(async()=>{
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  const input=document.getElementById('ux23-color-source');
+  openColorPicker(input);
+  const dialog=document.querySelector('dialog.mdress-color-picker[open]');
+  const different=input.cloneNode();
+  different.dataset.mdressSourceKey='mesh:0:88:22:78:0.75';
+  different.value='#998877';input.replaceWith(different);
+  const hex=dialog.querySelector('.cp-hex');hex.value='#abcdef';
+  hex.dispatchEvent(new Event('change',{bubbles:true}));
+  return {value:different.value,open:dialog.open};
+ });
+ assert.deepEqual(staleMesh,{value:'#998877',open:false},
+  'Deleting/reindexing mesh points must not redirect stale color edits');
+ await page.waitForFunction(()=>!document.querySelector('dialog.mdress-color-picker'));
+ await page.screenshot({path:'test-results/color-picker/mesh-remount-identity.png',animations:'disabled'});
  // Responsive CSS can revoke a source without any attribute mutation.
  // The resize path must dismiss the portalled editor before a stale commit.
  const responsiveStyle=await page.addStyleTag({content:
