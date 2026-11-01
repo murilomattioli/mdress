@@ -174,10 +174,28 @@ try{
   let edits=0;select.addEventListener('change',()=>edits++);
   let portal=open(),stale=portal.querySelector('[data-value="second"]');
   const more=portal.querySelector('.ds-select-more');
-  if(!stale||!more||more.hidden)throw Error('Missing option or pagination');
+  const staleSearch=portal.querySelector('.ds-select-search');
+  if(!stale||!more||!staleSearch||more.hidden)throw Error('Missing option or pagination');
   const initialMore=more.textContent;
   trigger.click();stale.click();more.click();
   const afterClose={value:select.value,edits,more:more.textContent===initialMore};
+  // Detached key handlers must not dismiss a different live portal.
+  let live=open();
+  stale.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));
+  const optionKeyIgnored=popup()===live;
+  if(!popup())live=open();
+  more.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));
+  const paginationKeyIgnored=popup()===live;
+  if(!popup())live=open();
+  staleSearch.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));
+  const searchKeyIgnored=popup()===live;
+  if(!popup())live=open();
+  const detachedListSize=portal.querySelectorAll('.ds-select-option').length;
+  staleSearch.value='unmatched';
+  staleSearch.dispatchEvent(new Event('input'));
+  const searchInputIgnored=portal.querySelectorAll('.ds-select-option').length===detachedListSize;
+  const staleKeyboard={optionKeyIgnored,paginationKeyIgnored,searchKeyIgnored,searchInputIgnored};
+  if(popup())trigger.click();
   portal=open();stale=portal.querySelector('[data-value="second"]');
   second.value='renamed';stale.click();
   const afterValueChange={value:select.value,edits};
@@ -206,11 +224,12 @@ try{
   host.inert=false;
   // Leave a legitimate open state for the screenshot and human review.
   open();
-  return {afterClose,afterValueChange,afterHidden,afterRemoval,
+  return {afterClose,staleKeyboard,afterValueChange,afterHidden,afterRemoval,
    afterRevocation,synchronousRevocation};
  });
  assert.deepEqual(stalePortalActions,{
   afterClose:{value:'first',edits:0,more:true},
+  staleKeyboard:{optionKeyIgnored:true,paginationKeyIgnored:true,searchKeyIgnored:true,searchInputIgnored:true},
   afterValueChange:{value:'first',edits:0},
   afterHidden:{value:'first',edits:0},
   afterRemoval:{value:'first',edits:0},
