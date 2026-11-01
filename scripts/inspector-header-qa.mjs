@@ -6,6 +6,55 @@ const browser=await chromium.launch();
 try{
  const page=await browser.newPage({viewport:{width:1024,height:900},reducedMotion:'reduce'});
  await page.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173');await page.locator('#designToggle').click();
+ // Dynamic controls are replaced frequently (especially mesh points). A global
+ // theme sync must update mounted controls, skip detached controls, and resume
+ // updating the *same* enhanced controls if their host is reattached.
+ const controllerLifecycle=await page.evaluate(async()=>{
+  const {enhanceSelects,enhancePropertyControls,syncPropertyControls}=
+   await import('/design-system/property-controls.js');
+  const panel=document.querySelector('#inspector-document');
+  const selectLabel=document.createElement('label');
+  selectLabel.className='property-row';selectLabel.textContent='Seletor dinâmico ';
+  const select=document.createElement('select');select.id='ux23-sync-lifecycle';
+  select.add(new Option('Primeiro','first'));select.add(new Option('Segundo','second'));
+  selectLabel.append(select);panel.append(selectLabel);
+  enhanceSelects(panel);
+  const trigger=selectLabel.querySelector('.ds-select-trigger');
+  select.value='second';syncPropertyControls();
+  const selectMounted=trigger.title==='Segundo';
+  selectLabel.remove();select.value='first';syncPropertyControls();
+  const selectDetached=trigger.title==='Segundo';
+  panel.append(selectLabel);syncPropertyControls();
+  const selectReattached=trigger.title==='Primeiro';
+  select.disabled=true;syncPropertyControls();
+  const selectDisabled=trigger.disabled;
+
+  const rangeLabel=document.createElement('label');
+  rangeLabel.className='property-row';rangeLabel.textContent='Faixa dinâmica ';
+  const range=document.createElement('input');
+  range.type='range';range.min='0';range.max='10';range.step='1';range.value='3';
+  rangeLabel.append(range);panel.append(rangeLabel);
+  enhancePropertyControls(document);
+  const precision=rangeLabel.querySelector('.ds-prop-number');
+  range.value='7';syncPropertyControls();
+  const rangeMounted=precision.value==='7';
+  rangeLabel.remove();range.value='4';syncPropertyControls();
+  const rangeDetached=precision.value==='7';
+  panel.append(rangeLabel);syncPropertyControls();
+  const rangeReattached=precision.value==='4';
+  return {selectMounted,selectDetached,selectReattached,selectDisabled,
+   rangeMounted,rangeDetached,rangeReattached};
+ });
+ assert.deepEqual(controllerLifecycle,{
+  selectMounted:true,selectDetached:true,selectReattached:true,selectDisabled:true,
+  rangeMounted:true,rangeDetached:true,rangeReattached:true
+ },'Global property sync must follow mounted native controls without retaining detached mesh rows');
+ await page.screenshot({path:'test-results/header-dynamic-controls-sync-lifecycle.png',animations:'disabled'});
+ await page.evaluate(()=>{
+  document.querySelector('#ux23-sync-lifecycle')?.closest('label')?.remove();
+  [...document.querySelectorAll('.design-inspector label.property-row')]
+   .find(label=>label.textContent.includes('Faixa dinâmica'))?.remove();
+ });
  // Roving tab navigation must skip dynamically unavailable destinations.
  // A programmatic tab change must not strand focus in the hidden old panel.
  const documentTab=page.locator('[data-inspector-tab=document]');
