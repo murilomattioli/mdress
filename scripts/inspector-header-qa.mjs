@@ -55,6 +55,65 @@ try{
   [...document.querySelectorAll('.design-inspector label.property-row')]
    .find(label=>label.textContent.includes('Faixa dinâmica'))?.remove();
  });
+ // A portalled select option can be clicked synchronously after its source
+ // fieldset is disabled, before MutationObserver has closed the popup.
+ // Native :disabled inheritance and the first-legend exception must both
+ // match the browser's actual editability rules; detached controls cannot
+ // dispatch late document edits either.
+ const nativeCommitGuards=await page.evaluate(async()=>{
+  const {enhanceSelects}=await import('/design-system/property-controls.js');
+  const panel=document.querySelector('#inspector-document');
+  const create=(id,inLegend=false)=>{
+   const fieldset=document.createElement('fieldset');fieldset.id=id;
+   const legend=document.createElement('legend');legend.textContent='Teste de permissões';
+   const label=document.createElement('label');label.textContent='Seleção temporária ';
+   const select=document.createElement('select');
+   select.add(new Option('Primeiro','first'));select.add(new Option('Segundo','second'));
+   label.append(select);
+   if(inLegend){legend.append(label);fieldset.append(legend);}
+   else fieldset.append(legend,label);
+   panel.append(fieldset);enhanceSelects(fieldset);
+   let edits=0;select.addEventListener('change',()=>edits++);
+   return {fieldset,select,trigger:fieldset.querySelector('.ds-select-trigger'),edits:()=>edits};
+  };
+  const optionFor=trigger=>{
+   trigger.click();
+   const popup=[...document.querySelectorAll('.ds-select-popover')]
+    .find(node=>node.matches(':popover-open'));
+   return popup?.querySelector('[data-value="second"]');
+  };
+  const inherited=create('ux23-inherited-commit');
+  const blockedOption=optionFor(inherited.trigger);
+  if(!blockedOption)throw Error('Missing portalled option for inherited disabled test');
+  inherited.fieldset.disabled=true;
+  const inheritedDisabled=inherited.select.matches(':disabled');
+  blockedOption.click();
+  const blocked={value:inherited.select.value,edits:inherited.edits(),inheritedDisabled};
+  const legend=create('ux23-legend-commit',true);
+  legend.fieldset.disabled=true;
+  const allowedOption=optionFor(legend.trigger);
+  if(!allowedOption)throw Error('First-legend option must remain available');
+  allowedOption.click();
+  const allowed={value:legend.select.value,edits:legend.edits(),
+   inheritedDisabled:legend.select.matches(':disabled')};
+  const detached=create('ux23-detached-commit');
+  const staleOption=optionFor(detached.trigger);
+  if(!staleOption)throw Error('Missing portalled option for detached test');
+  detached.fieldset.remove();
+  staleOption.click();
+  const stale={value:detached.select.value,edits:detached.edits()};
+  return {blocked,allowed,stale};
+ });
+ assert.deepEqual(nativeCommitGuards,{
+  blocked:{value:'first',edits:0,inheritedDisabled:true},
+  allowed:{value:'second',edits:1,inheritedDisabled:false},
+  stale:{value:'first',edits:0}
+ },'Native commits must respect inherited disabled fieldsets, the first legend and detached sources');
+ await page.screenshot({path:'test-results/header-native-commit-guards.png',animations:'disabled'});
+ await page.evaluate(()=>{
+  document.querySelector('#ux23-inherited-commit')?.remove();
+  document.querySelector('#ux23-legend-commit')?.remove();
+ });
  // Roving tab navigation must skip dynamically unavailable destinations.
  // A programmatic tab change must not strand focus in the hidden old panel.
  const documentTab=page.locator('[data-inspector-tab=document]');
