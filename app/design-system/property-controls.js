@@ -623,7 +623,10 @@ function enhanceBinary(label,input,title){
  off.onclick=()=>commit(false,off);on.onclick=()=>commit(true,on);
  for(const btn of [off,on])btn.addEventListener('keydown',e=>{
   if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)||!actionable(btn))return;
-  e.preventDefault();const value=e.key==='Home'?false:e.key==='End'?true:e.key==='ArrowRight';
+  e.preventDefault();
+  // Follow physical arrow directions while Home/End retain DOM endpoints.
+  const rtl=getComputedStyle(group).direction==='rtl';
+  const value=e.key==='Home'?false:e.key==='End'?true:(e.key==='ArrowRight')!==rtl;
   const next=value?on:off;next.focus({preventScroll:true});commit(value,next);
  });
  input.addEventListener('change',update);
@@ -631,12 +634,13 @@ function enhanceBinary(label,input,title){
  registerController(input,update);update();
 }
 // Keyboard navigation must never land on a disabled segment (including disabled optgroups).
-export function nextEnabledSegmentIndex(disabled,current,key){
+export function nextEnabledSegmentIndex(disabled,current,key,layoutDirection='ltr'){
  const length=disabled.length;
  if(!length||disabled.every(Boolean))return -1;
  if(key==='Home')return disabled.findIndex(value=>!value);
  if(key==='End')return disabled.findLastIndex(value=>!value);
- const direction=key==='ArrowLeft'?-1:1;
+ // The DOM order reverses visually in RTL; arrows still mean screen left/right.
+ const direction=(key==='ArrowLeft'?-1:1)*(layoutDirection==='rtl'?-1:1);
  for(let offset=1;offset<=length;offset++){
   const index=(current+direction*offset+length*2)%length;
   if(!disabled[index])return index;
@@ -684,7 +688,8 @@ function enhanceSegment(label,select,title){
   btn.addEventListener('keydown',e=>{
    if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)||!actionable(option,btn))return;
    e.preventDefault();
-   const next=nextEnabledSegmentIndex(elements.map(item=>item.disabled),elements.indexOf(btn),e.key);
+   const next=nextEnabledSegmentIndex(elements.map(item=>item.disabled),elements.indexOf(btn),e.key,
+    getComputedStyle(group).direction);
    if(next!==-1){elements[next].focus({preventScroll:true});elements[next].click();}
   });
   return btn;
