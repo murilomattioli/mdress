@@ -87,9 +87,11 @@ export function openColorPicker(input){
   // the same name (or have no name at all). Never hand a detached picker's
   // edits to an unrelated input merely because its aria-label matches.
   if(!sourceKey&&!sourceId)return null;
+  // Both identity dimensions must match the source at picker creation.
+  // A remounted id-only input that gains a logical key (or a key-only input
+  // that gains an id) is a different control, despite its partial match.
   const candidates=[...document.querySelectorAll('input[type="color"]')].filter(el=>
-   (sourceKey?el.dataset.mdressSourceKey===sourceKey:el.id===sourceId)&&
-   (!sourceId||el.id===sourceId));
+   el.dataset.mdressSourceKey===sourceKey&&el.id===sourceId);
   // Ambiguous logical keys/duplicate IDs are not safe remount targets.
   return candidates.length===1?candidates[0]:null;
  };
