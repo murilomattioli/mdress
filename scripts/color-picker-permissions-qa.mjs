@@ -52,6 +52,7 @@ try{
   ['display none','fieldset.style.display="none"'],
   ['content visibility','fieldset.style.contentVisibility="hidden"'],
   ['CSS visibility','input.style.visibility="hidden"'],
+  ['root ARIA permission','document.documentElement.setAttribute("aria-disabled","true")'],
   ['detached source','input.remove()']
  ];
  for(const [name,revoke] of revokeCases){
@@ -87,6 +88,7 @@ try{
   assert.equal(outcome.opacity,null,name+' must not commit stale opacity');
   assert.equal(outcome.edits,0,name+' must not dispatch native change');
   await dialog.waitFor({state:'detached'});
+  if(name==='root ARIA permission')await page.evaluate(()=>document.documentElement.removeAttribute('aria-disabled'));
   if(name==='disabled fieldset'){
    await page.screenshot({path:'test-results/color-picker/focus-after-revoke.png',animations:'disabled'});
    assert.equal(await page.evaluate(()=>document.activeElement===document.body),false,
@@ -135,5 +137,5 @@ try{
  assert.equal(await page.locator('#ux23-color-source').inputValue(),'#336699',
   'Late EyeDropper results must not change a revoked source');
  assert.deepEqual(errors,[],'No runtime errors while revoking the portalled picker');
- console.log('Color picker permission guards passed: 7 blocked openings, 8 revocations, legend and async sample');
+ console.log('Color picker permission guards passed: 7 blocked openings, 9 revocations, legend and async sample');
 }finally{await browser.close();}
