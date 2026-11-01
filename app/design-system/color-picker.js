@@ -265,7 +265,9 @@ export function openColorPicker(input){
   for(const node of ancestors)permissions.observe(node,{
    attributes:true,attributeFilter:['disabled','hidden','inert','aria-hidden','aria-disabled','class','style']
   });
-  permissions.observe(document.documentElement,{childList:true,subtree:true});
+  // Observe document (not documentElement): a second observe() call on the
+  // same target would replace its attribute watcher for root theme/permissions.
+  permissions.observe(document,{childList:true,subtree:true});
  }
  function dismissRevoked(){
   if(!dialog.open)return;
