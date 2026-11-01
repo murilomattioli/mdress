@@ -71,6 +71,15 @@ try{
    }
    input.style.cssText='';input.value='#336699';openColorPicker(input);
   });
+  const opened=await page.evaluate(()=>{
+   const input=document.getElementById('ux23-color-source');
+   return {dialog:Boolean(document.querySelector('dialog.mdress-color-picker[open]')),
+    connected:input?.isConnected,rects:input?.getClientRects().length,
+    visibility:input&&getComputedStyle(input).visibility,
+    fieldsetDisabled:document.getElementById('ux23-color-permissions').disabled,
+    inline:input?.style.cssText};
+  });
+  assert.ok(opened.dialog,'Color fixture must open before '+name+': '+JSON.stringify(opened));
   const dialog=page.locator('dialog.mdress-color-picker');
   await dialog.waitFor({state:'visible'});
   if(name==='disabled fieldset')await page.screenshot({path:'test-results/color-picker/permissions-before-revoke.png',animations:'disabled'});
