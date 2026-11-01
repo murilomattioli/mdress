@@ -32,19 +32,30 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
   }
   return false;
  };
+ // Gallery actions live in an accordion header, but their source lives in
+ // its collapsed body. The header MUST remain actionable while that body is
+ // hidden. Other hidden/aria-hidden ancestors still revoke the action.
+ const sourceHiddenByAncestor=()=>{
+  const actionAccordion=group.closest('.ds-accordion');
+  for(let node=source.parentElement;node;node=node.parentElement){
+   if(!node.matches('[hidden],[aria-hidden="true"]'))continue;
+   if(actionAccordion&&node.matches('.ds-accordion-body[hidden]:not([aria-hidden="true"])')&&
+      node.closest('.ds-accordion')===actionAccordion)continue;
+   return true;
+  }
+  return false;
+ };
  const permissionRevoked=()=>Boolean(group.isConnected&&!source.isConnected)||
   source.matches?.(':disabled,[aria-disabled="true"],[inert]')||
   Boolean(source.parentElement?.closest('[aria-disabled="true"],[inert]'))||
-  Boolean(group.closest('[aria-disabled="true"],[inert]'))||
-  inDisabledFieldset(group);
+  Boolean(group.closest('[aria-disabled="true"],[inert],[hidden],[aria-hidden="true"]'))||
+  sourceHiddenByAncestor()||inDisabledFieldset(group);
  // A synthetic click can race with a disabled fieldset, hidden panel or
  // detached source before a MutationObserver updates the quick-action UI.
  // Validate both the visible action and its native source at dispatch time.
  const actionable=button=>{
   if(!button.isConnected||!group.contains(button)||button.disabled||button.hidden||
      !source.isConnected||button.matches(':disabled')||permissionRevoked())return false;
-  if(group.closest('[hidden],[aria-hidden="true"]')||
-     source.parentElement?.closest('[hidden],[aria-hidden="true"]'))return false;
   if(getComputedStyle(button).visibility!=='visible'||!button.getClientRects().length)return false;
   for(let node=button;node;node=node.parentElement){
    const style=getComputedStyle(node);
