@@ -159,6 +159,50 @@ try{
  await permissionPage.locator('#ux23-quick-native').evaluate(el=>el.removeAttribute('aria-disabled'));
  await permissionPage.waitForFunction(()=>!document.querySelector('#ux23-quick-source-permissions [data-action="next"]').disabled);
  await permissionPage.screenshot({path:'test-results/ux-audit/quick-source-restored-1024.png',animations:'disabled'});
+ // Header quick actions must work while the source gallery is inside a
+ // collapsed accordion body. Other hidden ancestors still revoke actions.
+ const collapsedStates=await permissionPage.evaluate(async()=>{
+  const {createChoiceActions}=await import('/design-system/choice-actions.js');
+  const panel=document.querySelector('#inspector-document');
+  const accordion=document.createElement('section');accordion.className='ds-accordion';
+  accordion.id='ux23-collapsed-quick';
+  const header=document.createElement('div');header.className='ds-accordion-header';
+  const body=document.createElement('div');body.className='ds-accordion-body';body.hidden=true;
+  const gallery=document.createElement('div');gallery.id='ux23-collapsed-gallery';
+  const choices=['A','B','C'].map((label,index)=>{
+   const button=document.createElement('button');button.type='button';
+   button.textContent=label;button.setAttribute('aria-pressed',String(index===0));
+   gallery.append(button);return button;
+  });
+  let commits=0;
+  const group=createChoiceActions({label:'Galeria recolhida',source:gallery,
+   readChoices:()=>choices.map(button=>({
+    label:button.textContent,selected:button.getAttribute('aria-pressed')==='true',
+    apply:()=>{choices.forEach(other=>other.setAttribute('aria-pressed',String(other===button)));
+     commits++;return true;}
+   }))});
+  header.append(group);body.append(gallery);accordion.append(header,body);panel.append(accordion);
+  const next=group.querySelector('[data-action="next"]');
+  const click=()=>next.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+  click();await tick();
+  const collapsedWorks=commits===1&&choices[1].getAttribute('aria-pressed')==='true'&&!next.disabled;
+  body.setAttribute('aria-hidden','true');click();await tick();
+  const explicitAriaHidden=commits===1&&next.disabled;
+  body.removeAttribute('aria-hidden');await tick();
+  const restored=!next.disabled;
+  const wrapper=document.createElement('div');wrapper.hidden=true;body.append(wrapper);wrapper.append(gallery);
+  click();await tick();
+  const nestedHidden=commits===1&&next.disabled;
+  body.append(gallery);wrapper.remove();await tick();
+  click();await tick();
+  const reparentRestored=commits===2&&choices[2].getAttribute('aria-pressed')==='true'&&!next.disabled;
+  return {collapsedWorks,explicitAriaHidden,restored,nestedHidden,reparentRestored};
+ });
+ assert.deepEqual(Object.values(collapsedStates),Array(5).fill(true),
+  'Collapsed accordion header must navigate; explicitly hidden source ancestors must revoke');
+ await permissionPage.screenshot({path:'test-results/ux-audit/quick-collapsed-fixture-1024.png',animations:'disabled'});
+ await permissionPage.locator('#ux23-collapsed-quick').evaluate(el=>el.remove());
  await permissionPage.locator('#ux23-quick-source-permissions').evaluate(el=>el.remove());
  await permissionPage.locator('#ux23-quick-dynamic').evaluate(el=>el.remove());
  await permissionPage.evaluate(()=>[...document.querySelectorAll('#inspector-document fieldset')]
@@ -197,6 +241,22 @@ try{
     const galleryQuick=gallery.locator('.ds-accordion-actions .ds-quick-action');
     await page.waitForFunction(()=>document.querySelectorAll('#backgroundGallery button').length>1);
     assert.equal(await galleryQuick.count(),3,'Background presets expose three quick actions');
+    // Collapsing the body must not turn the visible header's quick actions
+    // into silent no-ops. Exercise the actual gallery, not only a fixture.
+    await gallery.locator('.ds-accordion-toggle').evaluate(el=>{
+     if(el.getAttribute('aria-expanded')==='true')el.click();
+    });
+    await page.waitForFunction(()=>document.querySelector('.ds-accordion:has(#backgroundGallery) .ds-accordion-body')?.hidden===true);
+    const previousPreset=await page.locator('#backgroundGallery button[aria-pressed="true"]').first()
+     .getAttribute('aria-label').catch(()=>null);
+    await galleryQuick.nth(1).click();
+    await page.waitForFunction(previous=>{
+     const selected=document.querySelector('#backgroundGallery button[aria-pressed="true"]');
+     return Boolean(selected)&&selected.getAttribute('aria-label')!==previous;
+    },previousPreset);
+    assert.equal(await gallery.locator('.ds-accordion-body').evaluate(el=>el.hidden),true,
+     'Header quick action must not expand the accordion');
+    await page.screenshot({path:`test-results/ux-audit/quick-gallery-collapsed-${theme}-${width}.png`,animations:'disabled'});
     // The preset gallery lives in the accordion body, but its quick actions
     // live in the header. Revoking the source itself must disable the header
     // buttons, even when the source is not an ancestor of those buttons.
