@@ -292,10 +292,21 @@ export function openColorPicker(input){
       if(ap&&a.el.tabIndex!==b.el.tabIndex)return a.el.tabIndex-b.el.tabIndex;
       return a.order-b.order;
      }).map(item=>item.el);
-    const index=outside.indexOf(anchor());
+    const source=anchor(),index=outside.indexOf(source);
     const step=e.shiftKey?-1:1;
-    const destination=index>=0&&outside.length>1?
-     outside[(index+step+outside.length)%outside.length]:outside[0];
+    let destination=index>=0&&outside.length>1?
+     outside[(index+step+outside.length)%outside.length]:null;
+    if(!destination&&source?.isConnected){
+     // Pointer-accessible native sources can intentionally have tabindex=-1.
+     // They have no slot in the sequential order, so choose the closest
+     // ordinary Tab stop relative to their DOM position, not the first
+     // unrelated page control. Fall back to the document's Tab-order edge.
+     const regular=outside.filter(el=>el.tabIndex===0);
+     const adjacent=regular.filter(el=>source.compareDocumentPosition(el)&
+      (e.shiftKey?Node.DOCUMENT_POSITION_PRECEDING:Node.DOCUMENT_POSITION_FOLLOWING));
+     destination=e.shiftKey?adjacent.at(-1):adjacent[0];
+    }
+    destination??=e.shiftKey?outside.at(-1):outside[0];
     restoreFocus=false;
     e.preventDefault();
     dialog.close();
