@@ -424,7 +424,12 @@ try{
  await page.evaluate(()=>{window.EyeDropper=undefined;document.getElementById('accentColor').click();});
  assert.equal(await dialog.getByRole('button',{name:'Capturar cor da tela',exact:true}).isDisabled(),true);await dialog.press('Escape');await page.locator('.mdress-color-picker').waitFor({state:'detached'});
  await page.evaluate(()=>{const kind=document.getElementById('bgKind');kind.value='mesh';kind.dispatchEvent(new Event('change',{bubbles:true}));});
- const mesh=page.locator('#meshPointControls input[type=color]').first();await mesh.waitFor({state:'attached'});await mesh.evaluate(el=>el.click());
+ const mesh=page.locator('#meshPointControls input[type=color]').first();await mesh.waitFor({state:'attached'});
+ await page.evaluate(async()=>{
+  const {revealInspectorControl}=await import('/property-inspector.js');
+  revealInspectorControl('meshPointColor0');
+ });
+ await mesh.evaluate(el=>el.click());
  dialog=page.getByRole('dialog',{name:/Cores/});const hex=dialog.getByRole('textbox',{name:'Cor hexadecimal',exact:true});await hex.fill('#13579B');await hex.press('Enter');
  assert.equal(await mesh.inputValue(),'#13579b');await hex.fill('#ABC123');await hex.press('Enter');assert.equal(await mesh.inputValue(),'#abc123');
  await dialog.getByRole('button',{name:'Fechar seletor de cores',exact:true}).click();await page.close();
