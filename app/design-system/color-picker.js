@@ -231,7 +231,9 @@ export function openColorPicker(input){
   }
  });
  function reposition(){
-  const target=anchor();if(!target){dialog.close();return;}
+  // Media-query visibility can change on resize without a DOM mutation.
+  if(!sourceAvailable(input)){dismissRevoked();return;}
+  const target=anchor();if(!target){dismissRevoked();return;}
   const a=target.getBoundingClientRect(),gap=8,edge=12,w=dialog.offsetWidth,h=dialog.offsetHeight;
   const below=innerHeight-a.bottom-gap-edge,above=a.top-gap-edge;
   let top=a.bottom+gap,left=a.right-w;
