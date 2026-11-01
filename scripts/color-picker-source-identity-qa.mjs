@@ -146,6 +146,51 @@ try{
   await picker.waitFor({state:'detached'});
   await page.locator('#ux23-recycled-source').evaluate(el=>el.remove());
  }
+
+ // A→B→A reuse within one task must still revoke a pending native sample:
+ // its final attributes look unchanged, but the logical source was replaced.
+ for(const field of ['key','id']){
+  await page.evaluate(async field=>{
+   const {openColorPicker}=await import('/design-system/color-picker.js');
+   const host=document.createElement('div');host.id='ux23-transient-identity';
+   host.style.cssText='position:fixed;left:80px;top:80px;z-index:1000';
+   const input=document.createElement('input');input.type='color';input.value='#336699';
+   if(field==='key')input.dataset.mdressSourceKey='point-a';
+   else input.id='point-a';
+   host.append(input);document.body.append(host);
+   window.__ux23TransientChanges=0;
+   input.addEventListener('change',()=>window.__ux23TransientChanges++);
+   window.EyeDropper=class {open(){return new Promise(resolve=>{window.__ux23TransientSample=resolve;});}};
+   openColorPicker(input);
+  },field);
+  const picker=page.locator('dialog.mdress-color-picker');
+  await picker.waitFor({state:'visible'});
+  await picker.getByRole('button',{name:'Capturar cor da tela'}).click();
+  await page.waitForFunction(()=>typeof window.__ux23TransientSample==='function');
+  await page.evaluate(field=>{
+   const input=document.querySelector('#ux23-transient-identity input');
+   if(field==='key'){
+    input.dataset.mdressSourceKey='point-b';
+    input.dataset.mdressSourceKey='point-a';
+   }else{
+    input.id='point-b';input.id='point-a';
+   }
+  },field);
+  await picker.waitFor({state:'detached',timeout:3000});
+  const result=await page.evaluate(async()=>{
+   window.__ux23TransientSample({sRGBHex:'#FF0000'});
+   await Promise.resolve();await Promise.resolve();
+   const input=document.querySelector('#ux23-transient-identity input');
+   return {value:input.value,changes:window.__ux23TransientChanges};
+  });
+  assert.deepEqual(result,{value:'#336699',changes:0},
+   'Transient '+field+' reuse must revoke an in-flight EyeDropper result');
+  await page.evaluate(()=>{
+   document.querySelector('#ux23-transient-identity').remove();
+   delete window.__ux23TransientSample;delete window.__ux23TransientChanges;
+   delete window.EyeDropper;
+  });
+ }
  assert.deepEqual(errors,[],'No browser errors during color source identity transitions');
- console.log('Color picker source identity QA passed: anonymous, labelled, keyed, ambiguous remounts and connected-node recycling.');
+ console.log('Color picker source identity QA passed: anonymous, labelled, keyed, ambiguous remounts and connected-node recycling and transient EyeDropper identity changes.');
 }finally{await browser.close();}
