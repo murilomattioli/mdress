@@ -87,6 +87,71 @@ try{
  await host.locator('#ux23-binary').evaluate(el=>el.closest('label').querySelectorAll('.ds-binary-option')[1].click());
  assert.equal((await state()).values[3],true,'Re-enabled controls must work');
  await host.screenshot({path:output+'/fieldset-restored-390.png',animations:'disabled'});
+ // Reparenting after enhancement must update all visible controls even when
+ // the destination fieldset did not exist at enhancement time.
+ await page.evaluate(()=>{
+  const root=document.getElementById('ux23-inherited');
+  const original=document.getElementById('ux23-permissions');
+  const dynamic=document.createElement('fieldset');
+  dynamic.id='ux23-dynamic';dynamic.disabled=true;
+  const legend=document.createElement('legend');legend.textContent='Grupo dinâmico';
+  dynamic.append(legend);original.after(dynamic);
+  const labels=[...original.querySelectorAll(':scope > label')];
+  for(const label of labels)dynamic.append(label);
+  legend.append(labels[0]);
+ });
+ await page.waitForFunction(()=>{
+  const root=document.getElementById('ux23-inherited');
+  return !root.querySelector('#ux23-range').closest('label').querySelector('.ds-prop-number').disabled&&
+   root.querySelector('#ux23-choice').closest('label').querySelector('.ds-select-trigger').disabled;
+ });
+ const moved=await state();
+ assert.equal(moved.range,false,'First-legend controls remain enabled in newly created disabled fieldset');
+ assert.equal(moved.number,true);assert.equal(moved.hex,true);
+ assert.deepEqual(moved.binary,[true,true]);assert.deepEqual(moved.segment,[true,true,true]);
+ assert.equal(moved.select,true);
+ await host.screenshot({path:output+'/fieldset-reparent-disabled-390.png',animations:'disabled'});
+ // Changing the first legend's contents must re-evaluate exemptions.
+ await page.evaluate(()=>{
+  const dynamic=document.getElementById('ux23-dynamic');
+  const legend=dynamic.querySelector('legend');
+  dynamic.append(document.getElementById('ux23-range').closest('label'));
+  legend.append(document.getElementById('ux23-number').closest('label'));
+ });
+ await page.waitForFunction(()=>{
+  const root=document.getElementById('ux23-inherited');
+  return root.querySelector('#ux23-range').closest('label').querySelector('.ds-prop-number').disabled&&
+   !root.querySelector('#ux23-number').matches(':disabled');
+ });
+ assert.equal((await state()).range,true);
+ assert.equal((await state()).number,false);
+ await page.locator('#ux23-dynamic').evaluate(el=>{el.disabled=false;});
+ await page.waitForFunction(()=>!document.querySelector('#ux23-choice').closest('label').querySelector('.ds-select-trigger').disabled);
+ const enabled=await state();
+ assert.equal(enabled.range,false);assert.equal(enabled.hex,false);
+ assert.deepEqual(enabled.binary,[false,false]);assert.deepEqual(enabled.segment,[false,false,false]);
+ await host.screenshot({path:output+'/fieldset-reparent-enabled-390.png',animations:'disabled'});
+ // An EyeDropper launched in the newly enabled fieldset must be invalidated
+ // if the fieldset is disabled before the asynchronous result arrives.
+ await host.locator('#ux23-color').evaluate(el=>el.closest('label').querySelector('.ds-color-pipette').click());
+ await page.waitForFunction(()=>typeof window.__ux23ResolveDropper==='function');
+ await page.locator('#ux23-dynamic').evaluate(el=>{el.disabled=true;});
+ await page.waitForFunction(()=>document.querySelector('#ux23-color').closest('label').querySelector('.ds-color-pipette').disabled);
+ await page.evaluate(()=>window.__ux23ResolveDropper({sRGBHex:'#ff00ff'}));
+ await page.waitForTimeout(80);
+ assert.equal((await state()).values[2],'#336699','Reparented fieldset must revoke stale EyeDropper result');
+ await page.evaluate(()=>{
+  const original=document.getElementById('ux23-permissions');
+  const dynamic=document.getElementById('ux23-dynamic');
+  for(const label of [...dynamic.querySelectorAll('label')])original.append(label);
+ });
+ await page.waitForFunction(()=>!document.querySelector('#ux23-choice').closest('label').querySelector('.ds-select-trigger').disabled);
+ const returned=await state();
+ assert.equal(returned.range,false);assert.equal(returned.number,false);
+ assert.equal(returned.hex,false);assert.equal(returned.pipette,false);
+ assert.deepEqual(returned.binary,[false,false]);assert.deepEqual(returned.segment,[false,false,false]);
+ assert.equal(returned.select,false);
+ await host.screenshot({path:output+'/fieldset-reparent-restored-390.png',animations:'disabled'});
  assert.deepEqual(errors,[]);
- console.log('Inherited fieldset QA passed: six control types, first legend, stale EyeDropper; three screenshots.');
+ console.log('Inherited fieldset QA passed: six control types, first legend, dynamic reparenting, stale EyeDropper; six screenshots.');
 }finally{await browser.close();}
