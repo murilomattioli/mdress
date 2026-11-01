@@ -523,7 +523,11 @@ function enhanceColor(label,input,title){
   picking=true;update();
   try{
    const result=await new window.EyeDropper().open();
-   if(epoch===dropperEpoch&&propertyActionAvailable(input,pipette)&&
+   // While sampling, the pipette intentionally has aria-disabled=true to
+   // prevent concurrent requests. Check its visible *field* for revoked
+   // ancestors instead; otherwise the successful pending request rejects
+   // itself solely because of its own busy state.
+   if(epoch===dropperEpoch&&propertyActionAvailable(input,field)&&
     input.value===sourceColor&&isHex(result?.sRGBHex)){
     // Native input/change events below are our own commit, not an external
     // edit that should invalidate this request.
