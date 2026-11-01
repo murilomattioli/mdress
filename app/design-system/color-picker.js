@@ -279,8 +279,19 @@ export function openColorPicker(input){
     // Closing during keydown leaves the browser with no native Tab target:
     // Shift+Tab can otherwise land on <body>. Continue from the original
     // source's position in document tab order, in the requested direction.
+    // A portalled dialog is not adjacent to its source in DOM order.
+    // Recreate the document's sequential keyboard order, including positive
+    // tabindex values (which precede tabindex=0). DOM-only ordering can send
+    // Tab backwards or Shift+Tab forwards in an embedded inspector.
     const outside=[...document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]')]
-     .filter(el=>!dialog.contains(el)&&el.tabIndex>=0&&sourceAvailable(el));
+     .filter(el=>!dialog.contains(el)&&el.tabIndex>=0&&sourceAvailable(el))
+     .map((el,order)=>({el,order}))
+     .sort((a,b)=>{
+      const ap=a.el.tabIndex>0,bp=b.el.tabIndex>0;
+      if(ap!==bp)return ap?-1:1;
+      if(ap&&a.el.tabIndex!==b.el.tabIndex)return a.el.tabIndex-b.el.tabIndex;
+      return a.order-b.order;
+     }).map(item=>item.el);
     const index=outside.indexOf(anchor());
     const step=e.shiftKey?-1:1;
     const destination=index>=0&&outside.length>1?
