@@ -197,6 +197,14 @@ try{
   await page.waitForFunction(()=>document.getElementById('saveStatus').textContent==='Salvo localmente');
   await page.reload();
   assert.equal(await input.inputValue(),'#123456');
+  // Reload may restore the inspector collapsed. Opening a hidden native
+  // source is intentionally forbidden: reveal the actual control first.
+  await page.evaluate(async()=>{
+   if(document.getElementById('themesView').classList.contains('hidden'))
+    document.getElementById('designToggle').click();
+   const {revealInspectorControl}=await import('/property-inspector.js');
+   revealInspectorControl('accentColor');
+  });
   await input.evaluate(el=>el.click());await dialog.waitFor();
   assert.ok(await dialog.getByRole('button',{name:'Usar '+saved.toUpperCase(),exact:true}).count());
   await dialog.press('Escape');
