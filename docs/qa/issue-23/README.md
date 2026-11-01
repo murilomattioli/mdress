@@ -1,3 +1,27 @@
+## UX-023 — quick actions: permissões da fonte e do cabeçalho (01/11/2026)
+
+**Correção funcional:** os botões Anterior/Próximo/Aleatório agora reagem a `aria-disabled`, `inert` e `fieldset[disabled]` aplicados à fonte nativa **ou** ao cabeçalho onde os botões estão renderizados. Isso importa para galerias no corpo de um accordion com ações no cabeçalho, e para fontes dentro da primeira `legend` enquanto os botões ficam fora dela. Cliques sintéticos antes do `MutationObserver` não podem aplicar escolhas revogadas; a desabilitação atualiza os botões e transfere foco quando necessário. Acompanhamento de movimentação, remoção e reinserção da fonte impede ações órfãs após reparenting.
+
+**Playwright obrigatório:** `node scripts/choice-actions-qa.mjs` verifica permissões diretas e herdadas, exceção de `legend`, reparenting, fonte desconectada/reinserida, retorno do foco e galeria real em 1440px/390px nos temas Graphite/Studio. Evidências adicionais: `quick-source-{revoked,restored}-1024.png` e `quick-gallery-source-aria-{graphite,studio}-{1440,390}.png` em `test-results/ux-audit`. As imagens exigem **revisão visual humana**: desabilitação, foco, legibilidade, toque e os 24 avisos de toolbar permanecem na homologação.
+
+**PowerShell — executar na branch sem merge:**
+```powershell
+git fetch origin
+git switch feat/23-property-controls-ux-qa
+git pull --ff-only origin feat/23-property-controls-ux-qa
+npm install --include=dev
+npx playwright install chromium
+npm run dev
+# Em outro terminal:
+npm test
+node scripts/choice-actions-qa.mjs
+npm run qa:supervised
+```
+
+**Gate:** PR #27 draft, issue #23 aberta; não realizar merge, release ou Cloudflare sem homologação explícita.
+
+---
+
 ## UX-023 — permissões ARIA/inert e drafts numéricos (01/11/2026)
 
 **Correção:** os seis Property Controls aprimorados agora tratam `aria-disabled="true"` e `inert` na fonte ou em seus ancestrais como indisponibilidade efetiva, mesmo quando o HTML nativo não aplica `:disabled`. O observador compartilhado sincroniza estados e foco após mudanças de permissões, sem recriar componentes. `nativeCommit` rejeita commits tardios em fontes revogadas; o número nativo restaura o último valor confirmado quando recebe um input/change obsoleto.
