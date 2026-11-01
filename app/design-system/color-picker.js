@@ -275,7 +275,13 @@ export function openColorPicker(input){
   if(e.key==='Escape'){e.preventDefault();dialog.close();}
   if(e.key==='Tab'){
    const items=[...dialog.querySelectorAll('button,input,[tabindex]')].filter(el=>!el.disabled&&el.tabIndex>=0&&el.getClientRects().length);
-   if(document.activeElement===(e.shiftKey?items[0]:items.at(-1))){dialog.close();}
+   if(document.activeElement===(e.shiftKey?items[0]:items.at(-1))){
+    // Tab/Shift+Tab intentionally leaves this non-modal picker. Returning
+    // focus to the source on close would trap keyboard users in a loop.
+    // Keep source restoration for Escape and the explicit Close button.
+    restoreFocus=false;
+    dialog.close();
+   }
   }
  });
  function reposition(){
