@@ -73,9 +73,19 @@ export function openColorPicker(input){
  // source may only inherit an open picker if its logical point identity
  // still matches; never redirect edits to a different point at that index.
  const sourceKey=input.dataset.mdressSourceKey;
- const anchor=()=>input.isConnected?input:[...document.querySelectorAll('input[type="color"]')].find(el=>
-  (!sourceKey||el.dataset.mdressSourceKey===sourceKey)&&
-  (input.id?el.id===input.id:el.getAttribute('aria-label')===input.getAttribute('aria-label')));
+ const sourceId=input.id;
+ const anchor=()=>{
+  if(input.isConnected)return input;
+  // Labels are presentation, not identity: anonymous color inputs can share
+  // the same name (or have no name at all). Never hand a detached picker's
+  // edits to an unrelated input merely because its aria-label matches.
+  if(!sourceKey&&!sourceId)return null;
+  const candidates=[...document.querySelectorAll('input[type="color"]')].filter(el=>
+   (sourceKey?el.dataset.mdressSourceKey===sourceKey:el.id===sourceId)&&
+   (!sourceId||el.id===sourceId));
+  // Ambiguous logical keys/duplicate IDs are not safe remount targets.
+  return candidates.length===1?candidates[0]:null;
+ };
  // A dynamic mesh editor remounts its native input after each commit.
  // Continue editing the same logical color source while the dialog is open.
  const liveSource=()=>{const target=anchor();return target?.type==='color'&&sourceAvailable(target)?target:null;};
