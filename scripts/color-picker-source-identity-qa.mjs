@@ -149,7 +149,10 @@ try{
 
  // A→B→A reuse within one task must still revoke a pending native sample:
  // its final attributes look unchanged, but the logical source was replaced.
- for(const field of ['key','id']){
+ for(const {field,remount} of [
+  {field:'key',remount:false},{field:'id',remount:false},
+  {field:'key',remount:true},{field:'id',remount:true}
+ ]){
   await page.evaluate(async field=>{
    const {openColorPicker}=await import('/design-system/color-picker.js');
    const host=document.createElement('div');host.id='ux23-transient-identity';
@@ -167,15 +170,20 @@ try{
   await picker.waitFor({state:'visible'});
   await picker.getByRole('button',{name:'Capturar cor da tela'}).click();
   await page.waitForFunction(()=>typeof window.__ux23TransientSample==='function');
-  await page.evaluate(field=>{
-   const input=document.querySelector('#ux23-transient-identity input');
+  await page.evaluate(({field,remount})=>{
+   let input=document.querySelector('#ux23-transient-identity input');
+   if(remount){
+    const replacement=input.cloneNode();
+    input.replaceWith(replacement);
+    input=replacement;
+   }
    if(field==='key'){
     input.dataset.mdressSourceKey='point-b';
     input.dataset.mdressSourceKey='point-a';
    }else{
     input.id='point-b';input.id='point-a';
    }
-  },field);
+  },{field,remount});
   await picker.waitFor({state:'detached',timeout:3000});
   const result=await page.evaluate(async()=>{
    window.__ux23TransientSample({sRGBHex:'#FF0000'});
@@ -184,7 +192,7 @@ try{
    return {value:input.value,changes:window.__ux23TransientChanges};
   });
   assert.deepEqual(result,{value:'#336699',changes:0},
-   'Transient '+field+' reuse must revoke an in-flight EyeDropper result');
+   'Transient '+field+' reuse (remount='+remount+') must revoke an in-flight EyeDropper result');
   await page.evaluate(()=>{
    document.querySelector('#ux23-transient-identity').remove();
    delete window.__ux23TransientSample;delete window.__ux23TransientChanges;
@@ -192,5 +200,5 @@ try{
   });
  }
  assert.deepEqual(errors,[],'No browser errors during color source identity transitions');
- console.log('Color picker source identity QA passed: anonymous, labelled, keyed, ambiguous remounts and connected-node recycling and transient EyeDropper identity changes.');
+ console.log('Color picker source identity QA passed: anonymous, labelled, keyed, ambiguous remounts and connected-node recycling and transient EyeDropper identity changes, including remounts.');
 }finally{await browser.close();}
