@@ -32,10 +32,12 @@ try{
    input.value='#336699';apply(fieldset,input);
    openColorPicker(input);
    const blocked=!document.querySelector('dialog.mdress-color-picker[open]');
+   const detail={blocked,computed:getComputedStyle(input).visibility,inline:input.style.cssText,
+    rects:input.getClientRects().length,disabled:input.matches(':disabled')};
    reset(fieldset,input);
-   return blocked;
+   return detail;
   },{setup,restore});
-  assert.ok(result,'Picker must refuse an unavailable source: '+name);
+  assert.ok(result.blocked,'Picker must refuse an unavailable source: '+name+' '+JSON.stringify(result));
  };
  await check('disabled fieldset','fieldset.disabled=true','fieldset.disabled=false');
  await check('ARIA disabled','fieldset.setAttribute("aria-disabled","true")','fieldset.removeAttribute("aria-disabled")');
