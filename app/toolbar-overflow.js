@@ -235,6 +235,7 @@ export function attachToolbarOverflow(toolbar){
   resize.observe(toolbar);
   syncObservedGroups();
  }
+ // `dir` may change independently of class/style (e.g. language switching).
  // Observe new groups, but release detached groups on mode switches. Keeping
  // removed DOM nodes observed leaks them across repeated editor transitions.
  const toolbarObserver=new MutationObserver(records=>{
@@ -243,8 +244,10 @@ export function attachToolbarOverflow(toolbar){
  });
  toolbarObserver.observe(toolbar,{
   childList:true,subtree:true,attributes:true,
-  attributeFilter:['disabled','aria-disabled','aria-hidden','inert','hidden','class','style']
+  attributeFilter:['disabled','aria-disabled','aria-hidden','inert','hidden','class','style','dir']
  });
+ // Inherited `dir` on an ancestor changes physical scroll-arrow permissions
+ // even if the toolbar's own attributes and scrollLeft do not change.
  // Toolbar subtree observation alone misses mode changes on the wrapping
  // shell, body or inspector workspace. Observe ancestor attributes so an
  // already-focused action/scroll arrow is recovered when its host is hidden.
@@ -269,7 +272,7 @@ export function attachToolbarOverflow(toolbar){
   ancestryObserver.disconnect();watchedAncestors=ancestors;
   for(const node of ancestors)ancestryObserver.observe(node,{
    attributes:true,childList:true,
-   attributeFilter:['hidden','inert','aria-hidden','aria-disabled','disabled','class','style']
+   attributeFilter:['hidden','inert','aria-hidden','aria-disabled','disabled','class','style','dir']
   });
  };
  const dispose=()=>{
