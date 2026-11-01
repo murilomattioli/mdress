@@ -312,8 +312,15 @@ try{
  await dynamicItems.nth(1).focus();
  await dynamicItems.nth(1).evaluate(el=>el.disabled=true);
  await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.hidden===true);
- assert.equal(await dynamicHost.locator('button').first().evaluate(el=>el===document.activeElement),true,
-  'Disabling every action closes the popover and restores focus to the section toggle');
+ const lastActionFocus=await page.evaluate(()=>{
+  const host=document.querySelector('#ux23-dynamic-menu-host');
+  const menu=host.querySelector('[role=menu]');
+  return {active:document.activeElement?.outerHTML?.slice(0,200),
+   toggleFocused:document.activeElement===host.querySelector('button'),
+   open:menu.matches(':popover-open'),trace:window.__ux23VisibilityTrace?.slice(-12)};
+ });
+ assert.equal(lastActionFocus.toggleFocused,true,
+  'Disabling every action closes the popover and restores focus to the section toggle: '+JSON.stringify(lastActionFocus));
  assert.equal(await dynamicHost.getByRole('menu').isVisible(),false);
  await dynamicItems.nth(1).evaluate(el=>el.disabled=false);
  await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.hidden===false);
