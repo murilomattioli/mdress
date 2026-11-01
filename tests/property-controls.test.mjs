@@ -159,6 +159,20 @@ test('segment keyboard navigation skips disabled options and wraps safely',()=>{
  assert.equal(nextEnabledSegmentIndex([false],0,'ArrowLeft'),0);
 });
 
+test('RTL segmented arrows follow visual order and skip disabled choices',()=>{
+ const available=[false,false,false];
+ assert.equal(nextEnabledSegmentIndex(available,0,'ArrowLeft','rtl'),1);
+ assert.equal(nextEnabledSegmentIndex(available,1,'ArrowRight','rtl'),0);
+ assert.equal(nextEnabledSegmentIndex(available,0,'ArrowRight','rtl'),2,
+  'RTL right from first wraps to the visually rightmost segment');
+ assert.equal(nextEnabledSegmentIndex([false,true,false],0,'ArrowLeft','rtl'),2,
+  'RTL left skips the disabled middle option');
+ assert.equal(nextEnabledSegmentIndex([false,true,false],2,'ArrowRight','rtl'),0);
+ assert.equal(nextEnabledSegmentIndex(available,2,'Home','rtl'),0);
+ assert.equal(nextEnabledSegmentIndex(available,0,'End','rtl'),2);
+ assert.equal(nextEnabledSegmentIndex([true,true],0,'ArrowLeft','rtl'),-1);
+});
+
 // Portalled dropdowns must stay inside the viewport, including mobile widths.
 test('combobox popup clamps horizontal bounds without assuming a 204px width',()=>{
  const layout=selectPopoverLayout(
