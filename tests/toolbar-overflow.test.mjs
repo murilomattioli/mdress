@@ -75,3 +75,16 @@ test('RTL toolbar arrows follow physical directions with negative scrollLeft',()
   overflow:false,canScrollPrevious:false,canScrollNext:false
  });
 });
+
+
+test('oversized RTL actions reveal the right leading edge without oscillation',()=>{
+ const viewport={left:100,right:260};
+ // The logical start is the right edge, even when the left edge is clipped.
+ assert.equal(focusedToolbarDelta({left:-200,right:100},viewport,6,'rtl'),-154);
+ assert.equal(focusedToolbarDelta({left:90,right:390},viewport,6,'rtl'),136);
+ assert.equal(focusedToolbarDelta({left:-46,right:254},viewport,6,'rtl'),0);
+ assert.equal(focusedToolbarDelta({left:-100,right:200},viewport,6,'rtl'),0);
+ // Ordinary controls still reveal whichever physical edge is clipped.
+ assert.equal(focusedToolbarDelta({left:90,right:120},viewport,6,'rtl'),-16);
+ assert.equal(focusedToolbarDelta({left:240,right:270},viewport,6,'rtl'),16);
+});

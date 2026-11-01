@@ -12,11 +12,15 @@ export function toolbarOverflowState({scrollLeft,scrollWidth,clientWidth},direct
   canScrollPrevious:overflow&&(rtl?scrollLeft>-max+1:scrollLeft>1),
   canScrollNext:overflow&&(rtl?scrollLeft< -1:scrollLeft<max-1)};
 }
-export function focusedToolbarDelta(control,viewport,padding=6){
- // At high zoom or very narrow split panes a control can be wider than the
- // entire scrollport. Reveal its leading edge once: trying to reveal both
- // edges on successive resize frames would oscillate the toolbar forever.
+export function focusedToolbarDelta(control,viewport,padding=6,direction='ltr'){
+ // At high zoom a control can be wider than the entire scrollport. Reveal
+ // its *logical leading* edge: left in LTR, right in RTL. Trying to reveal
+ // both clipped edges on successive resize frames would oscillate forever.
  if(control.right-control.left>viewport.right-viewport.left-2*padding){
+  if(direction==='rtl'){
+   return control.right>viewport.right-padding||control.right<=viewport.left+padding?
+    Math.round(control.right-viewport.right+padding):0;
+  }
   return control.left<viewport.left+padding||control.left>=viewport.right-padding?
    Math.round(control.left-viewport.left-padding):0;
  }
@@ -169,7 +173,7 @@ export function attachToolbarOverflow(toolbar){
  const revealFocusedAction=()=>{
   const active=document.activeElement;
   if(!toolbar.contains(active)||!focusable(active))return;
-  const delta=focusedToolbarDelta(active.getBoundingClientRect(),toolbar.getBoundingClientRect());
+  const delta=focusedToolbarDelta(active.getBoundingClientRect(),toolbar.getBoundingClientRect(),6,getComputedStyle(toolbar).direction);
   if(delta)toolbar.scrollLeft+=delta;
  };
  let frame=0,revealOnNextFrame=false;
@@ -213,7 +217,7 @@ export function attachToolbarOverflow(toolbar){
    lastFocusedIndex=[...toolbar.querySelectorAll(actionSelector)].indexOf(target);
   }
   if(!toolbar.contains(target)||typeof target.getBoundingClientRect!=='function')return;
-  const delta=focusedToolbarDelta(target.getBoundingClientRect(),toolbar.getBoundingClientRect());
+  const delta=focusedToolbarDelta(target.getBoundingClientRect(),toolbar.getBoundingClientRect(),6,getComputedStyle(toolbar).direction);
   if(delta)toolbar.scrollBy({left:delta,behavior:'auto'});
   schedule();
  };
