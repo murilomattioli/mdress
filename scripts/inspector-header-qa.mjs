@@ -233,7 +233,19 @@ try{
   'Effective visibility overrides inherited hidden state for a menu action');
  await page.screenshot({path:'test-results/header-menu-visibility-override-action.png',animations:'disabled'});
  await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el.style.removeProperty('visibility'));
- await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Segunda');
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Segunda',null,{timeout:3500}).catch(async error=>{
+  const snapshot=await page.evaluate(()=>{
+   const host=document.querySelector('#ux23-dynamic-menu-host');
+   const items=[...host.querySelectorAll('[role=menuitem]')];
+   return {active:document.activeElement?.outerHTML?.slice(0,240),
+    open:host.querySelector('[role=menu]').matches(':popover-open'),
+    triggerHidden:host.querySelector('.ds-header-menu-trigger').hidden,
+    styles:items.map(el=>({label:el.textContent,visibility:getComputedStyle(el).visibility,
+     parentVisibility:getComputedStyle(el.parentElement).visibility,
+     disabled:el.matches(':disabled'),rects:el.getClientRects().length}))};
+  });
+  throw new Error('Hidden action focus recovery: '+JSON.stringify(snapshot),{cause:error});
+ });
  await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el.click());
  assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
   'An action inheriting visibility:hidden cannot execute a synthetic click');
