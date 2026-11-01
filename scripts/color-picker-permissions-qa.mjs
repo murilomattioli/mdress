@@ -43,7 +43,7 @@ try{
  await check('hidden','fieldset.hidden=true','fieldset.hidden=false');
  await check('display none','fieldset.style.display="none"','fieldset.style.display=""');
  await check('content visibility','fieldset.style.contentVisibility="hidden"','fieldset.style.contentVisibility=""');
- await check('effective CSS visibility','input.style.visibility="hidden"','input.style.visibility=""');
+ await check('effective CSS visibility','input.style.setProperty("visibility","hidden","important")','input.style.removeProperty("visibility")');
  const revokeCases=[
   ['disabled fieldset','fieldset.disabled=true'],
   ['ARIA disabled','fieldset.setAttribute("aria-disabled","true")'],
@@ -51,7 +51,7 @@ try{
   ['hidden','fieldset.hidden=true'],
   ['display none','fieldset.style.display="none"'],
   ['content visibility','fieldset.style.contentVisibility="hidden"'],
-  ['CSS visibility','input.style.visibility="hidden"'],
+  ['CSS visibility','input.style.setProperty("visibility","hidden","important")'],
   ['detached source','input.remove()'],
   ['root ARIA permission','document.documentElement.setAttribute("aria-disabled","true")']
  ];
