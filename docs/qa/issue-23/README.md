@@ -1,3 +1,29 @@
+## UX-023 — verificabilidade do overflow da toolbar (01/11/2026)
+
+**QA funcional e visual:** o novo `scripts/toolbar-discoverability-qa.mjs` valida 8 combinações (2 temas × 4 larguras: 1440, 1024, 768 e 390 px). Cada cenário monta uma toolbar de overflow determinístico e verifica **8 ações acessíveis por Tab**, revelação visual do item focado, botões de rolagem com nome acessível e `aria-controls` válido, ativação por Enter e alcance do fim da barra. O Browser Smoke bloqueia o PR se a descoberta funcional falhar.
+
+**Evidências:** 24 screenshots (início, último comando via teclado e fim após rolagem por seta) em `test-results/ux-audit/toolbar-discoverability-{start,keyboard,end}-{theme}-{width}.png`, além de `test-results/ux-audit/toolbar-discoverability.json` no artefato temporário. A auditoria geral continua registrando os avisos `scrollable-toolbar`: **acessibilidade funcional não equivale a aprovação de composição visual**, nem elimina a necessidade de conferir se o usuário percebe que há ferramentas fora da área visível.
+
+**PowerShell — verificar e homologar, sem merge:**
+```powershell
+cd F:\Projects\lumu\tools\mdress
+git status --short
+git fetch origin
+git switch feat/23-property-controls-ux-qa
+git pull --ff-only origin feat/23-property-controls-ux-qa
+npm install --include=dev
+npx playwright install chromium
+npm run dev
+# Outro terminal:
+node scripts/toolbar-discoverability-qa.mjs
+node scripts/toolbar-resize-qa.mjs
+npm run qa:supervised
+```
+
+**Revisão humana pendente:** comparar as capturas dos 8 cenários e experimentar rolagem, foco e descoberta de ações em dispositivos reais. Manter PR #27 draft e issue #23 aberta; sem merge, release ou Cloudflare.
+
+---
+
 ## UX-023 — color picker: teclado IME e visual viewport (01/11/2026)
 
 **Implementação:** o seletor de cores mantém o foco e não fecha ao receber Escape, Tab ou setas durante composição IME, inclusive quando o navegador omite `isComposing` e `keyCode=229`. Enter continua disponível para confirmar candidatos em campos editáveis, mas não ativa acidentalmente botões/abas. Após `compositionend`, atalhos e edição voltam a funcionar.
