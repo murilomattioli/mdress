@@ -147,6 +147,81 @@ try{
    'ux23-css-commit','ux23-visibility-commit','ux23-disabled-source-commit'])
    document.getElementById(id)?.remove();
  });
+ // A detached option button keeps its JS listener. It must not commit
+ // after a portal closes, after a native option changes before observer flush,
+ // or after a live catalog rebuild. Detached pagination must also be inert.
+ const stalePortalActions=await page.evaluate(async()=>{
+  const {enhanceSelects}=await import('/design-system/property-controls.js');
+  const panel=document.querySelector('#inspector-document');
+  const host=document.createElement('div');host.id='ux23-stale-portal';
+  const label=document.createElement('label');label.textContent='Fontes temporárias ';
+  const select=document.createElement('select');select.id='ux23-stale-native';
+  select.setAttribute('data-searchable','');
+  select.add(new Option('Primeiro','first'));
+  const second=new Option('Segundo','second');select.add(second);
+  for(let i=0;i<63;i++)select.add(new Option('Fonte '+i,'font-'+i));
+  label.append(select);host.append(label);panel.append(host);
+  enhanceSelects(host);
+  const trigger=host.querySelector('.ds-select-trigger');
+  const popup=()=>document.querySelector('.ds-select-popover:popover-open');
+  const open=()=>{
+   if(popup())trigger.click();
+   trigger.click();
+   const node=popup();
+   if(!node)throw Error('Expected a live portal');
+   return node;
+  };
+  let edits=0;select.addEventListener('change',()=>edits++);
+  let portal=open(),stale=portal.querySelector('[data-value="second"]');
+  const more=portal.querySelector('.ds-select-more');
+  if(!stale||!more||more.hidden)throw Error('Missing option or pagination');
+  const initialMore=more.textContent;
+  trigger.click();stale.click();more.click();
+  const afterClose={value:select.value,edits,more:more.textContent===initialMore};
+  portal=open();stale=portal.querySelector('[data-value="second"]');
+  second.value='renamed';stale.click();
+  const afterValueChange={value:select.value,edits};
+  if(popup())trigger.click();
+  second.value='second';
+  portal=open();stale=portal.querySelector('[data-value="second"]');
+  second.hidden=true;stale.click();
+  const afterHidden={value:select.value,edits};
+  if(popup())trigger.click();
+  second.hidden=false;
+  portal=open();stale=portal.querySelector('[data-value="second"]');
+  second.remove();stale.click();
+  const afterRemoval={value:select.value,edits};
+  if(popup())trigger.click();
+  select.add(second,select.options[1]);
+  portal=open();
+  const activeMore=portal.querySelector('.ds-select-more');
+  const beforeRevocation=activeMore.textContent;
+  host.inert=true;activeMore.click();
+  const afterRevocation={more:activeMore.textContent===beforeRevocation,edits};
+  host.inert=false;
+  if(popup())trigger.click();
+  select.addEventListener('mdress:select-open',()=>{host.inert=true;},{once:true});
+  trigger.click();
+  const synchronousRevocation={portal:!!popup(),expanded:trigger.getAttribute('aria-expanded')};
+  host.inert=false;
+  // Leave a legitimate open state for the screenshot and human review.
+  open();
+  return {afterClose,afterValueChange,afterHidden,afterRemoval,
+   afterRevocation,synchronousRevocation};
+ });
+ assert.deepEqual(stalePortalActions,{
+  afterClose:{value:'first',edits:0,more:true},
+  afterValueChange:{value:'first',edits:0},
+  afterHidden:{value:'first',edits:0},
+  afterRemoval:{value:'first',edits:0},
+  afterRevocation:{more:true,edits:0},
+  synchronousRevocation:{portal:false,expanded:'false'}
+ },'Stale portal actions and synchronous source revocation must not commit');
+ await page.screenshot({path:'test-results/header-stale-portal-action-guards.png',animations:'disabled'});
+ await page.evaluate(()=>{
+  document.querySelector('#ux23-stale-portal')?.remove();
+  document.querySelector('.ds-select-popover:popover-open')?.remove();
+ });
  // Roving tab navigation must skip dynamically unavailable destinations.
  // A programmatic tab change must not strand focus in the hidden old panel.
  const documentTab=page.locator('[data-inspector-tab=document]');
