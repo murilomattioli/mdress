@@ -227,6 +227,14 @@ try{
  }
  const page=await browser.newPage();await page.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173');
  await page.locator('#source').waitFor();
+ // EyeDropper regression must use an actually available inspector source;
+ // programmatic clicks on a collapsed/hidden source are no longer valid.
+ await page.evaluate(async()=>{
+  if(document.getElementById('themesView').classList.contains('hidden'))
+   document.getElementById('designToggle').click();
+  const {revealInspectorControl}=await import('/property-inspector.js');
+  revealInspectorControl('accentColor');
+ });
  await page.evaluate(()=>{window.EyeDropper=class{async open(){return {sRGBHex:'#ABCDEF'};}};document.getElementById('accentColor').click();});
  let dialog=page.getByRole('dialog',{name:/Cores/});await dialog.getByRole('button',{name:'Capturar cor da tela',exact:true}).click();
  assert.equal(await page.locator('#accentColor').inputValue(),'#abcdef');await dialog.press('Escape');await page.locator('.mdress-color-picker').waitFor({state:'detached'});
