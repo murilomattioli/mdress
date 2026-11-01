@@ -18,14 +18,42 @@ const registerController=(control,update)=>{
  controllers.set(control,update);
  control.setAttribute('data-ds-sync-control','');
 };
-// Fieldset disabled is inherited, not reflected by native .disabled.
-// Observe ancestor permissions, including the first-legend exception.
+// Native :disabled includes ancestor fieldsets, but input.disabled does not.
+// One document observer avoids retaining detached controls via per-fieldset
+// observers. It also follows already-enhanced controls moved into a *new*
+// fieldset (or into/out of its first legend) without re-enhancing the DOM.
+const disabledAncestorCallbacks=new WeakMap();
+let disabledAncestryObserver=null;
 function watchDisabledAncestors(control,update){
- const observer=new MutationObserver(update);
- for(let node=control.parentElement;node;node=node.parentElement)
-  if(node.tagName==='FIELDSET')observer.observe(node,{
-   attributes:true,attributeFilter:['disabled'],childList:true
-  });
+ disabledAncestorCallbacks.set(control,update);
+ if(disabledAncestryObserver)return;
+ disabledAncestryObserver=new MutationObserver(records=>{
+  const affected=new Set();
+  const collect=node=>{
+   if(node.nodeType!==1&&node.nodeType!==11)return;
+   if(node.matches?.('[data-ds-sync-control]'))affected.add(node);
+   node.querySelectorAll?.('[data-ds-sync-control]').forEach(el=>affected.add(el));
+  };
+  for(const record of records){
+   if(record.type==='attributes'){
+    if(record.target.tagName==='FIELDSET')collect(record.target);
+    continue;
+   }
+   // Reordering the first direct-child legend changes which controls are
+   // exempt from a disabled fieldset even without a disabled mutation.
+   if(record.target.tagName==='FIELDSET')collect(record.target);
+   // Both sides of a move matter: a control can leave a disabled fieldset
+   // for an enabled parent, or enter a previously unobserved fieldset.
+   for(const node of record.addedNodes)collect(node);
+   for(const node of record.removedNodes)collect(node);
+  }
+  for(const source of affected){
+   if(source.isConnected)disabledAncestorCallbacks.get(source)?.();
+  }
+ });
+ disabledAncestryObserver.observe(document.documentElement,{
+  subtree:true,childList:true,attributes:true,attributeFilter:['disabled']
+ });
 }
 
 let openSelect=null;
