@@ -136,6 +136,42 @@ try{
  await dialog.waitFor({state:'detached'});
  assert.equal(await page.locator('#ux23-color-source').inputValue(),'#336699',
   'Late EyeDropper results must not change a revoked source');
+ // Detached swatches and inputs retain event handlers after close. Neither
+ // those handlers nor callbacks from a superseded picker may edit a document.
+ const stale=await page.evaluate(async()=>{
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  const fieldset=document.getElementById('ux23-color-permissions');
+  fieldset.disabled=false;fieldset.removeAttribute('aria-disabled');
+  const source=document.getElementById('ux23-color-source');source.value='#010203';
+  const beforeSaved=localStorage.getItem('mdress.saved-colors.v1');
+  openColorPicker(source);
+  const old=document.querySelector('dialog.mdress-color-picker[open]');
+  const cell=old.querySelector('.cp-cell');
+  const opacity=old.querySelector('.cp-opacity input[type="number"]');
+  const add=old.querySelector('.cp-saved-title button');
+  old.close();
+  cell.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  opacity.value='17';opacity.dispatchEvent(new Event('change',{bubbles:true}));
+  add.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  const afterClose={color:source.value,opacity:source.dataset.opacity??null,
+   saved:localStorage.getItem('mdress.saved-colors.v1')};
+  const other=document.createElement('input');other.type='color';other.value='#0A0B0C';
+  other.setAttribute('aria-label','Outra cor');fieldset.querySelector('legend').append(other);
+  openColorPicker(source);
+  const superseded=document.querySelector('dialog.mdress-color-picker[open]');
+  const oldCell=superseded.querySelector('.cp-cell');
+  openColorPicker(other);
+  oldCell.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  const afterSwitch={original:source.value,replacement:other.value};
+  document.querySelector('dialog.mdress-color-picker[open]')?.close();
+  return {beforeSaved,afterClose,afterSwitch};
+ });
+ assert.equal(stale.afterClose.color,'#010203','Closed picker swatches must not edit native color');
+ assert.equal(stale.afterClose.opacity,null,'Closed picker opacity controls must not edit native opacity');
+ assert.equal(stale.afterClose.saved,stale.beforeSaved,'Closed picker cannot save a stale swatch');
+ assert.deepEqual(stale.afterSwitch,{original:'#010203',replacement:'#0a0b0c'},
+  'A superseded picker cannot edit either native source');
+ await page.waitForFunction(()=>document.querySelectorAll('dialog.mdress-color-picker').length===0);
  assert.deepEqual(errors,[],'No runtime errors while revoking the portalled picker');
- console.log('Color picker permission guards passed: 7 blocked openings, 9 revocations, legend and async sample');
+ console.log('Color picker permission guards passed: 7 blocked openings, 9 revocations, legend, async sample and stale callbacks');
 }finally{await browser.close();}
