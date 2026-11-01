@@ -540,3 +540,14 @@ A toolbar de uma interface RTL pode expor `scrollLeft` negativo (0 na borda dire
 - Unitário: `tests/toolbar-overflow.test.mjs` valida os limites RTL, o meio do scroll e arredondamento fracionário.
 - Chromium: `scripts/toolbar-discoverability-qa.mjs` executa cenário RTL 390px e registra `toolbar-rtl-{right-edge,middle,left-edge}-390.png` em `test-results/ux-audit`.
 - Critério humano: inspecionar direção das setas, foco, recorte de comandos e os três screenshots; testes verdes **não** homologam UX.
+
+
+### Navegação RTL — revisão humana obrigatória
+
+O teste `node scripts/property-rtl-keyboard-qa.mjs` usa Chromium móvel de 390px, alterna a direção sem remontar os controles e registra três evidências em `test-results/ux-audit/`:
+
+- `property-keyboard-ltr-390.png`: botões binários e segmentos no sentido padrão.
+- `property-keyboard-rtl-390.png`: ordem visual RTL, foco e segmento intermediário desabilitado.
+- `color-picker-tabs-rtl-390.png`: abas do seletor portalled com sentido RTL.
+
+Verificar visualmente ordem, espaçamento, contraste, estados selecionados, foco perceptível e alvos de toque. As setas esquerda/direita seguem a posição **física** dos controles; Home/End preservam as extremidades da sequência. Testes automatizados não constituem homologação de UX.
