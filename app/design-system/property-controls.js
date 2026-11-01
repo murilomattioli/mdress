@@ -424,7 +424,13 @@ function enhanceNumber(label,input,title){
    finally{restoring=false;}
   }
  };
+ // ARIA-disabled does not make a native number input read-only. Keep the
+ // editable field locked while preserving a pre-existing readOnly state.
+ let forcedReadOnly=false;
  const update=()=>{
+  const ariaLocked=sourceUnavailable(input)&&!input.matches(':disabled');
+  if(ariaLocked&&!input.readOnly){input.readOnly=true;forcedReadOnly=true;}
+  else if(!ariaLocked&&forcedReadOnly){input.readOnly=false;forcedReadOnly=false;}
   // Disabling a numeric field must discard its uncommitted draft, just like
   // the range and hex controls. Otherwise an invalid number can remain in
   // the native source of truth after the inspector becomes read-only.
