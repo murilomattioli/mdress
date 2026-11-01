@@ -15,6 +15,12 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
  group.addEventListener('focusout',event=>{
   if(event.relatedTarget&&event.relatedTarget!==document.body)lastFocusedAction=null;
  });
+ // A pointer click outside a quick-action group may blur its focused button
+ // to <body>. That is deliberate navigation, not a disabled-state focus loss.
+ // Do not steal focus back on the next unrelated permission mutation.
+ document.addEventListener('pointerdown',event=>{
+  if(!group.contains(event.target))lastFocusedAction=null;
+ },true);
  // Quick actions can sit in an accordion header while their native source is
  // inside its body. Evaluate permissions on BOTH trees, not only the header.
  // HTML fieldset's first-legend exception applies independently to each tree.
