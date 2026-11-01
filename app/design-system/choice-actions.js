@@ -26,7 +26,8 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
   }
   return false;
  };
- const permissionRevoked=()=>source.matches?.(':disabled,[aria-disabled="true"],[inert]')||
+ const permissionRevoked=()=>Boolean(group.isConnected&&!source.isConnected)||
+  source.matches?.(':disabled,[aria-disabled="true"],[inert]')||
   Boolean(source.parentElement?.closest('[aria-disabled="true"],[inert]'))||
   Boolean(group.closest('[aria-disabled="true"],[inert]'))||
   inDisabledFieldset(group);
