@@ -592,16 +592,21 @@ function enhanceBinary(label,input,title){
   if(focused&&input.disabled)focusInspectorNeighbor(focused,{visibleOnly:true});
   else if(focused&&focused.tabIndex<0)(input.checked?on:off).focus({preventScroll:true});
  };
- const commit=val=>{
-  if(input.disabled||input.checked===val)return;
+ // Synthetic events can arrive before the observer reconciles inherited
+ // fieldset, inert/ARIA or CSS permissions. The native checkbox is hidden,
+ // so validate the visible button's tree as well as native :disabled.
+ const actionable=btn=>input.isConnected&&btn.isConnected&&group.contains(btn)&&
+  !input.matches(':disabled')&&!btn.disabled&&visibleFocusTree(btn);
+ const commit=(val,origin)=>{
+  if(!actionable(origin)||input.checked===val)return;
   input.checked=val;input.dispatchEvent(new Event('input',{bubbles:true}));
   input.dispatchEvent(new Event('change',{bubbles:true}));update();
  };
- off.onclick=()=>commit(false);on.onclick=()=>commit(true);
- for(const [index,btn] of [off,on].entries())btn.addEventListener('keydown',e=>{
-  if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
-  e.preventDefault();const value=e.key==='Home'?false:e.key==='End'?true:e.key==='ArrowRight'?true:false;
-  const next=value?on:off;next.focus();commit(value);
+ off.onclick=()=>commit(false,off);on.onclick=()=>commit(true,on);
+ for(const btn of [off,on])btn.addEventListener('keydown',e=>{
+  if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)||!actionable(btn))return;
+  e.preventDefault();const value=e.key==='Home'?false:e.key==='End'?true:e.key==='ArrowRight';
+  const next=value?on:off;next.focus({preventScroll:true});commit(value,next);
  });
  input.addEventListener('change',update);
  new MutationObserver(update).observe(input,{attributes:true,attributeFilter:['disabled']});
@@ -646,15 +651,23 @@ function enhanceSegment(label,select,title){
   return initialLabels.get(option)===text&&compact[option.value]||text;
  };
  let elements=[],rendered=[];
+ // A removed/relabelled option or detached segment button must never commit
+ // a stale value, even when a queued click precedes MutationObserver.
+ const actionable=(option,btn)=>select.isConnected&&btn.isConnected&&
+  group.contains(btn)&&!btn.disabled&&!select.matches(':disabled')&&
+  visibleFocusTree(btn)&&option.isConnected&&option.closest('select')===select&&
+  visibleSelectOptions(select).includes(option)&&!isSelectOptionDisabled(option)&&
+  option.value===btn.dataset.value&&labelFor(option)===btn.textContent&&
+  rendered.some(item=>item.option===option&&item.button===btn);
  const makeButton=option=>{
   const btn=button('ds-segment-option',labelFor(option));
   btn.dataset.value=option.value;
-  btn.onclick=()=>{if(!select.disabled&&!isSelectOptionDisabled(option))nativeCommit(select,option.value);};
+  btn.onclick=()=>{if(actionable(option,btn))nativeCommit(select,option.value);};
   btn.addEventListener('keydown',e=>{
-   if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
+   if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)||!actionable(option,btn))return;
    e.preventDefault();
    const next=nextEnabledSegmentIndex(elements.map(item=>item.disabled),elements.indexOf(btn),e.key);
-   if(next!==-1){elements[next].focus();elements[next].click();}
+   if(next!==-1){elements[next].focus({preventScroll:true});elements[next].click();}
   });
   return btn;
  };
@@ -686,7 +699,7 @@ function enhanceSegment(label,select,title){
   const focusedBeforeDisable=elements.indexOf(document.activeElement);
   for(const [index,btn] of elements.entries()){
    btn.setAttribute('aria-pressed',String(btn.dataset.value===select.value));
-   btn.disabled=select.disabled||isSelectOptionDisabled(rendered[index].option);
+   btn.disabled=select.matches(':disabled')||isSelectOptionDisabled(rendered[index].option);
   }
   if(focusRecovery){
    const {focusedIndex,focusedOption}=focusRecovery;

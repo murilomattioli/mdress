@@ -6,6 +6,98 @@ const browser=await chromium.launch();
 try{
  const page=await browser.newPage({viewport:{width:1024,height:900},reducedMotion:'reduce'});
  await page.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173');await page.locator('#designToggle').click();
+ // Native segmented choices and binary toggles are not portals, but they
+ // still retain event handlers when options are replaced or rows detached.
+ // Revoke stale synthetic actions synchronously, including fieldset inheritance
+ // and the first-legend exception (no observer microtask required).
+ const nativeChoiceGuards=await page.evaluate(async()=>{
+  const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+  const panel=document.querySelector('#inspector-document');
+  const fixtures=[];
+  const make=(kind,{legend=false}={})=>{
+   const fieldset=document.createElement('fieldset');
+   const firstLegend=document.createElement('legend');firstLegend.textContent='Permissões de controle';
+   const label=document.createElement('label');label.className='property-row';
+   label.append(document.createTextNode(kind==='binary'?'Exibir guias ':'Tipo de linha '));
+   const source=kind==='binary'?document.createElement('input'):document.createElement('select');
+   if(kind==='binary')source.type='checkbox';
+   else{
+    source.id='sectionRule';
+    source.add(new Option('Linha','line'));
+    source.add(new Option('Bloco','block'));
+   }
+   label.append(source);
+   if(legend){firstLegend.append(label);fieldset.append(firstLegend);}
+   else fieldset.append(firstLegend,label);
+   panel.append(fieldset);fixtures.push(fieldset);
+   enhancePropertyControls(document);
+   const buttons=[...label.querySelectorAll(kind==='binary'?'.ds-binary-option':'.ds-segment-option')];
+   if(buttons.length!==2)throw Error('Missing enhanced '+kind+' buttons');
+   let edits=0;source.addEventListener('change',()=>edits++);
+   return {fieldset,label,source,buttons,edits:()=>edits};
+  };
+  const click=btn=>btn.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  const binary=make('binary'),b=binary.buttons[1];
+  binary.fieldset.disabled=true;click(b);
+  const binaryFieldset=!binary.source.checked&&binary.edits()===0;
+  binary.fieldset.disabled=false;
+  binary.fieldset.setAttribute('aria-disabled','true');click(b);
+  const binaryAria=!binary.source.checked&&binary.edits()===0;
+  binary.fieldset.removeAttribute('aria-disabled');
+  binary.fieldset.inert=true;click(b);
+  const binaryInert=!binary.source.checked&&binary.edits()===0;
+  binary.fieldset.inert=false;
+  binary.fieldset.hidden=true;click(b);
+  const binaryHidden=!binary.source.checked&&binary.edits()===0;
+  binary.fieldset.hidden=false;click(b);
+  const binaryRestored=binary.source.checked&&binary.edits()===1;
+  binary.label.remove();click(binary.buttons[0]);
+  const binaryDetached=binary.source.checked&&binary.edits()===1;
+  const binaryLegend=make('binary',{legend:true});
+  binaryLegend.fieldset.disabled=true;click(binaryLegend.buttons[1]);
+  const binaryLegendAllowed=binaryLegend.source.checked&&binaryLegend.edits()===1;
+  const segment=make('segment'),second=segment.buttons[1];
+  segment.fieldset.disabled=true;click(second);
+  const segmentFieldset=segment.source.value==='line'&&segment.edits()===0;
+  segment.fieldset.disabled=false;
+  segment.fieldset.setAttribute('aria-disabled','true');click(second);
+  const segmentAria=segment.source.value==='line'&&segment.edits()===0;
+  segment.fieldset.removeAttribute('aria-disabled');
+  segment.fieldset.inert=true;click(second);
+  const segmentInert=segment.source.value==='line'&&segment.edits()===0;
+  segment.fieldset.inert=false;
+  segment.fieldset.hidden=true;click(second);
+  const segmentHidden=segment.source.value==='line'&&segment.edits()===0;
+  segment.fieldset.hidden=false;
+  const option=segment.source.options[1];
+  option.hidden=true;click(second);
+  const segmentOptionHidden=segment.source.value==='line'&&segment.edits()===0;
+  option.hidden=false;option.label='Renomeado';click(second);
+  const segmentOptionRenamed=segment.source.value==='line'&&segment.edits()===0;
+  option.label='Bloco';option.value='changed';click(second);
+  const segmentOptionChanged=segment.source.value==='line'&&segment.edits()===0;
+  option.value='block';click(second);
+  const segmentRestored=segment.source.value==='block'&&segment.edits()===1;
+  segment.source.value='line';option.remove();click(second);
+  const segmentOptionRemoved=segment.source.value==='line'&&segment.edits()===1;
+  segment.fieldset.remove();click(second);
+  const segmentDetached=segment.source.value==='line'&&segment.edits()===1;
+  const segmentLegend=make('segment',{legend:true});
+  segmentLegend.fieldset.disabled=true;click(segmentLegend.buttons[1]);
+  const segmentLegendAllowed=segmentLegend.source.value==='block'&&segmentLegend.edits()===1;
+  return {results:{binaryFieldset,binaryAria,binaryInert,binaryHidden,binaryRestored,
+   binaryDetached,binaryLegendAllowed,segmentFieldset,segmentAria,segmentInert,
+   segmentHidden,segmentOptionHidden,segmentOptionRenamed,segmentOptionChanged,
+   segmentRestored,segmentOptionRemoved,segmentDetached,segmentLegendAllowed},
+   fixtureIds:fixtures.map((_,i)=>i)};
+ });
+ assert.deepEqual(Object.values(nativeChoiceGuards.results),Array(18).fill(true),
+  'Binary and segment actions must reject stale clicks without blocking legitimate first-legend interactions');
+ await page.screenshot({path:'test-results/header-native-choice-revocation.png',animations:'disabled'});
+ await page.evaluate(()=>[...document.querySelectorAll('#inspector-document fieldset')]
+  .filter(fieldset=>fieldset.querySelector('legend')?.textContent==='Permissões de controle')
+  .forEach(fieldset=>fieldset.remove()));
+
  // Dynamic controls are replaced frequently (especially mesh points). A global
  // theme sync must update mounted controls, skip detached controls, and resume
  // updating the *same* enhanced controls if their host is reattached.
