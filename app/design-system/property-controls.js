@@ -1038,7 +1038,7 @@ function makeListbox(label,select,title){
     nativeCommit(select,opt.value);closePopup();
    });
    item.addEventListener('keydown',e=>{
-    if(isImeKeyEvent(e))return;
+    if(openSelect?.popup!==popup||!item.isConnected||isImeKeyEvent(e))return;
     const move=(dir)=>{
      const available=buttons.filter(b=>!b.disabled&&!b.hidden);
      const cur=available.indexOf(item);
@@ -1097,7 +1097,7 @@ function makeListbox(label,select,title){
     buttons.find(item=>!item.disabled)||search)?.focus();
   });
   more.addEventListener('keydown',event=>{
-   if(isImeKeyEvent(event))return;
+   if(openSelect?.popup!==popup||!more.isConnected||isImeKeyEvent(event))return;
    if(event.key==='ArrowUp'){
     event.preventDefault();
     (buttons.findLast(item=>!item.disabled)||search)?.focus();
@@ -1126,8 +1126,12 @@ function makeListbox(label,select,title){
      }
     },0);
    });
-   search.addEventListener('input',()=>{limit=60;renderOptions();list.scrollTop=0;});
+   search.addEventListener('input',()=>{
+    if(openSelect?.popup!==popup||!search.isConnected)return;
+    limit=60;renderOptions();list.scrollTop=0;
+   });
    search.addEventListener('keydown',event=>{
+    if(openSelect?.popup!==popup||!search.isConnected)return;
     // Enter confirms IME composition; Escape/arrow keys may also belong to
     // the candidate picker. Do not commit a font or dismiss the popover.
     if(isImeKeyEvent(event))return;
