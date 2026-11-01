@@ -136,8 +136,11 @@ try{
   const group=document.querySelector('#ux23-permission-group');
   return document.activeElement!==document.body&&!group.contains(document.activeElement);
  },null,{timeout:3000});
- assert.equal(await page.evaluate(()=>document.activeElement?.id==='source'),true,
-  'An inert toolbar group must hand focus to the editor');
+ assert.equal(await page.evaluate(()=>{
+  const focused=document.activeElement;
+  return document.querySelector('.markdown-toolbar').contains(focused)&&
+   !document.querySelector('#ux23-permission-group').contains(focused);
+ }),true,'An inert toolbar group must hand focus to an available toolbar action');
  await toolbar.screenshot({path:'test-results/ux-audit/toolbar-inert-group-focus-recovered.png',animations:'disabled'});
  await toolbar.locator('#ux23-permission-group').evaluate(el=>el.remove());
  // At large zoom an action may be wider than the whole toolbar viewport.
