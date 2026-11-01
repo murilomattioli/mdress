@@ -216,7 +216,12 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    if(buttons.includes(event.target))lastFocusedItem=event.target;
   });
   menu.addEventListener('focusout',event=>{
-   if(event.target===lastFocusedItem&&event.relatedTarget&&event.relatedTarget!==document.body)
+   // Hiding an active menuitem via CSS may first blur it to the trigger or
+   // documentElement, then to body, before the mutation observer runs.
+   // Retain its position if it is no longer available; intentional navigation
+   // away from a still-usable item clears ownership as usual.
+   if(event.target===lastFocusedItem&&available().includes(event.target)&&
+      event.relatedTarget&&event.relatedTarget!==document.body)
     lastFocusedItem=null;
   });
   const clearOutsidePointer=event=>{
