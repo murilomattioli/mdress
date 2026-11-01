@@ -348,7 +348,10 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    // Chromium can blur a disabled focused button to <body> before the
    // MutationObserver runs. Retain its prior focus ownership for recovery.
    const lostMenuFocus=lastFocusedItem&&!items.includes(lastFocusedItem)&&document.activeElement===document.body;
-   more.hidden=!items.length;
+   // Avoid triggering the observer again when the hidden state did not
+   // change; repeated setAttribute writes can starve the browser event loop.
+   const shouldHide=!items.length;
+   if(more.hidden!==shouldHide)more.hidden=shouldHide;
    watchHiddenActions();
    // Hiding a focused trigger would otherwise send keyboard focus to <body>.
    if(!items.length&&triggerFocused){
