@@ -107,7 +107,8 @@ try{
    // enhanced trigger's CSS. Revoke its effective visibility, not merely
    // the ancestor declaration (which may leave a visible descendant).
    ['ux23-visibility-commit',(host,_select,trigger)=>{
-    host.style.visibility='hidden';trigger.style.visibility='hidden';
+    host.style.visibility='hidden';
+    trigger.style.setProperty('visibility','hidden','important');
    }],
    ['ux23-disabled-source-commit',(_host,select)=>{select.disabled=true;}]
   ];
@@ -117,6 +118,9 @@ try{
    const stale=optionFor(control.trigger);
    if(!stale)throw Error('Missing option for '+id);
    revoke(control.fieldset,control.select,control.trigger);
+   if(id==='ux23-visibility-commit'&&getComputedStyle(control.trigger).visibility!=='hidden')
+    throw Error('Visibility revocation did not hide the trigger: '+
+     getComputedStyle(control.trigger).visibility+' / '+control.trigger.outerHTML);
    stale.click();
    revoked.push({id,value:control.select.value,edits:control.edits()});
   }
