@@ -152,6 +152,71 @@ try{
  assert.deepEqual(returned.binary,[false,false]);assert.deepEqual(returned.segment,[false,false,false]);
  assert.equal(returned.select,false);
  await host.screenshot({path:output+'/fieldset-reparent-restored-390.png',animations:'disabled'});
+ // ARIA-disabled and inert revoke enhanced controls without setting native
+ // disabled; unlike fieldset, ARIA does not exempt the first legend.
+ const permissions=host.locator('#ux23-permissions');
+ const assertRevoked=async(label)=>{
+  await page.waitForFunction(()=>document.querySelector('#ux23-choice').closest('label').querySelector('.ds-select-trigger').disabled);
+  const s=await state();
+  assert.equal(s.range,true,label+' range');assert.deepEqual(s.rangeStep,[true,true],label+' range steps');
+  assert.deepEqual(s.numberStep,[true,true],label+' number steps');
+  assert.equal(s.slider,true,label+' scrub');assert.equal(s.hex,true,label+' hex');
+  assert.equal(s.pipette,true,label+' EyeDropper');
+  assert.deepEqual(s.binary,[true,true],label+' binary');
+  assert.deepEqual(s.segment,[true,true,true],label+' segment');
+  assert.equal(s.select,true,label+' select');
+  const values=s.values;
+  await permissions.evaluate(el=>{
+   for(const selector of ['.ds-number-step','.ds-binary-option','.ds-segment-option','.ds-select-trigger'])
+    el.querySelector(selector)?.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  });
+  assert.deepEqual((await state()).values,values,label+' synthetic actions must not commit');
+ };
+ const assertRestored=async()=>{
+  await page.waitForFunction(()=>!document.querySelector('#ux23-choice').closest('label').querySelector('.ds-select-trigger').disabled);
+  const s=await state();
+  assert.equal(s.range,false);assert.equal(s.hex,false);assert.equal(s.select,false);
+  assert.deepEqual(s.binary,[false,false]);assert.deepEqual(s.segment,[false,false,false]);
+ };
+ await host.locator('#ux23-color').evaluate(el=>el.closest('label').querySelector('.ds-color-pipette').click());
+ await page.waitForFunction(()=>typeof window.__ux23ResolveDropper==='function');
+ await permissions.evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await assertRevoked('aria-disabled ancestor');
+ await host.screenshot({path:output+'/fieldset-aria-disabled-390.png',animations:'disabled'});
+ await permissions.evaluate(el=>el.removeAttribute('aria-disabled'));
+ await assertRestored();
+ await page.evaluate(()=>window.__ux23ResolveDropper({sRGBHex:'#ff00ff'}));
+ await page.waitForTimeout(80);
+ assert.equal((await state()).values[2],'#336699','ARIA revocation must invalidate stale EyeDropper');
+ await permissions.evaluate(el=>{el.inert=true;});
+ await assertRevoked('inert ancestor');
+ await host.screenshot({path:output+'/fieldset-inert-390.png',animations:'disabled'});
+ await permissions.evaluate(el=>{el.inert=false;});
+ await assertRestored();
+ // Explicit aria-disabled on a visually hidden native source must also
+ // disable its enhanced affordance (not only ancestor ARIA permissions).
+ const sources=[
+  ['#ux23-range','.ds-prop-number'],
+  ['#ux23-number','.ds-number-step'],
+  ['#ux23-color','.ds-color-hex'],
+  ['#ux23-binary','.ds-binary-option'],
+  ['#sectionRule','.ds-segment-option'],
+  ['#ux23-choice','.ds-select-trigger']
+ ];
+ for(const [selector,enhanced] of sources){
+  const source=host.locator(selector);
+  await source.evaluate(el=>el.setAttribute('aria-disabled','true'));
+  await page.waitForFunction(({selector,enhanced})=>{
+   const input=document.querySelector('#ux23-inherited '+selector);
+   return input?.closest('label')?.querySelector(enhanced)?.disabled===true;
+  },{selector,enhanced});
+  await source.evaluate(el=>el.removeAttribute('aria-disabled'));
+  await page.waitForFunction(({selector,enhanced})=>{
+   const input=document.querySelector('#ux23-inherited '+selector);
+   return input?.closest('label')?.querySelector(enhanced)?.disabled===false;
+  },{selector,enhanced});
+ }
+ await host.screenshot({path:output+'/fieldset-source-aria-restored-390.png',animations:'disabled'});
  assert.deepEqual(errors,[]);
  console.log('Inherited fieldset QA passed: six control types, first legend, dynamic reparenting, stale EyeDropper; six screenshots.');
 }finally{await browser.close();}
