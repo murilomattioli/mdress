@@ -659,6 +659,25 @@ try{
  assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-radio-1',
   'Radio group must skip a disabled first member');
  await tabPage.screenshot({path:'test-results/color-picker/tab-exit-radio-disabled-390.png',animations:'disabled'});
+ // Same-name radios owned by different forms are independent Tab stops.
+ // Do not collapse them into the radio group elsewhere in the document.
+ await tabPage.evaluate(async()=>{
+  const form=document.createElement('form');form.id='ux23-tab-form';
+  const radio=document.createElement('input');radio.type='radio';
+  radio.name='ux23-tab-radio-choice';radio.id='ux23-tab-form-radio';
+  radio.setAttribute('aria-label','Opção em outro formulário');
+  form.append(radio);
+  document.getElementById('ux23-tab-source').after(form);
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(document.getElementById('ux23-tab-source'));
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-saved-color').last().focus();
+ await tabPage.keyboard.press('Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-form-radio',
+  'Same-name radio in another form must remain an independent Tab stop');
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-radio-other-form-390.png',animations:'disabled'});
  await tabPage.close();
  console.log('Color picker: palette, spectrum pointer/keyboard, RGB, invalid HEX, persistence, saved colors, Escape/focus and overflow passed at 1440/768/390/320.');
 }finally{await browser.close();}
