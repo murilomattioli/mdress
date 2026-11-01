@@ -1009,7 +1009,20 @@ function makeListbox(label,select,title){
    if(thumbnail){item.classList.add('ds-select-option--preview');item.prepend(thumbnail);}
    item.dataset.value=opt.value;
    item.title=text.textContent; // Full label remains discoverable when ellipsized.
-   item.addEventListener('click',()=>{if(isSelectOptionDisabled(opt))return;nativeCommit(select,opt.value);closePopup();});
+   item.addEventListener('click',()=>{
+    // The listbox lives in the top layer, outside the inspector's CSS and
+    // inert/ARIA permissions. A synchronous synthetic click can precede the
+    // ancestor MutationObserver that closes a revoked popup. Revalidate the
+    // live trigger and native source at the moment of the action.
+    if(!select.isConnected||select.matches(':disabled')||!focusTargetAvailable(trigger)){
+     const ownedFocus=popup.contains(document.activeElement);
+     closePopup({restoreFocus:false});
+     if(ownedFocus)focusInspectorNeighbor(trigger,{visibleOnly:true});
+     return;
+    }
+    if(isSelectOptionDisabled(opt))return;
+    nativeCommit(select,opt.value);closePopup();
+   });
    item.addEventListener('keydown',e=>{
     if(isImeKeyEvent(e))return;
     const move=(dir)=>{
