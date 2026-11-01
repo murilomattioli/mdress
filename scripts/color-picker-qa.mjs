@@ -508,6 +508,34 @@ try{
  assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-after',
   'Reverse Tab must honor positive tabindex, even when the previous target follows the source in DOM');
  await tabPage.screenshot({path:'test-results/color-picker/tab-exit-positive-reverse-390.png',animations:'disabled'});
+ // A pointer-only native color source has no sequential Tab slot. Preserve
+ // the adjacent page controls instead of jumping to the first focusable
+ // element elsewhere in the app when the picker is dismissed with Tab.
+ await tabPage.evaluate(async()=>{
+  document.getElementById('ux23-tab-before').tabIndex=0;
+  document.getElementById('ux23-tab-source').tabIndex=-1;
+  document.getElementById('ux23-tab-after').tabIndex=0;
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(document.getElementById('ux23-tab-source'));
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-saved-color').last().focus();
+ await tabPage.keyboard.press('Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-after',
+  'Tab from a pointer-only color source must advance to the adjacent page control');
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-pointer-only-forward-390.png',animations:'disabled'});
+ await tabPage.evaluate(async()=>{
+  const {openColorPicker}=await import('/design-system/color-picker.js');
+  openColorPicker(document.getElementById('ux23-tab-source'));
+ });
+ await tabDialog.waitFor({state:'visible'});
+ await tabDialog.locator('.cp-header button:enabled').first().focus();
+ await tabPage.keyboard.press('Shift+Tab');
+ await tabDialog.waitFor({state:'detached'});
+ assert.equal(await tabPage.evaluate(()=>document.activeElement?.id),'ux23-tab-before',
+  'Shift+Tab from a pointer-only source must return to its preceding page control');
+ await tabPage.screenshot({path:'test-results/color-picker/tab-exit-pointer-only-reverse-390.png',animations:'disabled'});
  await tabPage.close();
  console.log('Color picker: palette, spectrum pointer/keyboard, RGB, invalid HEX, persistence, saved colors, Escape/focus and overflow passed at 1440/768/390/320.');
 }finally{await browser.close();}
