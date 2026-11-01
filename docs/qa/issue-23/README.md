@@ -1,3 +1,29 @@
+## UX-023 — foco ao sair do Color Picker: ordem Tab e fontes pointer-only (01/11/2026)
+
+**Correções verificáveis:** o fechamento por Tab/Shift+Tab agora respeita a ordem sequencial de teclado do documento, inclusive `tabindex` positivo (valores positivos crescentes antes de `tabindex=0`, com desempate pela ordem DOM). Antes, uma fonte com `tabindex=2` e controles vizinhos com `tabindex=1/3` enviava o foco para o controle errado. Para fontes nativas acionáveis pelo ponteiro mas com `tabindex=-1`, o handoff procura o controle anterior/próximo na ordem DOM dos Tab stops regulares, em vez de saltar para o primeiro elemento não relacionado da página.
+
+**Playwright Chromium:** `scripts/color-picker-qa.mjs` inclui quatro regressões adicionais em fixture móvel 390px: Tab/Shift+Tab com `tabindex` positivo em ordem diferente da DOM, e Tab/Shift+Tab a partir de fonte com `tabindex=-1`. Capturas: `tab-exit-positive-{forward,reverse}-390.png` e `tab-exit-pointer-only-{forward,reverse}-390.png`. O Browser Smoke executa o script obrigatoriamente; não confundir execução automatizada com homologação visual.
+
+**PowerShell — verificar sem merge:**
+```powershell
+cd F:\Projects\lumu\tools\mdress
+git status --short
+git fetch origin
+git switch feat/23-property-controls-ux-qa
+git pull --ff-only origin feat/23-property-controls-ux-qa
+npm install --include=dev
+npx playwright install chromium
+npm run dev
+# Outro terminal:
+npm test
+node scripts/color-picker-qa.mjs
+npm run qa:supervised
+```
+
+**Homologação humana pendente:** revisar as quatro capturas, navegar por Tab/Shift+Tab em controles reais e conferir os 24 avisos de toolbar. PR #27 permanece draft, issue #23 aberta. Sem merge, release, Cloudflare ou alteração do repositório legado.
+
+---
+
 ## UX-023 — identidade de fontes recicladas no color picker (01/11/2026)
 
 **Correção:** o diálogo de cores agora invalida uma sessão quando o próprio `input[type=color]` conectado é reutilizado para outro ponto lógico, alterando `id` ou `data-mdress-source-key`. O mesmo vale após remover e reinserir o nó com outra identidade. A verificação ocorre no momento do commit, sem depender da execução posterior do `MutationObserver`. Uma simples mudança de `aria-label` não revoga o controle, porque rótulos não definem identidade.
