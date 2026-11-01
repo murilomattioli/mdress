@@ -206,6 +206,48 @@ try{
    delete window.EyeDropper;
   });
  }
- assert.deepEqual(errors,[],'No browser errors during color source identity transitions');
+ // Pending EyeDropper samples must not recolor a remount that preserves the
+  // original id/key but introduces a different secondary identity dimension.
+  for(const dimension of ['id-only-gains-key','key-only-gains-id']){
+   await page.evaluate(async dimension=>{
+    const {openColorPicker}=await import('/design-system/color-picker.js');
+    const host=document.createElement('div');host.id='ux23-partial-async';
+    host.style.cssText='position:fixed;left:80px;top:80px;z-index:1000';
+    const input=document.createElement('input');input.type='color';input.value='#336699';
+    if(dimension==='id-only-gains-key')input.id='ux23-color-a';
+    else input.dataset.mdressSourceKey='point-a';
+    host.append(input);document.body.append(host);
+    window.__ux23PartialChanges=0;
+    window.EyeDropper=class {open(){return new Promise(resolve=>{window.__ux23PartialSample=resolve;});}};
+    openColorPicker(input);
+   },dimension);
+   const picker=page.locator('dialog.mdress-color-picker');
+   await picker.waitFor({state:'visible'});
+   await picker.getByRole('button',{name:'Capturar cor da tela'}).click();
+   await page.waitForFunction(()=>typeof window.__ux23PartialSample==='function');
+   await page.evaluate(dimension=>{
+    const host=document.querySelector('#ux23-partial-async');
+    const input=host.querySelector('input');
+    const replacement=input.cloneNode();
+    if(dimension==='id-only-gains-key')replacement.dataset.mdressSourceKey='point-b';
+    else replacement.id='ux23-color-b';
+    replacement.addEventListener('change',()=>window.__ux23PartialChanges++);
+    input.replaceWith(replacement);
+   },dimension);
+   await picker.waitFor({state:'detached',timeout:3000});
+   const outcome=await page.evaluate(async()=>{
+    window.__ux23PartialSample({sRGBHex:'#FF0000'});
+    await Promise.resolve();await Promise.resolve();
+    const input=document.querySelector('#ux23-partial-async input');
+    return {value:input.value,changes:window.__ux23PartialChanges};
+   });
+   assert.deepEqual(outcome,{value:'#336699',changes:0},
+    'Late EyeDropper must not recolor a partial-identity remount: '+dimension);
+   await page.evaluate(()=>{
+    document.querySelector('#ux23-partial-async').remove();
+    delete window.__ux23PartialSample;delete window.__ux23PartialChanges;delete window.EyeDropper;
+   });
+  }
+  assert.deepEqual(errors,[],'No browser errors during color source identity transitions');
  console.log('Color picker source identity QA passed: anonymous, labelled, exact composite-key, ambiguous remounts and connected-node recycling and transient EyeDropper identity changes, including remounts.');
 }finally{await browser.close();}
