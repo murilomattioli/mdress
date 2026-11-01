@@ -16,6 +16,11 @@ try{
   {name:'anonymous-unique-label',label:'Original only',key:null,replacements:1,expectHandoff:false},
   {name:'keyed-remount',label:'Shared color',key:'ux23-logical-color',replacements:1,expectHandoff:true},
   {name:'id-remount',label:'Shared color',key:null,id:'ux23-stable-color',replacements:1,expectHandoff:true},
+   {name:'id-only-gains-key',label:'Mesh A',key:null,id:'ux23-source-a',replacementKey:'point-b',replacements:1,expectHandoff:false},
+   {name:'key-only-gains-id',label:'Mesh A',key:'point-a',id:null,replacementId:'ux23-source-b',replacements:1,expectHandoff:false},
+   {name:'composite-remount',label:'Mesh A',key:'point-a',id:'ux23-source-a',replacements:1,expectHandoff:true},
+   {name:'composite-id-changed',label:'Mesh A',key:'point-a',id:'ux23-source-a',replacementId:'ux23-source-b',replacements:1,expectHandoff:false},
+   {name:'composite-key-changed',label:'Mesh A',key:'point-a',id:'ux23-source-a',replacementKey:'point-b',replacements:1,expectHandoff:false},
   {name:'duplicate-key',label:'Shared color',key:'ux23-duplicate',replacements:2,expectHandoff:false},
   {name:'duplicate-id',label:'Shared color',key:null,id:'ux23-duplicate-id',replacements:2,expectHandoff:false}
  ];
@@ -36,14 +41,16 @@ try{
    const original=make('#336699',scenario.label,scenario.key,scenario.id);
    for(let i=0;i<scenario.replacements;i++){
     const replacementLabel=scenario.name==='anonymous-unique-label'?'Different color':scenario.label;
-    make(i?'#445566':'#8899aa',replacementLabel,scenario.key,scenario.id);
+    const key=Object.hasOwn(scenario,'replacementKey')?scenario.replacementKey:scenario.key;
+     const id=Object.hasOwn(scenario,'replacementId')?scenario.replacementId:scenario.id;
+     make(i?'#445566':'#8899aa',replacementLabel,key,id);
    }
    document.body.append(host);
    openColorPicker(original);
   },scenario);
   const dialog=page.locator('dialog.mdress-color-picker');
   await dialog.waitFor({state:'visible'});
-  if(scenario.name==='anonymous-shared-label'||scenario.name==='keyed-remount')
+  if(['anonymous-shared-label','keyed-remount','id-only-gains-key','key-only-gains-id','composite-remount'].includes(scenario.name))
    await page.screenshot({path:`test-results/color-picker/source-identity-${scenario.name}.png`,animations:'disabled'});
   const outcome=await page.evaluate(scenario=>{
    const host=document.querySelector('#ux23-color-identity');
@@ -200,5 +207,5 @@ try{
   });
  }
  assert.deepEqual(errors,[],'No browser errors during color source identity transitions');
- console.log('Color picker source identity QA passed: anonymous, labelled, keyed, ambiguous remounts and connected-node recycling and transient EyeDropper identity changes, including remounts.');
+ console.log('Color picker source identity QA passed: anonymous, labelled, exact composite-key, ambiguous remounts and connected-node recycling and transient EyeDropper identity changes, including remounts.');
 }finally{await browser.close();}
