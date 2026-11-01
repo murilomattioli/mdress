@@ -105,7 +105,64 @@ try{
    });
   }finally{await page.close();}
  }
+ // Physical arrow semantics must also work in an RTL editor. Chromium
+ // exposes negative scrollLeft here: 0 at the right edge, -max at the left.
+ const rtlPage=await browser.newPage({viewport:{width:390,height:720},reducedMotion:'reduce'});
+ let rtlResult;
+ try{
+  await rtlPage.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173');
+  await rtlPage.evaluate(async()=>{
+   const {attachToolbarOverflow}=await import('/toolbar-overflow.js');
+   const host=document.createElement('section');
+   host.id='ux23-rtl';host.className='editor-panel';
+   host.style.cssText='position:fixed;top:120px;left:12px;width:300px;z-index:100000;background:var(--ds-panel);padding:8px';
+   const bar=document.createElement('div');bar.className='markdown-toolbar';
+   bar.style.cssText='direction:rtl;display:flex;flex-wrap:nowrap;overflow-x:auto;width:100%;min-height:58px';
+   for(let i=0;i<8;i++){
+    const action=document.createElement('button');action.type='button';
+    action.textContent='RTL '+(i+1);
+    action.style.cssText='flex:0 0 110px;min-width:110px';
+    bar.append(action);
+   }
+   host.append(bar);document.body.append(host);
+   window.__ux23RtlDispose=attachToolbarOverflow(bar);
+  });
+  const host=rtlPage.locator('#ux23-rtl');
+  const bar=host.locator('.markdown-toolbar');
+  const arrows=host.locator('.toolbar-scroll-button');
+  await rtlPage.waitForFunction(()=>{
+   const host=document.querySelector('#ux23-rtl');
+   const bar=host?.querySelector('.markdown-toolbar');
+   const [left,right]=host?.querySelectorAll('.toolbar-scroll-button')||[];
+   return bar&&bar.scrollWidth>bar.clientWidth+2&&bar.scrollLeft===0&&
+    left&&!left.hidden&&!left.disabled&&right?.disabled;
+  });
+  await host.screenshot({path:`${output}/toolbar-rtl-right-edge-390.png`,animations:'disabled'});
+  await arrows.first().click();
+  await rtlPage.waitForFunction(()=>document.querySelector('#ux23-rtl .markdown-toolbar')?.scrollLeft< -20);
+  const middle=await bar.evaluate(el=>({scrollLeft:el.scrollLeft,direction:getComputedStyle(el).direction}));
+  assert.equal(middle.direction,'rtl','RTL fixture must have RTL computed direction');
+  assert.ok(middle.scrollLeft< -20,'Left arrow must scroll toward negative RTL offsets');
+  await host.screenshot({path:`${output}/toolbar-rtl-middle-390.png`,animations:'disabled'});
+  await bar.evaluate(el=>{el.scrollLeft=-el.scrollWidth;});
+  await rtlPage.waitForFunction(()=>{
+   const host=document.querySelector('#ux23-rtl');
+   const bar=host?.querySelector('.markdown-toolbar');
+   const [left,right]=host?.querySelectorAll('.toolbar-scroll-button')||[];
+   return bar&&left?.disabled&&right&&!right.disabled&&
+    Math.abs(bar.scrollLeft+(bar.scrollWidth-bar.clientWidth))<2;
+  });
+  await host.screenshot({path:`${output}/toolbar-rtl-left-edge-390.png`,animations:'disabled'});
+  await arrows.last().click();
+  await rtlPage.waitForFunction(()=>{
+   const bar=document.querySelector('#ux23-rtl .markdown-toolbar');
+   return bar&&bar.scrollLeft>-(bar.scrollWidth-bar.clientWidth)+20;
+  });
+  rtlResult={viewport:390,passed:true,screenshots:[
+   'toolbar-rtl-right-edge-390.png','toolbar-rtl-middle-390.png','toolbar-rtl-left-edge-390.png']};
+  await rtlPage.evaluate(()=>{window.__ux23RtlDispose?.();document.querySelector('#ux23-rtl')?.remove();});
+ }finally{await rtlPage.close();}
  await writeFile(`${output}/toolbar-discoverability.json`,JSON.stringify({schema:1,scenarios:results.length,
-  note:'Automated reachability is not visual UX approval; inspect all screenshots and scrollable-toolbar warnings.',results},null,2)+'\n');
- console.log(`Toolbar discoverability QA passed: ${results.length} theme/viewport scenarios, ${results.length*8} keyboard-reachable actions, ${results.length*3} screenshots. Human review remains required.`);
+  note:'Automated reachability is not visual UX approval; inspect all screenshots and scrollable-toolbar warnings.',results,rtl:rtlResult},null,2)+'\n');
+ console.log(`Toolbar discoverability QA passed: ${results.length} theme/viewport scenarios, ${results.length*8} keyboard-reachable actions, ${results.length*3} screenshots. RTL arrow regression passed (3 screenshots). Human review remains required.`);
 }finally{await browser.close();}
