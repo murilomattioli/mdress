@@ -44,6 +44,8 @@ jobs:
         run: node scripts/choice-actions-qa.mjs
       - name: Property controls — stale numeric and color actions under permissions
         run: node scripts/property-action-guards-qa.mjs
+      - name: Property controls and color picker — RTL keyboard navigation
+        run: node scripts/property-rtl-keyboard-qa.mjs
       - name: Alert dialogs — keyboard, cancellation and focus restoration
         run: node scripts/alert-dialog-qa.mjs
       - name: Color picker — opacity validation and disabled-source focus handoff
