@@ -231,6 +231,7 @@ try{
   'Deleting/reindexing mesh points must not redirect stale color edits');
  await page.waitForFunction(()=>!document.querySelector('dialog.mdress-color-picker'));
  await page.screenshot({path:'test-results/color-picker/mesh-remount-identity.png',animations:'disabled'});
+ await page.evaluate(()=>{document.getElementById('ux23-color-source').value='#010203';});
  // Responsive CSS can revoke a source without any attribute mutation.
  // The resize path must dismiss the portalled editor before a stale commit.
  const responsiveStyle=await page.addStyleTag({content:
