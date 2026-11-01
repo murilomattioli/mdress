@@ -306,6 +306,10 @@ try{
  await dynamicItems.nth(0).evaluate(el=>el.click());
  assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
   'aria-disabled menuitems cannot invoke callbacks');
+ // Programmatic click on an aria-disabled item may change native focus
+ // independently of the menu's keyboard path; restore the intended owner
+ // before testing the final permission revocation.
+ await dynamicItems.nth(1).focus();
  await dynamicItems.nth(1).evaluate(el=>el.disabled=true);
  await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.hidden===true);
  assert.equal(await dynamicHost.locator('button').first().evaluate(el=>el===document.activeElement),true,
