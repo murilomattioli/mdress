@@ -1,3 +1,27 @@
+## UX-023 — permissões ARIA/inert e drafts numéricos (01/11/2026)
+
+**Correção:** os seis Property Controls aprimorados agora tratam `aria-disabled="true"` e `inert` na fonte ou em seus ancestrais como indisponibilidade efetiva, mesmo quando o HTML nativo não aplica `:disabled`. O observador compartilhado sincroniza estados e foco após mudanças de permissões, sem recriar componentes. `nativeCommit` rejeita commits tardios em fontes revogadas; o número nativo restaura o último valor confirmado quando recebe um input/change obsoleto.
+
+**Chromium obrigatório:** `node scripts/property-fieldset-qa.mjs` cobre bloqueio/restauração de seis controles, permissões no próprio source, ações sintéticas e EyeDropper assíncrono revogado. Evidências móveis de 390px: `fieldset-aria-disabled-390.png`, `fieldset-inert-390.png` e `fieldset-source-aria-restored-390.png`, além das capturas existentes. Revisar visualmente legibilidade, contraste, feedback disabled, foco e alvos de toque. **CI verde não equivale a homologação humana.**
+
+**PowerShell:**
+```powershell
+git fetch origin
+git switch feat/23-property-controls-ux-qa
+git pull --ff-only origin feat/23-property-controls-ux-qa
+npm install --include=dev
+npx playwright install chromium
+npm run dev
+# Outro terminal:
+npm test
+node scripts/property-fieldset-qa.mjs
+npm run qa:supervised
+```
+
+**Gate:** PR #27 draft e issue #23 aberta; sem merge, release ou publicação.
+
+---
+
 ## UX-023 — permissões herdadas após mover controles entre fieldsets (01/11/2026)
 
 **Correção funcional:** o acompanhamento de `<fieldset disabled>` agora usa um observador compartilhado e callbacks em `WeakMap`, evitando observadores presos a fieldsets antigos. Controles já aprimorados acompanham movimentações para fieldsets criados posteriormente, saídas para pais habilitados, alternância de `disabled` no novo pai e reordenação da primeira `<legend>`. A exceção HTML da primeira legenda continua respeitada. O observador só atualiza controles afetados por mutações de permissão ou movimentação; não reprocessa todo o inspector em cada mudança do documento.
