@@ -187,6 +187,18 @@ try{
     const galleryQuick=gallery.locator('.ds-accordion-actions .ds-quick-action');
     await page.waitForFunction(()=>document.querySelectorAll('#backgroundGallery button').length>1);
     assert.equal(await galleryQuick.count(),3,'Background presets expose three quick actions');
+    // The preset gallery lives in the accordion body, but its quick actions
+    // live in the header. Revoking the source itself must disable the header
+    // buttons, even when the source is not an ancestor of those buttons.
+    await page.locator('#backgroundGallery').evaluate(el=>el.setAttribute('aria-disabled','true'));
+    await page.waitForFunction(()=>[...document.querySelectorAll('.ds-accordion:has(#backgroundGallery) .ds-accordion-actions button')].every(el=>el.disabled));
+    await page.screenshot({path:`test-results/ux-audit/quick-gallery-source-aria-${theme}-${width}.png`,animations:'disabled'});
+    await page.locator('#backgroundGallery').evaluate(el=>el.removeAttribute('aria-disabled'));
+    await page.waitForFunction(()=>[...document.querySelectorAll('.ds-accordion:has(#backgroundGallery) .ds-accordion-actions button')].every(el=>!el.disabled));
+    await page.locator('#backgroundGallery').evaluate(el=>el.inert=true);
+    await page.waitForFunction(()=>[...document.querySelectorAll('.ds-accordion:has(#backgroundGallery) .ds-accordion-actions button')].every(el=>el.disabled));
+    await page.locator('#backgroundGallery').evaluate(el=>el.inert=false);
+    await page.waitForFunction(()=>[...document.querySelectorAll('.ds-accordion:has(#backgroundGallery) .ds-accordion-actions button')].every(el=>!el.disabled));
     await gallery.locator('.ds-accordion-header').scrollIntoViewIfNeeded();
     await galleryQuick.nth(0).focus();
     assert.equal(await galleryQuick.nth(0).evaluate(el=>el===document.activeElement),true);
