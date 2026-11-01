@@ -31,6 +31,7 @@ async function assertHandoff(page,description){
 }
 try{
  const permissionPage=await browser.newPage({viewport:{width:1024,height:900}});
+ permissionPage.setDefaultTimeout(15000);
  try{
   await permissionPage.goto(url,{waitUntil:'networkidle'});
   await permissionPage.locator('#designToggle').click();
@@ -213,6 +214,7 @@ try{
  for(const theme of ['graphite','studio']){
   for(const width of [1440,390]){
    const page=await browser.newPage({viewport:{width,height:900}});
+   page.setDefaultTimeout(15000);
    const errors=[];page.on('pageerror',error=>errors.push(error.message));
    try{
     await page.goto(url,{waitUntil:'networkidle'});
@@ -249,7 +251,7 @@ try{
     await page.waitForFunction(()=>document.querySelector('.ds-accordion:has(#backgroundGallery) .ds-accordion-body')?.hidden===true);
     const previousPreset=await page.locator('#backgroundGallery button[aria-pressed="true"]').first()
      .getAttribute('aria-label').catch(()=>null);
-    await galleryQuick.nth(1).click();
+    await galleryQuick.nth(1).click({timeout:10000});
     await page.waitForFunction(previous=>{
      const selected=document.querySelector('#backgroundGallery button[aria-pressed="true"]');
      return Boolean(selected)&&selected.getAttribute('aria-label')!==previous;
