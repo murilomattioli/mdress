@@ -329,7 +329,9 @@ export function openColorPicker(input){
   // microtask. Comparing its final key alone misses that ownership change,
   // and an in-flight EyeDropper could then write into the wrong point.
   // Identity mutation of the original source is always a revoked session.
-  if(records.some(record=>record.type==='attributes'&&record.target===input&&
+  const currentAnchor=anchor();
+  if(records.some(record=>record.type==='attributes'&&
+    (record.target===input||record.target===currentAnchor)&&
     ['id','data-mdress-source-key'].includes(record.attributeName))){
    editRevision++;
    dismissRevoked();
@@ -351,7 +353,10 @@ export function openColorPicker(input){
   });
   // Observe document (not documentElement): a second observe() call on the
   // same target would replace its attribute watcher for root theme/permissions.
-  permissions.observe(document,{childList:true,subtree:true});
+  // Capture same-task A→B→A mutations on newly mounted replacement
+  // inputs, even before watchSourceTree has attached its per-node observer.
+  permissions.observe(document,{childList:true,subtree:true,attributes:true,
+   attributeFilter:['id','data-mdress-source-key']});
  }
  function dismissRevoked(){
   if(!dialog.open)return;
