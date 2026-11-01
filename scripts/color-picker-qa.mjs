@@ -216,6 +216,19 @@ try{
   await input.evaluate(el=>el.click());await dialog.waitFor();
   await dialog.locator('.cp-saved-color').last().focus();await page.keyboard.press('Tab');
   await page.locator('.mdress-color-picker').waitFor({state:'detached'});
+  assert.equal(await input.evaluate(el=>el===document.activeElement),false,
+   'Tab past the final color swatch must not jump back to the source and trap keyboard navigation');
+  assert.equal(await page.evaluate(()=>document.activeElement!==document.body&&
+   document.activeElement?.getClientRects().length>0),true,
+   'Tab exit must leave focus on a visible page control');
+  await page.screenshot({path:`test-results/color-picker/tab-exit-${width}.png`,animations:'disabled'});
+  await input.evaluate(el=>el.click());await dialog.waitFor();
+  await dialog.locator('.cp-header button:enabled').first().focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.locator('.mdress-color-picker').waitFor({state:'detached'});
+  assert.equal(await page.evaluate(()=>document.activeElement!==document.body&&
+   document.activeElement?.getClientRects().length>0),true,
+   'Shift+Tab from the first color picker action must leave focus on a visible page control');
   await input.evaluate(el=>el.click());await dialog.waitFor();
    await input.evaluate(el=>{el.disabled=true;});
    await page.locator('.mdress-color-picker').waitFor({state:'detached'});
