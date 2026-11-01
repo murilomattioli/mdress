@@ -790,6 +790,10 @@ export function selectPopoverLayout(anchor,viewport,contentHeight){
 // disabled fieldset. Portalled selects must obey the same permissions as
 // native controls, including the first-legend exception.
 function visibleFocusTree(el){
+ // A CSS visibility transition can report the previous computed value for
+ // the current task. An explicit inline revocation on the trigger must block
+ // a portalled option synchronously, before style/observer reconciliation.
+ if(el?.style?.visibility==='hidden'||el?.style?.visibility==='collapse')return false;
  if(!el?.isConnected||el.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
     !el.getClientRects().length)return false;
  // visibility is inherited but can be explicitly overridden by descendants.
