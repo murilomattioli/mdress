@@ -54,10 +54,19 @@ export function openColorPicker(input){
  let restoreFocus=true,handoffOnClose=false,opacity=opacityPercent(input.dataset.opacity),editRevision=0;
  const events=new AbortController();
  const anchor=()=>input.isConnected?input:[...document.querySelectorAll('input[type="color"]')].find(el=>input.id?el.id===input.id:el.getAttribute('aria-label')===input.getAttribute('aria-label'));
+ // A dynamic mesh editor remounts its native input after each commit.
+ // Continue editing the same logical color source while the dialog is open.
+ const liveSource=()=>{const target=anchor();return target?.type==='color'&&sourceAvailable(target)?target:null;};
  // Source edits may travel through the app without the picker commit path.
  // Track events as well as the value so an A→B→A edit still cancels a sample.
- for(const type of ['input','change'])
-  input.addEventListener(type,()=>{editRevision++;},{signal:events.signal});
+ const trackedSources=new WeakSet();
+ function trackSource(target){
+  if(!target||trackedSources.has(target))return;
+  trackedSources.add(target);
+  for(const type of ['input','change'])
+   target.addEventListener(type,()=>{editRevision++;},{signal:events.signal});
+ }
+ trackSource(input);
  dialog.setAttribute('aria-label','Cores — '+(input.getAttribute('aria-label')||input.closest('label')?.querySelector('.ds-prop-name')?.textContent||'Documento'));
  const header=node('header','cp-header'),heading=node('h2','','Cores'),close=button('Fechar seletor de cores','x'),pipette=button('Capturar cor da tela','pipette');
  header.append(pipette,heading,close);close.onclick=()=>dialog.close();
@@ -101,7 +110,7 @@ export function openColorPicker(input){
  const opacitySuffix=node('span','','%');opacityRow.append(opacityLabel,opacityRange,opacityValue,opacitySuffix);
  function applyOpacity(control){
   if(!dialog.open||active!==dialog)return;
-  if(!sourceAvailable(input)){dismissRevoked();return;}
+  if(!liveSource()){dismissRevoked();return;}
   const value=control.valueAsNumber;
   if(!Number.isFinite(value)||!Number.isInteger(value)||value<0||value>100){
    showFieldError(control,'Use um valor inteiro entre 0% e 100%.');
@@ -111,7 +120,7 @@ export function openColorPicker(input){
   editRevision++;
   clearFieldError(control);
   opacity=value;sync();
-  const target=anchor();
+  const target=liveSource();
   if(target){
    const previous=target.dataset.opacity===undefined?1:Number(target.dataset.opacity);
    const next=opacity/100;
@@ -159,7 +168,7 @@ export function openColorPicker(input){
  const footer=node('section','cp-saved'),footerTitle=node('div','cp-saved-title','Cores salvas'),swatches=node('div','cp-swatches'),add=button('Salvar cor atual','plus');footerTitle.append(add);footer.append(footerTitle,swatches);
  function renderSaved(){swatches.replaceChildren();saved.forEach(color=>{const b=button('Usar '+color);b.className='cp-saved-color';b.textContent='';b.style.background=color;b.onclick=()=>commit(color);swatches.append(b);});}
  add.onclick=()=>{if(!dialog.open||active!==dialog)return;
-  if(!sourceAvailable(input)){dismissRevoked();return;}
+  if(!liveSource()){dismissRevoked();return;}
   saved=[hex,...saved.filter(c=>c!==hex)].slice(0,12);renderSaved();try{localStorage.setItem(STORE,JSON.stringify(saved));if(!errorOwner)status.textContent='Cor salva.';}catch{if(!errorOwner)status.textContent='Cor disponível nesta sessão; armazenamento indisponível.';}};
  function sync(){
   // Synchronizing a valid document color replaces every outstanding draft.
@@ -180,12 +189,12 @@ export function openColorPicker(input){
   // Detached controls retain JS handlers; never let a dismissed or replaced
   // picker commit an old swatch, channel, HEX or opacity event.
   if(!dialog.open||active!==dialog)return;
-  if(!sourceAvailable(input)){dismissRevoked();return;}
+  if(!liveSource()){dismissRevoked();return;}
   // The user's palette, HEX, RGB or spectrum edit takes precedence over an
   // asynchronous EyeDropper response, even when the source HEX is unchanged.
   editRevision++;
   hex=value;if(!keepHSV)hsv=rgbToHsv(hexToRgb(hex));status.textContent='';delete status.dataset.error;sync();
-  const target=input;if(sourceAvailable(target)){
+  const target=liveSource();if(target){
    // Native color inputs normalize case; compare semantic colors, not raw strings.
    // Enter followed by change and reselecting a swatch must not duplicate edits.
    const changed=parseHex(target.value)!==hex;
@@ -197,12 +206,12 @@ export function openColorPicker(input){
  // picker or the document, and asynchronous failures must not resurrect UI.
  let picking=false;
  pipette.onclick=async()=>{
-  if(picking||!dialog.open||active!==dialog||!sourceAvailable(input))return;
-  const source=anchor(),sourceHex=parseHex(source?.value),sourceOpacity=source?.dataset.opacity,revision=editRevision;
-  if(source!==input||!sourceAvailable(source))return;
+  if(picking||!dialog.open||active!==dialog)return;
+  const source=liveSource(),sourceHex=parseHex(source?.value),sourceOpacity=source?.dataset.opacity,revision=editRevision;
+  if(!source)return;
   // A stale native rejection must not show an error for a later color edit,
   // just as a stale successful sample must not overwrite that edit.
-  const sampleIsCurrent=()=>dialog.open&&active===dialog&&sourceAvailable(input)&&
+  const sampleIsCurrent=()=>dialog.open&&active===dialog&&sourceAvailable(source)&&
    revision===editRevision&&anchor()===source&&
    parseHex(source.value)===sourceHex&&source.dataset.opacity===sourceOpacity;
   picking=true;pipette.setAttribute('aria-busy','true');pipette.setAttribute('aria-disabled','true');
@@ -232,8 +241,8 @@ export function openColorPicker(input){
  });
  function reposition(){
   // Media-query visibility can change on resize without a DOM mutation.
-  if(!sourceAvailable(input)){dismissRevoked();return;}
-  const target=anchor();if(!target){dismissRevoked();return;}
+  if(!liveSource()){dismissRevoked();return;}
+  const target=liveSource();if(!target){dismissRevoked();return;}
   const a=target.getBoundingClientRect(),gap=8,edge=12,w=dialog.offsetWidth,h=dialog.offsetHeight;
   const below=innerHeight-a.bottom-gap-edge,above=a.top-gap-edge;
   let top=a.bottom+gap,left=a.right-w;
@@ -266,12 +275,14 @@ export function openColorPicker(input){
   if(records.some(record=>record.type==='attributes'&&
     ['disabled','hidden','inert','aria-hidden','aria-disabled'].includes(record.attributeName)))editRevision++;
   if(!dialog.open)return;
-  if(!sourceAvailable(input)){dismissRevoked();return;}
+  if(!liveSource()){dismissRevoked();return;}
   watchSourceTree();
  });
  function watchSourceTree(){
+  const current=liveSource()||input;
+  trackSource(current);
   const ancestors=[];
-  for(let node=input;node;node=node.parentElement)ancestors.push(node);
+  for(let node=current;node;node=node.parentElement)ancestors.push(node);
   if(watched.length===ancestors.length&&watched.every((node,i)=>node===ancestors[i]))return;
   permissions.disconnect();watched=ancestors;
   for(const node of ancestors)permissions.observe(node,{
@@ -297,7 +308,7 @@ export function openColorPicker(input){
   if(!superseded&&restoreFocus&&sourceAvailable(target))target.focus();
   else if(!superseded&&handoffOnClose){
    // A revoked fieldset must not receive focus through its descendants.
-   const scope=input.closest('.design-inspector')||document;
+   const scope=(anchor()||input).closest('.design-inspector')||document;
    const candidates=[...scope.querySelectorAll('button,input,select,textarea,[tabindex]'),
     document.getElementById('designToggle'),document.getElementById('railDesign'),document.getElementById('source')];
    candidates.find(el=>el!==input&&el?.tabIndex>=0&&sourceAvailable(el))?.focus({preventScroll:true});
