@@ -2,6 +2,8 @@
 
 **QA funcional e visual:** o novo `scripts/toolbar-discoverability-qa.mjs` valida 8 combinações (2 temas × 4 larguras: 1440, 1024, 768 e 390 px). Cada cenário monta uma toolbar de overflow determinístico e verifica **8 ações acessíveis por Tab**, revelação visual do item focado, botões de rolagem com nome acessível e `aria-controls` válido, ativação por Enter e alcance do fim da barra. O Browser Smoke bloqueia o PR se a descoberta funcional falhar.
 
+**Correção de foco da toolbar:** o `MutationObserver` agora observa também `aria-hidden` e `inert` nos descendentes da barra. Antes, ocultar semanticamente uma ação focada ou tornar um grupo inerte podia deixar o foco num controle indisponível até uma rolagem/redimensionamento. `scripts/toolbar-resize-qa.mjs` cobre ambas as revogações sem eventos de layout e gera `toolbar-aria-hidden-action-focus-recovered.png` e `toolbar-inert-group-focus-recovered.png`. A recuperação de foco deve ser validada visualmente e com teclado real.
+
 **Evidências:** 24 screenshots (início, último comando via teclado e fim após rolagem por seta) em `test-results/ux-audit/toolbar-discoverability-{start,keyboard,end}-{theme}-{width}.png`, além de `test-results/ux-audit/toolbar-discoverability.json` no artefato temporário. A auditoria geral continua registrando os avisos `scrollable-toolbar`: **acessibilidade funcional não equivale a aprovação de composição visual**, nem elimina a necessidade de conferir se o usuário percebe que há ferramentas fora da área visível.
 
 **PowerShell — verificar e homologar, sem merge:**
