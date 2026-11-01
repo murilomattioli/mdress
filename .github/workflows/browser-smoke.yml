@@ -36,6 +36,8 @@ jobs:
       - run: node scripts/e2e.mjs
       - name: Toolbar resize — focus visibility and independent manual scrolling
         run: node scripts/toolbar-resize-qa.mjs
+      - name: Toolbar discoverability — keyboard, overflow arrows and visual evidence
+        run: node scripts/toolbar-discoverability-qa.mjs
       - name: Inspector header menus — keyboard, disabled actions and viewport fit
         run: node scripts/inspector-header-qa.mjs
       - name: Quick actions — dynamic focus handoff and mobile hit targets
@@ -79,6 +81,7 @@ jobs:
             test-results/ux-audit/supervised/*.png
             test-results/ux-audit/supervised/index.html
             test-results/ux-audit/supervised/*-trace.zip
+            test-results/ux-audit/toolbar-discoverability.json
             test-results/component-ux-audit.json
             test-results/supervised-ux-qa.json
           if-no-files-found: warn
