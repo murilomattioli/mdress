@@ -38,6 +38,8 @@ jobs:
         run: node scripts/toolbar-resize-qa.mjs
       - name: Toolbar discoverability — keyboard, overflow arrows and visual evidence
         run: node scripts/toolbar-discoverability-qa.mjs
+      - name: Toolbar direction changes — inherited dir, RTL and focus handoff
+        run: node scripts/toolbar-dynamic-dir-qa.mjs
       - name: Inspector header menus — keyboard, disabled actions and viewport fit
         run: node scripts/inspector-header-qa.mjs
       - name: Quick actions — dynamic focus handoff and mobile hit targets
