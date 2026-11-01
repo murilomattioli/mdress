@@ -265,6 +265,11 @@ try{
  assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
   'An action inheriting visibility:hidden cannot execute a synthetic click');
  await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el.style.visibility='visible');
+ await page.waitForFunction(()=>getComputedStyle(document.querySelector('#ux23-dynamic-menu-host [role=menuitem]')).visibility==='visible');
+ // A synthetic click on a hidden native button can independently move DOM
+ // focus in Chromium; re-enter the menu from a known usable action before
+ // testing Home navigation after restoring the CSS permission.
+ await dynamicHost.locator('[role=menuitem]').nth(1).focus();
  await page.keyboard.press('Home');
  assert.equal(await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el===document.activeElement),true,
   'Restoring visibility must restore the original roving menu position');
