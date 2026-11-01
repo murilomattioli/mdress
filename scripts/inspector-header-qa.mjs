@@ -238,8 +238,10 @@ try{
  },'Stale portal actions and synchronous source revocation must not commit');
  await page.screenshot({path:'test-results/header-stale-portal-action-guards.png',animations:'disabled'});
  await page.evaluate(()=>{
-  document.querySelector('#ux23-stale-portal')?.remove();
-  document.querySelector('.ds-select-popover:popover-open')?.remove();
+  const host=document.querySelector('#ux23-stale-portal');
+  if(document.querySelector('.ds-select-popover:popover-open'))
+   host?.querySelector('.ds-select-trigger')?.click();
+  host?.remove();
  });
  // Roving tab navigation must skip dynamically unavailable destinations.
  // A programmatic tab change must not strand focus in the hidden old panel.
