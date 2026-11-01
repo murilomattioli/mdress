@@ -55,11 +55,14 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
   const headerInteractive=()=>{
    if(!header.isConnected||more.matches(':disabled')||
       more.closest('[inert],[aria-hidden="true"],[aria-disabled="true"]'))return false;
-   for(let node=header;node;node=node.parentElement){
+   // CSS visibility can be overridden by a visible descendant; display:none
+   // and content-visibility:hidden on ancestors cannot.
+   const visibility=getComputedStyle(more).visibility;
+   if(visibility==='hidden'||visibility==='collapse')return false;
+   for(let node=more;node;node=node.parentElement){
     if(node.hidden)return false;
     const style=getComputedStyle(node);
-    if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
-     style.contentVisibility==='hidden')return false;
+    if(style.display==='none'||style.contentVisibility==='hidden')return false;
    }
    return true;
   };
@@ -84,11 +87,14 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
    // getComputedStyle(button).display stays visible for descendants of a
    // display:none ancestor, so inspect the path up to (not including) the
    // closed popover. Checking the popover would hide the trigger forever.
+   // CSS visibility can be overridden by a visible descendant; display:none
+   // and content-visibility:hidden on ancestors cannot.
+   const visibility=getComputedStyle(button).visibility;
+   if(visibility==='hidden'||visibility==='collapse')return false;
    for(let node=button;node&&node!==menu;node=node.parentElement){
     if(node.hidden)return false;
     const style=getComputedStyle(node);
-    if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
-     style.contentVisibility==='hidden')return false;
+    if(style.display==='none'||style.contentVisibility==='hidden')return false;
    }
    return true;
   });
@@ -144,10 +150,14 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
        !el.getClientRects().length)return false;
     // content-visibility:hidden preserves layout rectangles; computed styles
     // on the candidate alone also miss hidden or collapsed ancestors.
+    // CSS visibility can be overridden by a visible descendant; display:none
+    // and content-visibility:hidden on ancestors cannot.
+    const visibility=getComputedStyle(el).visibility;
+    if(visibility==='hidden'||visibility==='collapse')return false;
     for(let node=el;node;node=node.parentElement){
+     if(node.hidden)return false;
      const style=getComputedStyle(node);
-     if(style.display==='none'||style.visibility==='hidden'||
-        style.visibility==='collapse'||style.contentVisibility==='hidden')return false;
+     if(style.display==='none'||style.contentVisibility==='hidden')return false;
     }
     return true;
    };
@@ -412,10 +422,14 @@ export function createInspectorHeader({toggle,actions,menuItems=[],menuVisibilit
         !el.getClientRects().length)return false;
      // content-visibility:hidden preserves the wrapper's layout box, but
      // descendants must never be selected as the next keyboard stop.
+     // CSS visibility can be overridden by a visible descendant; display:none
+     // and content-visibility:hidden on ancestors cannot.
+     const visibility=getComputedStyle(el).visibility;
+     if(visibility==='hidden'||visibility==='collapse')return false;
      for(let node=el;node;node=node.parentElement){
+      if(node.hidden)return false;
       const style=getComputedStyle(node);
-      if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||
-         style.contentVisibility==='hidden')return false;
+      if(style.display==='none'||style.contentVisibility==='hidden')return false;
      }
      return true;
     };
