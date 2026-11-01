@@ -81,7 +81,17 @@ try{
     input.setAttribute('aria-label','Cor de teste');fieldset.querySelector('label').append(input);
     input.addEventListener('change',()=>window.__ux23ColorEdits++);
    }
-   input.style.cssText='';input.value='#336699';openColorPicker(input);
+   input.style.cssText='';input.value='#336699';
+  });
+  // Restoring CSS visibility and opening in the same JS task can reuse
+  // Chromium's previous computed style. Model a real subsequent user action.
+  await page.waitForFunction(()=>{
+   const input=document.getElementById('ux23-color-source');
+   return input&&getComputedStyle(input).visibility==='visible'&&input.getClientRects().length>0;
+  },null,{timeout:3000});
+  await page.evaluate(async()=>{
+   const {openColorPicker}=await import('/design-system/color-picker.js');
+   openColorPicker(document.getElementById('ux23-color-source'));
   });
   const opened=await page.evaluate(()=>{
    const input=document.getElementById('ux23-color-source');
