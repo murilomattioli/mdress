@@ -260,7 +260,11 @@ export function openColorPicker(input){
  // visibility overrides are evaluated on the actual input, not ancestors.
  let watched=[];
  const permissions=new MutationObserver(records=>{
-  if(records.some(record=>record.type==='attributes'))editRevision++;
+  // Cosmetic class/style updates (e.g. inspector focus/scroll chrome)
+  // must not invalidate a valid native sample. Explicit permission changes
+  // still invalidate even if revoked and restored in the same microtask.
+  if(records.some(record=>record.type==='attributes'&&
+    ['disabled','hidden','inert','aria-hidden','aria-disabled'].includes(record.attributeName)))editRevision++;
   if(!dialog.open)return;
   if(!sourceAvailable(input)){dismissRevoked();return;}
   watchSourceTree();
