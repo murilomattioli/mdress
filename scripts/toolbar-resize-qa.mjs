@@ -468,6 +468,48 @@ try{
  await pointerHost.screenshot({
   path:'test-results/ux-audit/toolbar-outside-pointer-reduced-motion.png',animations:'disabled'
  });
+ // A programmatic click may be dispatched in the same task that revokes
+ // permissions, before MutationObserver/requestAnimationFrame disables arrows.
+ // It must not scroll a hidden, inert, aria-disabled or out-of-range toolbar.
+ const clickGuard=await pointerHost.evaluate(host=>{
+  const bar=host.querySelector('.markdown-toolbar');
+  const [previous,next]=host.querySelectorAll('.toolbar-scroll-button');
+  const native=bar.scrollBy.bind(bar);
+  let attempts=0;
+  bar.scrollBy=options=>{attempts++;native(options);};
+  const click=arrow=>arrow.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  bar.scrollLeft=0;
+  click(previous); // synthetic events can bypass native disabled controls
+  const boundaryBlocked=attempts===0;
+  host.setAttribute('aria-disabled','true');click(next);
+  const ariaBlocked=attempts===0;
+  host.removeAttribute('aria-disabled');
+  host.inert=true;click(next);
+  const inertBlocked=attempts===0;
+  host.inert=false;
+  host.style.contentVisibility='hidden';click(next);
+  const contentVisibilityBlocked=attempts===0;
+  host.style.removeProperty('content-visibility');
+  host.style.display='none';click(next);
+  const displayBlocked=attempts===0;
+  host.style.removeProperty('display');
+  host.hidden=true;click(next);
+  const hiddenBlocked=attempts===0;
+  host.hidden=false;
+  click(next);
+  return {boundaryBlocked,ariaBlocked,inertBlocked,contentVisibilityBlocked,
+   displayBlocked,hiddenBlocked,allowedClicks:attempts};
+ });
+ assert.deepEqual(clickGuard,{
+  boundaryBlocked:true,ariaBlocked:true,inertBlocked:true,
+  contentVisibilityBlocked:true,displayBlocked:true,hiddenBlocked:true,
+  allowedClicks:1
+ },'Live permission and boundary guards must block stale synthetic scroll clicks');
+ await page.waitForFunction(()=>
+  document.querySelector('#ux23-pointer-focus-fixture .markdown-toolbar')?.scrollLeft>30);
+ await pointerHost.screenshot({
+  path:'test-results/ux-audit/toolbar-scroll-live-permission-guard.png',animations:'disabled'
+ });
  await page.evaluate(()=>{
   window.__ux23PointerDispose();
   document.querySelector('#ux23-pointer-focus-fixture').remove();
