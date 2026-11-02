@@ -233,8 +233,8 @@ try{
    cssVisibilityHidden,cssVisibilityRestored,ancestorContentHidden,
    ancestorContentRestored,nestedHidden,reparentRestored};
  });
- assert.deepEqual(Object.values(collapsedStates),Array(15).fill(true),
-  'Collapsed accordion header must navigate; explicitly hidden source ancestors must revoke');
+ assert.ok(Object.values(collapsedStates).every(Boolean),
+  'Collapsed accordion header must navigate; hidden sources must revoke: '+JSON.stringify(collapsedStates));
  await permissionPage.screenshot({path:'test-results/ux-audit/quick-collapsed-fixture-1024.png',animations:'disabled'});
  // Evidence of the direct source lock, independent of the collapsed body.
  await permissionPage.locator('#ux23-collapsed-gallery').evaluate(el=>el.hidden=true);
