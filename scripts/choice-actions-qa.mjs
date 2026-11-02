@@ -123,6 +123,15 @@ try{
   source.inert=true;click();await tick();
   const sourceInert=commits===0&&next.disabled;
   source.inert=false;await tick();
+  source.hidden=true;click();await tick();
+  const directlyHidden=commits===0&&next.disabled;
+  source.hidden=false;await tick();
+  const hiddenRestored=!next.disabled;
+  // Enhanced native selects are intentionally aria-hidden because their
+  // custom trigger is the accessible control. This must not lock actions.
+  source.setAttribute('aria-hidden','true');await tick();
+  const nativeAriaProxyAllowed=!next.disabled;
+  source.removeAttribute('aria-hidden');await tick();
   legend.setAttribute('aria-disabled','true');click();await tick();
   const ancestorAria=commits===0&&next.disabled;
   legend.removeAttribute('aria-disabled');await tick();
@@ -151,10 +160,11 @@ try{
   const reattachedSource=!next.disabled;
   click();const committed=commits===1&&source.value==='b';
   source.setAttribute('aria-disabled','true');await tick();
-  return {sourceAria,ariaRestored,sourceInert,ancestorAria,focusHandoff,
-   pointerNotStolen,legendException,movedDisabled,movedRestored,detachedSource,reattachedSource,committed};
+  return {sourceAria,ariaRestored,sourceInert,directlyHidden,hiddenRestored,
+   nativeAriaProxyAllowed,ancestorAria,focusHandoff,pointerNotStolen,
+   legendException,movedDisabled,movedRestored,detachedSource,reattachedSource,committed};
  });
- assert.deepEqual(Object.values(quickSourceStates),Array(12).fill(true),
+ assert.deepEqual(Object.values(quickSourceStates),Array(15).fill(true),
   'Quick actions must synchronize source/ancestor permissions, fieldset legend and reparenting');
  await permissionPage.screenshot({path:'test-results/ux-audit/quick-source-revoked-1024.png',animations:'disabled'});
  await permissionPage.locator('#ux23-quick-native').evaluate(el=>el.removeAttribute('aria-disabled'));
@@ -192,17 +202,31 @@ try{
   const explicitAriaHidden=commits===1&&next.disabled;
   body.removeAttribute('aria-hidden');await tick();
   const restored=!next.disabled;
+  gallery.hidden=true;click();await tick();
+  const directHidden=commits===1&&next.disabled;
+  gallery.hidden=false;await tick();
+  const directRestored=!next.disabled;
+  gallery.setAttribute('aria-hidden','true');click();await tick();
+  const directAriaHidden=commits===1&&next.disabled;
+  gallery.removeAttribute('aria-hidden');await tick();
+  const directAriaRestored=!next.disabled;
   const wrapper=document.createElement('div');wrapper.hidden=true;body.append(wrapper);wrapper.append(gallery);
   click();await tick();
   const nestedHidden=commits===1&&next.disabled;
   body.append(gallery);wrapper.remove();await tick();
   click();await tick();
   const reparentRestored=commits===2&&choices[2].getAttribute('aria-pressed')==='true'&&!next.disabled;
-  return {collapsedWorks,explicitAriaHidden,restored,nestedHidden,reparentRestored};
+  return {collapsedWorks,explicitAriaHidden,restored,directHidden,directRestored,
+   directAriaHidden,directAriaRestored,nestedHidden,reparentRestored};
  });
- assert.deepEqual(Object.values(collapsedStates),Array(5).fill(true),
+ assert.deepEqual(Object.values(collapsedStates),Array(9).fill(true),
   'Collapsed accordion header must navigate; explicitly hidden source ancestors must revoke');
  await permissionPage.screenshot({path:'test-results/ux-audit/quick-collapsed-fixture-1024.png',animations:'disabled'});
+ // Evidence of the direct source lock, independent of the collapsed body.
+ await permissionPage.locator('#ux23-collapsed-gallery').evaluate(el=>el.hidden=true);
+ await permissionPage.waitForFunction(()=>document.querySelector('#ux23-collapsed-quick [data-action="next"]')?.disabled);
+ await permissionPage.screenshot({path:'test-results/ux-audit/quick-direct-source-hidden-1024.png',animations:'disabled'});
+ await permissionPage.locator('#ux23-collapsed-gallery').evaluate(el=>el.hidden=false);
  await permissionPage.locator('#ux23-collapsed-quick').evaluate(el=>el.remove());
  await permissionPage.locator('#ux23-quick-source-permissions').evaluate(el=>el.remove());
  await permissionPage.locator('#ux23-quick-dynamic').evaluate(el=>el.remove());
