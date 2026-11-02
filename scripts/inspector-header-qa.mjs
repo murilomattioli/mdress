@@ -1,0 +1,1378 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
+await mkdir('test-results',{recursive:true});
+const browser=await chromium.launch();
+try{
+ const page=await browser.newPage({viewport:{width:1024,height:900},reducedMotion:'reduce'});
+ await page.goto(process.env.MDRESS_AUDIT_URL||'http://127.0.0.1:4173');await page.locator('#designToggle').click();
+ // Native segmented choices and binary toggles are not portals, but they
+ // still retain event handlers when options are replaced or rows detached.
+ // Revoke stale synthetic actions synchronously, including fieldset inheritance
+ // and the first-legend exception (no observer microtask required).
+ const nativeChoiceGuards=await page.evaluate(async()=>{
+  const {enhancePropertyControls}=await import('/design-system/property-controls.js');
+  const panel=document.querySelector('#inspector-document');
+  const fixtures=[];
+  const make=(kind,{legend=false}={})=>{
+   const fieldset=document.createElement('fieldset');
+   const firstLegend=document.createElement('legend');firstLegend.textContent='Permissões de controle';
+   const label=document.createElement('label');label.className='property-row';
+   label.append(document.createTextNode(kind==='binary'?'Exibir guias ':'Tipo de linha '));
+   const source=kind==='binary'?document.createElement('input'):document.createElement('select');
+   if(kind==='binary')source.type='checkbox';
+   else{
+    source.id='sectionRule';
+    source.add(new Option('Linha','line'));
+    source.add(new Option('Bloco','block'));
+   }
+   label.append(source);
+   if(legend){firstLegend.append(label);fieldset.append(firstLegend);}
+   else fieldset.append(firstLegend,label);
+   panel.append(fieldset);fixtures.push(fieldset);
+   enhancePropertyControls(document);
+   const buttons=[...label.querySelectorAll(kind==='binary'?'.ds-binary-option':'.ds-segment-option')];
+   if(buttons.length!==2)throw Error('Missing enhanced '+kind+' buttons');
+   let edits=0;source.addEventListener('change',()=>edits++);
+   return {fieldset,label,source,buttons,edits:()=>edits};
+  };
+  const click=btn=>btn.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  const binary=make('binary'),b=binary.buttons[1];
+  binary.fieldset.disabled=true;click(b);
+  const binaryFieldset=!binary.source.checked&&binary.edits()===0;
+  binary.fieldset.disabled=false;
+  binary.fieldset.setAttribute('aria-disabled','true');click(b);
+  const binaryAria=!binary.source.checked&&binary.edits()===0;
+  binary.fieldset.removeAttribute('aria-disabled');
+  binary.fieldset.inert=true;click(b);
+  const binaryInert=!binary.source.checked&&binary.edits()===0;
+  binary.fieldset.inert=false;
+  binary.fieldset.hidden=true;click(b);
+  const binaryHidden=!binary.source.checked&&binary.edits()===0;
+  binary.fieldset.hidden=false;click(b);
+  const binaryRestored=binary.source.checked&&binary.edits()===1;
+  binary.label.remove();click(binary.buttons[0]);
+  const binaryDetached=binary.source.checked&&binary.edits()===1;
+  const binaryLegend=make('binary',{legend:true});
+  binaryLegend.fieldset.disabled=true;click(binaryLegend.buttons[1]);
+  const binaryLegendAllowed=binaryLegend.source.checked&&binaryLegend.edits()===1;
+  const segment=make('segment'),second=segment.buttons[1];
+  segment.fieldset.disabled=true;click(second);
+  const segmentFieldset=segment.source.value==='line'&&segment.edits()===0;
+  segment.fieldset.disabled=false;
+  segment.fieldset.setAttribute('aria-disabled','true');click(second);
+  const segmentAria=segment.source.value==='line'&&segment.edits()===0;
+  segment.fieldset.removeAttribute('aria-disabled');
+  segment.fieldset.inert=true;click(second);
+  const segmentInert=segment.source.value==='line'&&segment.edits()===0;
+  segment.fieldset.inert=false;
+  segment.fieldset.hidden=true;click(second);
+  const segmentHidden=segment.source.value==='line'&&segment.edits()===0;
+  segment.fieldset.hidden=false;
+  const option=segment.source.options[1];
+  option.hidden=true;click(second);
+  const segmentOptionHidden=segment.source.value==='line'&&segment.edits()===0;
+  option.hidden=false;option.label='Renomeado';click(second);
+  const segmentOptionRenamed=segment.source.value==='line'&&segment.edits()===0;
+  option.label='Bloco';option.value='changed';click(second);
+  const segmentOptionChanged=segment.source.value==='line'&&segment.edits()===0;
+  option.value='block';click(second);
+  const segmentRestored=segment.source.value==='block'&&segment.edits()===1;
+  segment.source.value='line';option.remove();click(second);
+  const segmentOptionRemoved=segment.source.value==='line'&&segment.edits()===1;
+  segment.fieldset.remove();click(second);
+  const segmentDetached=segment.source.value==='line'&&segment.edits()===1;
+  const segmentLegend=make('segment',{legend:true});
+  segmentLegend.fieldset.disabled=true;click(segmentLegend.buttons[1]);
+  const segmentLegendAllowed=segmentLegend.source.value==='block'&&segmentLegend.edits()===1;
+  return {results:{binaryFieldset,binaryAria,binaryInert,binaryHidden,binaryRestored,
+   binaryDetached,binaryLegendAllowed,segmentFieldset,segmentAria,segmentInert,
+   segmentHidden,segmentOptionHidden,segmentOptionRenamed,segmentOptionChanged,
+   segmentRestored,segmentOptionRemoved,segmentDetached,segmentLegendAllowed},
+   fixtureIds:fixtures.map((_,i)=>i)};
+ });
+ assert.deepEqual(Object.values(nativeChoiceGuards.results),Array(18).fill(true),
+  'Binary and segment actions must reject stale clicks without blocking legitimate first-legend interactions');
+ await page.screenshot({path:'test-results/header-native-choice-revocation.png',animations:'disabled'});
+ await page.evaluate(()=>[...document.querySelectorAll('#inspector-document fieldset')]
+  .filter(fieldset=>fieldset.querySelector('legend')?.textContent==='Permissões de controle')
+  .forEach(fieldset=>fieldset.remove()));
+
+ // Dynamic controls are replaced frequently (especially mesh points). A global
+ // theme sync must update mounted controls, skip detached controls, and resume
+ // updating the *same* enhanced controls if their host is reattached.
+ const controllerLifecycle=await page.evaluate(async()=>{
+  const {enhanceSelects,enhancePropertyControls,syncPropertyControls}=
+   await import('/design-system/property-controls.js');
+  const panel=document.querySelector('#inspector-document');
+  const selectLabel=document.createElement('label');
+  selectLabel.className='property-row';selectLabel.textContent='Seletor dinâmico ';
+  const select=document.createElement('select');select.id='ux23-sync-lifecycle';
+  select.add(new Option('Primeiro','first'));select.add(new Option('Segundo','second'));
+  selectLabel.append(select);panel.append(selectLabel);
+  enhanceSelects(panel);
+  const trigger=selectLabel.querySelector('.ds-select-trigger');
+  select.value='second';syncPropertyControls();
+  const selectMounted=trigger.title==='Segundo';
+  selectLabel.remove();select.value='first';syncPropertyControls();
+  const selectDetached=trigger.title==='Segundo';
+  panel.append(selectLabel);syncPropertyControls();
+  const selectReattached=trigger.title==='Primeiro';
+  select.disabled=true;syncPropertyControls();
+  const selectDisabled=trigger.disabled;
+
+  const rangeLabel=document.createElement('label');
+  rangeLabel.className='property-row';rangeLabel.textContent='Faixa dinâmica ';
+  const range=document.createElement('input');
+  range.type='range';range.min='0';range.max='10';range.step='1';range.value='3';
+  rangeLabel.append(range);panel.append(rangeLabel);
+  enhancePropertyControls(document);
+  const precision=rangeLabel.querySelector('.ds-prop-number');
+  range.value='7';syncPropertyControls();
+  const rangeMounted=precision.value==='7';
+  rangeLabel.remove();range.value='4';syncPropertyControls();
+  const rangeDetached=precision.value==='7';
+  panel.append(rangeLabel);syncPropertyControls();
+  const rangeReattached=precision.value==='4';
+  return {selectMounted,selectDetached,selectReattached,selectDisabled,
+   rangeMounted,rangeDetached,rangeReattached};
+ });
+ assert.deepEqual(controllerLifecycle,{
+  selectMounted:true,selectDetached:true,selectReattached:true,selectDisabled:true,
+  rangeMounted:true,rangeDetached:true,rangeReattached:true
+ },'Global property sync must follow mounted native controls without retaining detached mesh rows');
+ await page.screenshot({path:'test-results/header-dynamic-controls-sync-lifecycle.png',animations:'disabled'});
+ await page.evaluate(()=>{
+  document.querySelector('#ux23-sync-lifecycle')?.closest('label')?.remove();
+  [...document.querySelectorAll('.design-inspector label.property-row')]
+   .find(label=>label.textContent.includes('Faixa dinâmica'))?.remove();
+ });
+ // A portalled select option can be clicked synchronously after its source
+ // fieldset is disabled, before MutationObserver has closed the popup.
+ // Native :disabled inheritance and the first-legend exception must both
+ // match the browser's actual editability rules; detached controls cannot
+ // dispatch late document edits either.
+ const nativeCommitGuards=await page.evaluate(async()=>{
+  const {enhanceSelects}=await import('/design-system/property-controls.js');
+  const panel=document.querySelector('#inspector-document');
+  const create=(id,inLegend=false)=>{
+   const fieldset=document.createElement('fieldset');fieldset.id=id;
+   const legend=document.createElement('legend');legend.textContent='Teste de permissões';
+   const label=document.createElement('label');label.textContent='Seleção temporária ';
+   const select=document.createElement('select');
+   select.add(new Option('Primeiro','first'));select.add(new Option('Segundo','second'));
+   label.append(select);
+   if(inLegend){legend.append(label);fieldset.append(legend);}
+   else fieldset.append(legend,label);
+   panel.append(fieldset);enhanceSelects(fieldset);
+   let edits=0;select.addEventListener('change',()=>edits++);
+   return {fieldset,select,trigger:fieldset.querySelector('.ds-select-trigger'),edits:()=>edits};
+  };
+  const optionFor=trigger=>{
+   trigger.click();
+   const popup=[...document.querySelectorAll('.ds-select-popover')]
+    .find(node=>node.matches(':popover-open'));
+   return popup?.querySelector('[data-value="second"]');
+  };
+  const inherited=create('ux23-inherited-commit');
+  const blockedOption=optionFor(inherited.trigger);
+  if(!blockedOption)throw Error('Missing portalled option for inherited disabled test');
+  inherited.fieldset.disabled=true;
+  const inheritedDisabled=inherited.select.matches(':disabled');
+  blockedOption.click();
+  const blocked={value:inherited.select.value,edits:inherited.edits(),inheritedDisabled};
+  const legend=create('ux23-legend-commit',true);
+  legend.fieldset.disabled=true;
+  const allowedOption=optionFor(legend.trigger);
+  if(!allowedOption)throw Error('First-legend option must remain available');
+  allowedOption.click();
+  const allowed={value:legend.select.value,edits:legend.edits(),
+   inheritedDisabled:legend.select.matches(':disabled')};
+  // Top-layer options must not bypass CSS, ARIA or inert permissions even
+  // when a synthetic click happens in the same task as the revocation.
+  const revocations=[
+   ['ux23-hidden-commit',host=>{host.hidden=true;}],
+   ['ux23-inert-commit',host=>{host.inert=true;}],
+   ['ux23-aria-commit',host=>{host.setAttribute('aria-disabled','true');}],
+   ['ux23-css-commit',host=>{host.style.display='none';}],
+   // visibility is inherited but can be explicitly overridden by the
+   // enhanced trigger's CSS. Revoke its effective visibility, not merely
+   // the ancestor declaration (which may leave a visible descendant).
+   ['ux23-visibility-commit',(host,_select,trigger)=>{
+    host.style.visibility='hidden';
+    trigger.style.setProperty('visibility','hidden','important');
+   }],
+   ['ux23-disabled-source-commit',(_host,select)=>{select.disabled=true;}]
+  ];
+  const revoked=[];
+  for(const [id,revoke] of revocations){
+   const control=create(id);
+   const stale=optionFor(control.trigger);
+   if(!stale)throw Error('Missing option for '+id);
+   revoke(control.fieldset,control.select,control.trigger);
+   if(id==='ux23-visibility-commit'&&control.trigger.style.visibility!=='hidden')
+    throw Error('Visibility revocation must set the trigger inline before the synthetic click');
+   stale.click();
+   revoked.push({id,value:control.select.value,edits:control.edits()});
+  }
+  const detached=create('ux23-detached-commit');
+  const staleOption=optionFor(detached.trigger);
+  if(!staleOption)throw Error('Missing portalled option for detached test');
+  detached.fieldset.remove();
+  staleOption.click();
+  const stale={value:detached.select.value,edits:detached.edits()};
+  return {blocked,allowed,stale,revoked};
+ });
+ assert.deepEqual(nativeCommitGuards,{
+  blocked:{value:'first',edits:0,inheritedDisabled:true},
+  allowed:{value:'second',edits:1,inheritedDisabled:false},
+  stale:{value:'first',edits:0},
+  revoked:['ux23-hidden-commit','ux23-inert-commit','ux23-aria-commit',
+   'ux23-css-commit','ux23-visibility-commit','ux23-disabled-source-commit']
+   .map(id=>({id,value:'first',edits:0}))
+ },'Portalled options must not commit after inherited, CSS, ARIA, inert or detached revocation');
+ await page.screenshot({path:'test-results/header-native-commit-guards.png',animations:'disabled'});
+ await page.evaluate(()=>{
+  document.querySelector('#ux23-inherited-commit')?.remove();
+  document.querySelector('#ux23-legend-commit')?.remove();
+  for(const id of ['ux23-hidden-commit','ux23-inert-commit','ux23-aria-commit',
+   'ux23-css-commit','ux23-visibility-commit','ux23-disabled-source-commit'])
+   document.getElementById(id)?.remove();
+ });
+ // A detached option button keeps its JS listener. It must not commit
+ // after a portal closes, after a native option changes before observer flush,
+ // or after a live catalog rebuild. Detached pagination must also be inert.
+ const stalePortalActions=await page.evaluate(async()=>{
+  const {enhanceSelects}=await import('/design-system/property-controls.js');
+  const panel=document.querySelector('#inspector-document');
+  const host=document.createElement('div');host.id='ux23-stale-portal';
+  const label=document.createElement('label');label.textContent='Fontes temporárias ';
+  const select=document.createElement('select');select.id='ux23-stale-native';
+  select.setAttribute('data-searchable','');
+  select.add(new Option('Primeiro','first'));
+  const second=new Option('Segundo','second');select.add(second);
+  for(let i=0;i<63;i++)select.add(new Option('Fonte '+i,'font-'+i));
+  label.append(select);host.append(label);panel.append(host);
+  enhanceSelects(host);
+  const trigger=host.querySelector('.ds-select-trigger');
+  const popup=()=>document.querySelector('.ds-select-popover:popover-open');
+  const open=()=>{
+   if(popup())trigger.click();
+   trigger.click();
+   const node=popup();
+   if(!node)throw Error('Expected a live portal');
+   return node;
+  };
+  let edits=0;select.addEventListener('change',()=>edits++);
+  let portal=open(),stale=portal.querySelector('[data-value="second"]');
+  const more=portal.querySelector('.ds-select-more');
+  const staleSearch=portal.querySelector('.ds-select-search');
+  if(!stale||!more||!staleSearch||more.hidden)throw Error('Missing option or pagination');
+  const initialMore=more.textContent;
+  trigger.click();stale.click();more.click();
+  const afterClose={value:select.value,edits,more:more.textContent===initialMore};
+  // Detached key handlers must not dismiss a different live portal.
+  let live=open();
+  stale.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));
+  const optionKeyIgnored=popup()===live;
+  if(!popup())live=open();
+  more.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));
+  const paginationKeyIgnored=popup()===live;
+  if(!popup())live=open();
+  staleSearch.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));
+  const searchKeyIgnored=popup()===live;
+  if(!popup())live=open();
+  const detachedListSize=portal.querySelectorAll('.ds-select-option').length;
+  staleSearch.value='unmatched';
+  staleSearch.dispatchEvent(new Event('input'));
+  const searchInputIgnored=portal.querySelectorAll('.ds-select-option').length===detachedListSize;
+  const staleKeyboard={optionKeyIgnored,paginationKeyIgnored,searchKeyIgnored,searchInputIgnored};
+  if(popup())trigger.click();
+  portal=open();stale=portal.querySelector('[data-value="second"]');
+  second.value='renamed';stale.click();
+  const afterValueChange={value:select.value,edits};
+  if(popup())trigger.click();
+  second.value='second';
+  portal=open();stale=portal.querySelector('[data-value="second"]');
+  second.hidden=true;stale.click();
+  const afterHidden={value:select.value,edits};
+  if(popup())trigger.click();
+  second.hidden=false;
+  portal=open();stale=portal.querySelector('[data-value="second"]');
+  second.remove();stale.click();
+  const afterRemoval={value:select.value,edits};
+  if(popup())trigger.click();
+  select.add(second,select.options[1]);
+  portal=open();
+  const activeMore=portal.querySelector('.ds-select-more');
+  const beforeRevocation=activeMore.textContent;
+  host.inert=true;activeMore.click();
+  const afterRevocation={more:activeMore.textContent===beforeRevocation,edits};
+  host.inert=false;
+  if(popup())trigger.click();
+  select.addEventListener('mdress:select-open',()=>{host.inert=true;},{once:true});
+  trigger.click();
+  const synchronousRevocation={portal:!!popup(),expanded:trigger.getAttribute('aria-expanded')};
+  host.inert=false;
+  // Leave a legitimate open state for the screenshot and human review.
+  open();
+  return {afterClose,staleKeyboard,afterValueChange,afterHidden,afterRemoval,
+   afterRevocation,synchronousRevocation};
+ });
+ assert.deepEqual(stalePortalActions,{
+  afterClose:{value:'first',edits:0,more:true},
+  staleKeyboard:{optionKeyIgnored:true,paginationKeyIgnored:true,searchKeyIgnored:true,searchInputIgnored:true},
+  afterValueChange:{value:'first',edits:0},
+  afterHidden:{value:'first',edits:0},
+  afterRemoval:{value:'first',edits:0},
+  afterRevocation:{more:true,edits:0},
+  synchronousRevocation:{portal:false,expanded:'false'}
+ },'Stale portal actions and synchronous source revocation must not commit');
+ await page.screenshot({path:'test-results/header-stale-portal-action-guards.png',animations:'disabled'});
+ await page.evaluate(()=>{
+  const host=document.querySelector('#ux23-stale-portal');
+  if(document.querySelector('.ds-select-popover:popover-open'))
+   host?.querySelector('.ds-select-trigger')?.click();
+  host?.remove();
+ });
+ // Roving tab navigation must skip dynamically unavailable destinations.
+ // A programmatic tab change must not strand focus in the hidden old panel.
+ const documentTab=page.locator('[data-inspector-tab=document]');
+ const contentTab=page.locator('[data-inspector-tab=content]');
+ const pageTab=page.locator('[data-inspector-tab=page]');
+ const themesTab=page.locator('[data-inspector-tab=themes]');
+ // Disabled fieldset inheritance must be respected by programmatic
+ // selection and by the roving tab recovery, including the legend exception.
+ await contentTab.click();await contentTab.focus();
+ await contentTab.evaluate(el=>{
+  const fieldset=document.createElement('fieldset');
+  fieldset.id='ux23-disabled-tab-fieldset';
+  el.before(fieldset);fieldset.append(el);fieldset.disabled=true;
+ });
+ await page.waitForFunction(()=>document.querySelector('[data-inspector-tab=page]')?.getAttribute('aria-selected')==='true');
+ assert.equal(await pageTab.evaluate(el=>document.activeElement===el),true,
+  'Revoking the focused tab via a disabled fieldset must recover focus');
+ assert.equal(await page.evaluate(async()=>{
+  const {setInspectorTab}=await import('/property-inspector.js');
+  return setInspectorTab('content',{focus:true});
+ }),false,'Programmatic selection must reject inherited fieldset disablement');
+ await page.screenshot({path:'test-results/header-fieldset-disabled-tab-recovery.png',animations:'disabled'});
+ await page.locator('#ux23-disabled-tab-fieldset').evaluate(fieldset=>fieldset.replaceWith(fieldset.firstElementChild));
+ await pageTab.evaluate(el=>{
+  const fieldset=document.createElement('fieldset');
+  fieldset.id='ux23-legend-tab-fieldset';fieldset.disabled=true;
+  const legend=document.createElement('legend');
+  el.before(fieldset);fieldset.append(legend);legend.append(el);
+ });
+ assert.equal(await page.evaluate(async()=>{
+  const {setInspectorTab}=await import('/property-inspector.js');
+  return setInspectorTab('page',{focus:true});
+ }),true,'A tab in the first legend remains enabled inside a disabled fieldset');
+ assert.equal(await pageTab.evaluate(el=>document.activeElement===el),true);
+ await page.locator('#ux23-legend-tab-fieldset').evaluate(fieldset=>fieldset.replaceWith(fieldset.firstElementChild.firstElementChild));
+ await documentTab.click();
+ // A portalled select cannot outlive an ancestor hidden via
+ // content-visibility, and synthetic clicks must not reopen a revoked control.
+ const fontTrigger=page.locator('#fontChoice').locator('..').locator('.ds-select-trigger');
+ await fontTrigger.click();
+ await page.waitForFunction(()=>document.querySelector('.ds-select-popover')?.matches(':popover-open'));
+ await page.locator('#inspector-document').evaluate(el=>{el.style.contentVisibility='hidden';});
+ await page.waitForFunction(()=>!document.querySelector('.ds-select-popover'));
+ assert.equal(await page.evaluate(()=>{
+  const panel=document.querySelector('#inspector-document');
+  return document.activeElement!==document.body&&!panel.contains(document.activeElement);
+ }),true,'Hiding an inspector ancestor must close the portal and recover focus outside it');
+ await page.screenshot({path:'test-results/header-select-hidden-ancestor-focus.png',animations:'disabled'});
+ await page.locator('#inspector-document').evaluate(el=>{el.style.contentVisibility='';el.setAttribute('aria-disabled','true');});
+ await fontTrigger.evaluate(el=>el.click());
+ assert.equal(await page.locator('.ds-select-popover').count(),0,
+  'Synthetic clicks must not open a combobox in an aria-disabled ancestor');
+ await page.locator('#inspector-document').evaluate(el=>el.removeAttribute('aria-disabled'));
+ // visibility:hidden on a layout host may be explicitly overridden
+ // by the inspector (mobile overlay). The visible child remains interactive.
+ await page.locator('.preview-body').evaluate(el=>{el.style.visibility='hidden';});
+ await page.locator('#themesView').evaluate(el=>{el.style.visibility='visible';});
+ await documentTab.focus();await page.keyboard.press('ArrowRight');
+ assert.equal(await contentTab.evaluate(el=>document.activeElement===el),true,
+  'Roving tabs must respect effective descendant visibility, not hidden ancestors');
+ await page.screenshot({path:'test-results/header-visibility-override-navigation.png',animations:'disabled'});
+ await page.locator('.preview-body').evaluate(el=>{el.style.visibility='';});
+ await page.locator('#themesView').evaluate(el=>{el.style.visibility='';});
+ await documentTab.click();
+ await contentTab.evaluate(el=>el.setAttribute('aria-disabled','true'));
+ // Synthetic clicks and API calls must not activate permission-revoked tabs.
+ const denied=await page.evaluate(async()=>{
+  const {setInspectorTab}=await import('/property-inspector.js');
+  return setInspectorTab('content',{focus:true});
+ });
+ assert.equal(denied,false,'Programmatic selection must reject aria-disabled tabs');
+ const deepLinkDenied=await page.evaluate(async()=>{
+  const {revealInspectorControl}=await import('/property-inspector.js');
+  return revealInspectorControl('sectionStyleTarget');
+ });
+ assert.equal(deepLinkDenied,false,'Deep links must not open revoked inspector panels');
+ assert.equal(await documentTab.getAttribute('aria-selected'),'true');
+ await contentTab.evaluate(el=>el.click());
+ assert.equal(await documentTab.getAttribute('aria-selected'),'true',
+  'Synthetic clicks must not select aria-disabled tabs');
+ await documentTab.focus();await page.keyboard.press('ArrowRight');
+ assert.equal(await pageTab.evaluate(el=>document.activeElement===el),true,
+  'ArrowRight must skip aria-disabled inspector tabs');
+ await documentTab.click();
+ await pageTab.evaluate(el=>{el.style.contentVisibility='hidden';});
+ assert.equal(await page.evaluate(async()=>{
+  const {setInspectorTab}=await import('/property-inspector.js');
+  return setInspectorTab('page',{focus:true});
+ }),false,'Programmatic selection must reject CSS-hidden tabs');
+ assert.equal(await documentTab.getAttribute('aria-selected'),'true',
+  'CSS-hidden tab requests must preserve the selected panel');
+ await documentTab.focus();await page.keyboard.press('ArrowRight');
+ assert.equal(await themesTab.evaluate(el=>document.activeElement===el),true,
+  'ArrowRight must skip tabs hidden with content-visibility');
+ await contentTab.evaluate(el=>el.removeAttribute('aria-disabled'));
+ await pageTab.evaluate(el=>el.style.removeProperty('content-visibility'));
+ // Revoking the selected tab must move both selection and keyboard focus
+ // to the nearest available sibling, without leaving an inaccessible panel.
+ await pageTab.click();await pageTab.focus();
+ await pageTab.evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await page.waitForFunction(()=>document.querySelector('[data-inspector-tab=themes]')?.getAttribute('aria-selected')==='true');
+ assert.equal(await themesTab.evaluate(el=>document.activeElement===el),true,
+  'Revoking a focused selected tab must recover focus on the fallback tab');
+ assert.equal(await page.locator('#inspector-page').getAttribute('aria-hidden'),'true');
+ await page.screenshot({path:'test-results/header-revoked-tab-focus-recovery.png',animations:'disabled'});
+ await pageTab.evaluate(el=>el.removeAttribute('aria-disabled'));
+ await contentTab.click();
+ await page.evaluate(()=>{
+  const focused=document.createElement('button');focused.type='button';
+  focused.id='ux23-revoked-panel-control';focused.textContent='Revoked panel focus';
+  document.querySelector('#inspector-content').append(focused);focused.focus();
+ });
+ await contentTab.evaluate(el=>el.disabled=true);
+ await page.waitForFunction(()=>document.querySelector('[data-inspector-tab=page]')?.getAttribute('aria-selected')==='true');
+ assert.equal(await pageTab.evaluate(el=>document.activeElement===el),true,
+  'Revoking the active panel must recover focus from its child controls');
+ assert.equal(await page.locator('#inspector-content').getAttribute('aria-hidden'),'true');
+ await page.screenshot({path:'test-results/header-revoked-panel-focus-recovery.png',animations:'disabled'});
+ await contentTab.evaluate(el=>el.disabled=false);
+ await page.locator('#ux23-revoked-panel-control').evaluate(el=>el.remove());
+ // App navigation can preselect a tab while the inspector is collapsed.
+ await page.locator('#themesView').evaluate(el=>el.classList.add('hidden'));
+ assert.equal(await page.evaluate(async()=>{
+  const {setInspectorTab}=await import('/property-inspector.js');
+  return setInspectorTab('themes');
+ }),true,'Collapsed inspector must still accept an otherwise enabled tab');
+ await page.locator('#themesView').evaluate(el=>el.classList.remove('hidden'));
+ assert.equal(await themesTab.getAttribute('aria-selected'),'true');
+ await documentTab.click();
+ await page.evaluate(()=>{
+  const focused=document.createElement('button');focused.type='button';
+  focused.id='ux23-panel-focused-control';focused.textContent='Focused property';
+  document.querySelector('#inspector-document').append(focused);focused.focus();
+ });
+ assert.equal(await page.evaluate(()=>document.activeElement?.id),'ux23-panel-focused-control');
+ await page.evaluate(async()=>{
+  const {setInspectorTab}=await import('/property-inspector.js');
+  setInspectorTab('themes');
+ });
+ assert.equal(await themesTab.evaluate(el=>document.activeElement===el),true,
+  'Programmatic panel changes must recover focus to the active tab');
+ assert.equal(await page.locator('#inspector-document').getAttribute('aria-hidden'),'true');
+ await page.screenshot({path:'test-results/header-inspector-tabs-focus-recovery.png',animations:'disabled'});
+ await page.locator('#ux23-panel-focused-control').evaluate(el=>el.remove());
+ await page.locator('[data-inspector-tab=themes]').click();
+ for(const button of await page.locator('#inspector-themes .ds-accordion-toggle').all())if(await button.getAttribute('aria-expanded')==='true')await button.click();
+ const group=page.locator('.ds-accordion').filter({has:page.locator('#themeRecipeGallery')});
+ await page.evaluate(async()=>{
+  const {createInspectorHeader}=await import('/design-system/inspector-header.js');
+  const old=document.querySelector('#themeRecipeGallery').closest('.ds-accordion').querySelector('.ds-accordion-header');
+  old.replaceWith(createInspectorHeader({toggle:old.querySelector('.ds-accordion-toggle'),actions:old.querySelector('.ds-choice-actions'),menuItems:[{label:'Indisponível',disabled:true,onSelect:()=>{}},{label:'Ação de teste',onSelect:()=>window.headerActionCalled=true},{label:'Segunda ação',onSelect:()=>{}},{label:'Terceira ação',onSelect:()=>{}}]}));
+ });
+ const trigger=group.locator('.ds-header-menu-trigger');
+ await page.mouse.move(0,0);assert.equal(await trigger.evaluate(el=>getComputedStyle(el).opacity),'0');
+ await trigger.focus();await page.waitForFunction(()=>getComputedStyle(document.querySelector('.ds-header-menu-trigger')).opacity==='1');
+ await trigger.press('Enter');await page.getByRole('menu').waitFor();
+ assert.equal(await page.getByRole('menuitem',{name:'Indisponível'}).isDisabled(),true);
+ await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>window.headerActionCalled),true);
+ await trigger.click();
+ const menu=page.getByRole('menu');
+ const first=page.getByRole('menuitem',{name:'Ação de teste'});
+ const last=page.getByRole('menuitem',{name:'Terceira ação'});
+ await page.keyboard.press('End');
+ assert.equal(await last.evaluate(el=>el===document.activeElement),true,'End reaches the final enabled item');
+ await page.keyboard.press('ArrowDown');
+ assert.equal(await first.evaluate(el=>el===document.activeElement),true,'ArrowDown wraps to the first enabled item');
+ await page.keyboard.press('ArrowUp');
+ assert.equal(await last.evaluate(el=>el===document.activeElement),true,'ArrowUp wraps to the last enabled item');
+ await page.keyboard.press('Home');
+ assert.equal(await first.evaluate(el=>el===document.activeElement),true,'Home reaches the first enabled item');
+ assert.equal(await trigger.getAttribute('aria-controls'),await menu.getAttribute('id'));
+ await page.keyboard.press('Escape');
+ assert.equal(await trigger.evaluate(el=>el===document.activeElement),true,'Escape returns focus to the trigger');
+ // A menu with no enabled actions must not waste horizontal space or trap focus.
+ await page.evaluate(async()=>{
+  const {createInspectorHeader}=await import('/design-system/inspector-header.js');
+  const toggle=document.createElement('button');toggle.type='button';toggle.setAttribute('aria-label','Sem ações');
+  const host=document.createElement('div');host.id='ux23-disabled-menu-host';
+  host.append(createInspectorHeader({toggle,menuItems:[{label:'Bloqueada',disabled:true,onSelect:()=>{}}]}));
+  document.body.append(host);
+ });
+ assert.equal(await page.locator('#ux23-disabled-menu-host .ds-header-menu-trigger').isHidden(),true);
+ assert.equal(await page.locator('#ux23-disabled-menu-host [role=menu]').isVisible(),false);
+ // Live permission updates must not strand keyboard focus or invoke blocked actions.
+ await page.evaluate(async()=>{
+  const {createInspectorHeader}=await import('/design-system/inspector-header.js');
+  const host=document.createElement('div');host.id='ux23-dynamic-menu-host';host.className='design-inspector';
+  const toggle=document.createElement('button');toggle.type='button';toggle.textContent='Permissões dinâmicas';
+  host.append(createInspectorHeader({toggle,menuVisibility:'always',menuItems:[
+   {label:'Primeira',onSelect:()=>window.dynamicMenuSelected=true},
+   {label:'Segunda',onSelect:()=>window.dynamicSecondCalled=true}
+  ]}));
+  document.body.append(host);
+ });
+ const dynamicHost=page.locator('#ux23-dynamic-menu-host');
+ const dynamicTrigger=dynamicHost.locator('.ds-header-menu-trigger');
+ // Hiding only the menu trigger must revoke an already-open top-layer menu.
+ // Ancestor observers alone cannot see attributes on this child button.
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await dynamicTrigger.evaluate(el=>{el.style.display='none';});
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ assert.equal(await dynamicTrigger.getAttribute('aria-expanded'),'false',
+  'Hiding the trigger itself closes its top-layer popover');
+ assert.equal(await dynamicHost.locator('.ds-accordion-header > button').first().evaluate(el=>document.activeElement===el),true,
+  'A CSS-hidden menu trigger returns focus to its still-usable accordion toggle');
+ await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'A revoked trigger cannot dispatch a stale menu action');
+ await page.screenshot({path:'test-results/header-trigger-display-none-revoked.png',animations:'disabled'});
+ await dynamicTrigger.evaluate(el=>{
+  el.style.removeProperty('display');el.style.contentVisibility='hidden';el.click();
+ });
+ assert.equal(await dynamicHost.locator('[role=menu]').evaluate(el=>el.matches(':popover-open')),false,
+  'A content-visibility-hidden trigger cannot open through a synthetic click');
+ await dynamicTrigger.evaluate(el=>el.style.removeProperty('content-visibility'));
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await dynamicTrigger.evaluate(el=>el.style.contentVisibility='hidden');
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ assert.equal(await dynamicTrigger.getAttribute('aria-expanded'),'false',
+  'Content visibility revocation must dismiss the active menu');
+ await page.screenshot({path:'test-results/header-trigger-content-visibility-revoked.png',animations:'disabled'});
+ await dynamicTrigger.evaluate(el=>el.style.removeProperty('content-visibility'));
+ // The mobile inspector uses visibility:hidden on a layout parent and
+ // visibility:visible on the interactive child. A header must honor the
+ // *effective* visibility of its trigger rather than denying the ancestor.
+ await dynamicHost.evaluate(host=>{
+  const wrapper=document.createElement('div');wrapper.id='ux23-visibility-override-host';
+  host.before(wrapper);wrapper.append(host);
+  wrapper.style.visibility='hidden';host.style.visibility='visible';
+ });
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ assert.equal(await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el===document.activeElement),true,
+  'An explicitly visible inspector menu remains keyboard-accessible under a hidden ancestor');
+ await page.screenshot({path:'test-results/header-menu-visibility-override-host.png',animations:'disabled'});
+ await page.keyboard.press('Escape');
+ await dynamicHost.evaluate(host=>{
+  host.style.removeProperty('visibility');
+  const wrapper=host.parentElement;wrapper.before(host);wrapper.remove();
+ });
+ // Visibility inheritance also applies inside the portalled menu. A child
+ // with visibility:visible must remain available under a hidden wrapper,
+ // while the same child without the override must be skipped.
+ await dynamicHost.locator('[role=menuitem]').first().evaluate(item=>{
+  const wrapper=document.createElement('div');wrapper.id='ux23-visibility-override-action';
+  item.before(wrapper);wrapper.append(item);
+  wrapper.style.visibility='hidden';item.style.visibility='visible';
+ });
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ assert.equal(await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el===document.activeElement),true,
+  'Effective visibility overrides inherited hidden state for a menu action');
+ await page.screenshot({path:'test-results/header-menu-visibility-override-action.png',animations:'disabled'});
+ await page.evaluate(()=>{
+  window.__ux23VisibilityTrace=[];
+  const menu=document.querySelector('#ux23-dynamic-menu-host [role=menu]');
+  for(const name of ['focusin','focusout','toggle']){
+   menu.addEventListener(name,event=>window.__ux23VisibilityTrace.push({
+    event:name,target:event.target?.textContent?.trim().slice(0,30),
+    related:event.relatedTarget?.outerHTML?.slice(0,100),
+    active:document.activeElement?.outerHTML?.slice(0,100)
+   }),true);
+  }
+  new MutationObserver(()=>window.__ux23VisibilityTrace.push({
+   event:'mutation',active:document.activeElement?.outerHTML?.slice(0,100)
+  })).observe(menu,{attributes:true,subtree:true,attributeFilter:['style']});
+ });
+ await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el.style.removeProperty('visibility'));
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Segunda',null,{timeout:3500}).catch(async error=>{
+  const snapshot=await page.evaluate(()=>{
+   const host=document.querySelector('#ux23-dynamic-menu-host');
+   const items=[...host.querySelectorAll('[role=menuitem]')];
+   return {active:document.activeElement?.outerHTML?.slice(0,240),
+    open:host.querySelector('[role=menu]').matches(':popover-open'),
+    triggerHidden:host.querySelector('.ds-header-menu-trigger').hidden,
+    trace:window.__ux23VisibilityTrace,
+    styles:items.map(el=>({label:el.textContent,visibility:getComputedStyle(el).visibility,
+     parentVisibility:getComputedStyle(el.parentElement).visibility,
+     disabled:el.matches(':disabled'),rects:el.getClientRects().length}))};
+  });
+  throw new Error('Hidden action focus recovery: '+JSON.stringify(snapshot),{cause:error});
+ });
+ await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'An action inheriting visibility:hidden cannot execute a synthetic click');
+ await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el.style.visibility='visible');
+ await page.waitForFunction(()=>getComputedStyle(document.querySelector('#ux23-dynamic-menu-host [role=menuitem]')).visibility==='visible');
+ // A synthetic click on a hidden native button can independently move DOM
+ // focus in Chromium; re-enter the menu from a known usable action before
+ // testing Home navigation after restoring the CSS permission.
+ await dynamicHost.locator('[role=menuitem]').nth(1).focus();
+ await page.keyboard.press('Home');
+ assert.equal(await dynamicHost.locator('[role=menuitem]').first().evaluate(el=>el===document.activeElement),true,
+  'Restoring visibility must restore the original roving menu position');
+ await page.keyboard.press('Escape');
+ await dynamicHost.locator('#ux23-visibility-override-action').evaluate(wrapper=>{
+  const item=wrapper.firstElementChild;item.style.removeProperty('visibility');
+  wrapper.before(item);wrapper.remove();
+ });
+ // Live renaming (document edits, localization and undo) must update the
+ // accessible name of both the trigger and its associated top-layer menu.
+ await dynamicHost.locator('button').first().evaluate(el=>el.textContent='Seção atualizada');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.getAttribute('aria-label')==='Opções de Seção atualizada');
+ assert.equal(await dynamicHost.locator('[role=menu]').getAttribute('aria-label'),'Opções de Seção atualizada');
+ await dynamicHost.locator('button').first().evaluate(el=>el.setAttribute('aria-label','Título acessível'));
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.getAttribute('aria-label')==='Opções de Título acessível');
+ assert.equal(await dynamicHost.locator('[role=menu]').getAttribute('aria-label'),'Opções de Título acessível');
+ await dynamicHost.locator('button').first().evaluate(el=>{el.removeAttribute('aria-label');el.textContent='Permissões dinâmicas';});
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.getAttribute('aria-label')==='Opções de Permissões dinâmicas');
+ assert.equal(await dynamicTrigger.getAttribute('aria-label'),'Opções de Permissões dinâmicas',
+  'Visible toggle text names the menu when aria-label is absent');
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ const dynamicItems=dynamicHost.locator('[role=menuitem]');
+ await dynamicHost.locator('button').first().evaluate(el=>el.textContent='Renomeada com menu aberto');
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-dynamic-menu-host');
+  return host.querySelector('.ds-header-menu-trigger').getAttribute('aria-label')==='Opções de Renomeada com menu aberto'&&
+   host.querySelector('[role=menu]').getAttribute('aria-label')==='Opções de Renomeada com menu aberto';
+ });
+ await page.screenshot({path:'test-results/header-live-rename-open.png'});
+ await dynamicHost.locator('button').first().evaluate(el=>el.textContent='Permissões dinâmicas');
+ assert.equal(await dynamicItems.nth(0).evaluate(el=>el===document.activeElement),true);
+ await dynamicItems.nth(0).evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Segunda',null,{timeout:3000});
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'aria-disabled menuitems cannot invoke callbacks');
+ // Programmatic click on an aria-disabled item may change native focus
+ // independently of the menu's keyboard path; restore the intended owner
+ // before testing the final permission revocation.
+ await dynamicItems.nth(1).focus();
+ await dynamicItems.nth(1).evaluate(el=>el.disabled=true);
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.hidden===true);
+ const lastActionFocus=await page.evaluate(()=>{
+  const host=document.querySelector('#ux23-dynamic-menu-host');
+  const menu=host.querySelector('[role=menu]');
+  return {active:document.activeElement?.outerHTML?.slice(0,200),
+   toggleFocused:document.activeElement===host.querySelector('button'),
+   open:menu.matches(':popover-open'),trace:window.__ux23VisibilityTrace?.slice(-12)};
+ });
+ assert.equal(lastActionFocus.toggleFocused,true,
+  'Disabling every action closes the popover and restores focus to the section toggle: '+JSON.stringify(lastActionFocus));
+ assert.equal(await dynamicHost.getByRole('menu').isVisible(),false);
+ await dynamicItems.nth(1).evaluate(el=>el.disabled=false);
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.hidden===false);
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ assert.equal(await dynamicItems.nth(1).evaluate(el=>el===document.activeElement),true,
+  'Re-enabled actions are reachable without rebuilding the inspector');
+ await page.keyboard.press('Escape');
+ // Closing leaves the trigger focused. If the last action becomes unavailable
+ // at that point, focus must return to the accordion toggle rather than body.
+ assert.equal(await dynamicTrigger.evaluate(el=>el===document.activeElement),true);
+ await dynamicItems.nth(1).evaluate(el=>el.disabled=true);
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger')?.hidden===true);
+ assert.equal(await dynamicHost.locator('button').first().evaluate(el=>el===document.activeElement),true,
+  'A focused trigger becoming unavailable returns focus to its accordion toggle');
+ // CSS, aria-hidden and inert permission changes must behave like disabled.
+ // These are common when a feature flag or responsive inspector mode changes.
+ await page.evaluate(()=>{
+  const style=document.createElement('style');
+  style.textContent='#ux23-dynamic-menu-host .ux23-hidden-action{display:none}';
+  document.head.append(style);
+  const items=document.querySelectorAll('#ux23-dynamic-menu-host [role=menuitem]');
+  items[0].removeAttribute('aria-disabled');items[1].disabled=false;
+ });
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger').hidden);
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ assert.equal(await dynamicItems.nth(0).evaluate(el=>el===document.activeElement),true);
+ await dynamicItems.nth(0).evaluate(el=>el.classList.add('ux23-hidden-action'));
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Segunda');
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'CSS-hidden menu actions cannot dispatch callbacks');
+ await page.screenshot({path:'test-results/header-dynamic-css-hidden.png'});
+ await dynamicItems.nth(0).evaluate(el=>el.classList.remove('ux23-hidden-action'));
+ await dynamicItems.nth(1).evaluate(el=>el.setAttribute('aria-hidden','true'));
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Primeira');
+ assert.equal(await dynamicItems.nth(1).evaluate(el=>getComputedStyle(el).display),'none',
+  'ARIA-hidden actions must also disappear visually, not only from screen readers');
+ await dynamicItems.nth(1).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicSecondCalled),undefined,
+  'aria-hidden menu actions cannot dispatch callbacks');
+ await dynamicItems.nth(0).evaluate(el=>el.setAttribute('inert',''));
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger').hidden);
+ assert.equal(await dynamicHost.locator('button').first().evaluate(el=>el===document.activeElement),true,
+  'When CSS/ARIA/inert remove all menu actions, keyboard focus returns to the toggle');
+ await dynamicItems.nth(0).evaluate(el=>el.removeAttribute('inert'));
+ await dynamicItems.nth(1).evaluate(el=>el.removeAttribute('aria-hidden'));
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger').hidden);
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ assert.equal(await dynamicItems.nth(0).evaluate(el=>el===document.activeElement),true,
+  'Restored actions remain keyboard reachable without recreating the header');
+ await dynamicItems.nth(0).evaluate(el=>el.hidden=true);
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Segunda');
+ assert.equal(await dynamicItems.nth(0).evaluate(el=>getComputedStyle(el).display),'none',
+  'Native hidden must override the menu button display:block styling');
+ await dynamicItems.nth(0).evaluate(el=>el.hidden=false);
+ // CSS on a parent can hide an action while getComputedStyle(button).display
+ // still reports inline-block. This must revoke keyboard and click access,
+ // and recover focus without closing a menu that still has other actions.
+ await dynamicItems.nth(0).focus();
+ await page.evaluate(()=>{
+  const style=document.createElement('style');
+  style.id='ux23-hidden-wrapper-style';
+  style.textContent='#ux23-dynamic-menu-host .ux23-hidden-wrapper{display:none!important}';
+  document.head.append(style);
+  const first=document.querySelector('#ux23-dynamic-menu-host [role=menuitem]');
+  const wrapper=document.createElement('div');
+  wrapper.className='ux23-hidden-wrapper';
+  first.before(wrapper);wrapper.append(first);
+ });
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Segunda');
+ assert.equal(await dynamicTrigger.getAttribute('aria-expanded'),'true',
+  'Hiding a menuitem wrapper must preserve the open menu when a sibling is available');
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'An action hidden by a display:none ancestor must not execute a stale callback');
+ await page.screenshot({path:'test-results/header-hidden-menu-wrapper-focus.png'});
+ await page.evaluate(()=>{
+  document.querySelector('#ux23-dynamic-menu-host .ux23-hidden-wrapper').classList.remove('ux23-hidden-wrapper');
+ });
+ await page.keyboard.press('Home');
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Primeira');
+ assert.equal(await dynamicItems.nth(0).evaluate(el=>el===document.activeElement),true,
+  'Restoring the ancestor must restore the action to keyboard navigation');
+ // If a parent hides every action, the trigger must disappear and focus must
+ // return to the accordion toggle. Restoring the group must reopen normally.
+ await page.evaluate(()=>{
+  const menu=document.querySelector('#ux23-dynamic-menu-host [role=menu]');
+  const group=document.createElement('div');group.className='ux23-hidden-wrapper';
+  group.id='ux23-hidden-all-wrapper';
+  menu.prepend(group);
+  for(const item of [...menu.querySelectorAll('[role=menuitem]')])group.append(item);
+ });
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-dynamic-menu-host');
+  return host.querySelector('.ds-header-menu-trigger').hidden&&
+   !host.querySelector('[role=menu]').matches(':popover-open')&&
+   document.activeElement===host.querySelector('button');
+ });
+ await page.screenshot({path:'test-results/header-hidden-all-menu-actions.png'});
+ await page.evaluate(()=>document.querySelector('#ux23-hidden-all-wrapper').classList.remove('ux23-hidden-wrapper'));
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger').hidden);
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Primeira');
+ await page.keyboard.press('Escape');
+ // Disabled fieldsets propagate native disabled state to descendant buttons.
+ // button.disabled alone is false in that case, but :disabled must exclude it.
+ await page.evaluate(()=>{
+  const host=document.querySelector('#ux23-dynamic-menu-host');
+  const menu=host.querySelector('[role=menu]');
+  const fieldset=document.createElement('fieldset');fieldset.id='ux23-disabled-fieldset';
+  menu.prepend(fieldset);
+  for(const item of [...menu.querySelectorAll('[role=menuitem]')])fieldset.append(item);
+  fieldset.disabled=true;
+ });
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger').hidden);
+ assert.equal(await dynamicItems.nth(0).evaluate(el=>el.matches(':disabled')),true,
+  'Fieldset-disabled actions must be unavailable even without a disabled attribute');
+ await page.evaluate(()=>document.querySelector('#ux23-disabled-fieldset').disabled=false);
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host .ds-header-menu-trigger').hidden);
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Primeira');
+ await page.keyboard.press('Escape');
+ // A closed popover and a disabled ancestor must never expose actions through
+ // delayed synthetic clicks. Popovers are top-layer elements: host visibility
+ // and permissions can change without changing the menuitem itself.
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'A menuitem in a closed popover must not execute its callback');
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ // content-visibility:hidden retains a rectangle on the editor. A revoked
+ // inspector must never restore focus to that invisible fallback target.
+ await page.locator('#source').evaluate(el=>{el.style.contentVisibility='hidden';});
+ await dynamicHost.evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.waitForFunction(()=>{
+  const focused=document.activeElement;
+  return focused!==document.body&&focused?.id!=='source'&&
+   !document.querySelector('#ux23-dynamic-menu-host')?.contains(focused);
+ });
+ assert.notEqual(await page.evaluate(()=>document.activeElement?.id),'source',
+  'Revoking an inspector must skip a content-visibility:hidden editor');
+ await page.screenshot({path:'test-results/header-revoked-host-hidden-editor-focus.png'});
+ await page.locator('#source').evaluate(el=>{el.style.removeProperty('content-visibility');});
+ await page.screenshot({path:'test-results/header-revoked-host-focus.png'});
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ await dynamicTrigger.evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'A disabled inspector host must revoke stale menuitem callbacks');
+ assert.equal(await dynamicTrigger.getAttribute('aria-expanded'),'false',
+  'Programmatic trigger clicks must not reopen a disabled inspector host');
+ await dynamicHost.evaluate(el=>el.removeAttribute('aria-disabled'));
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await dynamicHost.evaluate(el=>el.setAttribute('inert',''));
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.waitForFunction(()=>document.activeElement!==document.body&&
+  !document.querySelector('#ux23-dynamic-menu-host')?.contains(document.activeElement));
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'Inert inspector hosts must revoke menu actions even when the popover is top-layer');
+ await dynamicHost.evaluate(el=>el.removeAttribute('inert'));
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ // A fieldset can disable the trigger without setting its own disabled attr.
+ // The observer must watch host ancestors, not just the menu subtree.
+ await dynamicHost.evaluate(host=>{
+  const fieldset=document.createElement('fieldset');fieldset.id='ux23-disabled-host-fieldset';
+  host.before(fieldset);fieldset.append(host);fieldset.disabled=true;
+ });
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'),
+  null,{timeout:4000}).catch(async error=>{
+  const snapshot=await page.evaluate(()=>{
+   const host=document.querySelector('#ux23-dynamic-menu-host');
+   const menu=host.querySelector('[role=menu]'),trigger=host.querySelector('.ds-header-menu-trigger');
+   return {open:menu.matches(':popover-open'),triggerDisabled:trigger.matches(':disabled'),
+    fieldsetDisabled:host.closest('fieldset')?.disabled,
+    focus:document.activeElement?.outerHTML?.slice(0,180)};
+  });
+  throw new Error('Fieldset reparent permission did not revoke popover: '+JSON.stringify(snapshot),{cause:error});
+ });
+ await page.waitForFunction(()=>document.activeElement!==document.body&&
+  !document.querySelector('#ux23-dynamic-menu-host')?.contains(document.activeElement),
+  null,{timeout:4000}).catch(async error=>{
+  const snapshot=await page.evaluate(()=>{
+   const host=document.querySelector('#ux23-dynamic-menu-host');
+   return {focus:document.activeElement?.outerHTML?.slice(0,180),
+    triggerDisabled:host.querySelector('.ds-header-menu-trigger').matches(':disabled'),
+    menuOpen:host.querySelector('[role=menu]').matches(':popover-open')};
+  });
+  throw new Error('Fieldset reparent failed to recover focus: '+JSON.stringify(snapshot),{cause:error});
+ });
+ assert.equal(await dynamicTrigger.evaluate(el=>el.matches(':disabled')),true,
+  'The inspector trigger inherits disabled state from its host fieldset');
+ await dynamicItems.nth(0).evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'Inherited host fieldset disablement must revoke open menu actions');
+ await dynamicHost.evaluate(host=>{
+  const fieldset=host.parentElement;fieldset.disabled=false;
+  fieldset.before(host);fieldset.remove();
+ });
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ // CSS-hidden hosts must also dismiss top-layer popovers. Restoration must
+ // leave the same component usable, without rebuilding the inspector.
+ await dynamicHost.evaluate(el=>el.style.display='none');
+ await page.waitForFunction(()=>!document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.waitForFunction(()=>document.activeElement!==document.body&&
+  !document.querySelector('#ux23-dynamic-menu-host')?.contains(document.activeElement));
+ await dynamicHost.evaluate(el=>el.style.removeProperty('display'));
+ await dynamicTrigger.focus();await dynamicTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-dynamic-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.screenshot({path:'test-results/header-host-permissions-restored.png'});
+ // Detaching an open top-layer menu must release its tracking and return
+ // keyboard focus to a usable control outside the removed accordion.
+ await page.evaluate(()=>{
+  window.__ux23RemovedHeaderAction=document.querySelector('#ux23-dynamic-menu-host [role=menuitem]');
+ });
+ await dynamicHost.evaluate(el=>el.remove());
+ await page.waitForFunction(()=>document.activeElement!==document.body&&
+  !document.querySelector('#ux23-dynamic-menu-host'));
+ await page.evaluate(()=>window.__ux23RemovedHeaderAction.click());
+ assert.equal(await page.evaluate(()=>window.dynamicMenuSelected),undefined,
+  'A menuitem from a removed inspector header must never execute');
+ await page.evaluate(()=>delete window.__ux23RemovedHeaderAction);
+ await page.locator('#ux23-hidden-wrapper-style').evaluate(el=>el.remove());
+ // Feature flags may remove menu actions from the DOM entirely (not merely
+ // mark them disabled). A detached item must not remain in keyboard order,
+ // trigger callbacks, or strand focus when the final action disappears.
+ await page.evaluate(async()=>{
+  const {createInspectorHeader}=await import('/design-system/inspector-header.js');
+  const host=document.createElement('div');host.id='ux23-detached-menu-host';host.className='design-inspector';
+  const toggle=document.createElement('button');toggle.type='button';toggle.textContent='Ações removíveis';
+  host.append(createInspectorHeader({toggle,menuVisibility:'always',menuItems:[
+   {label:'Removível A',onSelect:()=>window.__ux23DetachedAction='A'},
+   {label:'Removível B',onSelect:()=>window.__ux23DetachedAction='B'},
+   {label:'Removível C',onSelect:()=>window.__ux23DetachedAction='C'}
+  ]}));
+  document.body.append(host);
+ });
+ const detachedHost=page.locator('#ux23-detached-menu-host');
+ const detachedTrigger=detachedHost.locator('.ds-header-menu-trigger');
+ await detachedTrigger.focus();await detachedTrigger.press('Enter');
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Removível A');
+ await page.evaluate(()=>{
+  const host=document.querySelector('#ux23-detached-menu-host');
+  window.__ux23DetachedButtons=[...host.querySelectorAll('[role=menuitem]')];
+  window.__ux23DetachedButtons[0].remove();
+ });
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Removível B');
+ await page.evaluate(()=>window.__ux23DetachedButtons[0].click());
+ assert.equal(await page.evaluate(()=>window.__ux23DetachedAction),undefined,
+  'A detached menuitem must never execute its stale callback');
+ await page.evaluate(()=>window.__ux23DetachedButtons[1].remove());
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Removível C');
+ await page.screenshot({path:'test-results/header-removed-menu-actions-focus.png'});
+ await page.evaluate(()=>window.__ux23DetachedButtons[2].remove());
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-detached-menu-host');
+  return host.querySelector('.ds-header-menu-trigger').hidden&&
+   document.activeElement===host.querySelector('button')&&
+   !host.querySelector('[role=menu]').matches(':popover-open');
+ });
+ await page.evaluate(()=>{
+  const host=document.querySelector('#ux23-detached-menu-host');
+  host.querySelector('[role=menu]').append(window.__ux23DetachedButtons[0]);
+ });
+ await page.waitForFunction(()=>!document.querySelector('#ux23-detached-menu-host .ds-header-menu-trigger').hidden);
+ await detachedTrigger.focus();await detachedTrigger.press('Enter');
+ await page.waitForFunction(()=>document.activeElement?.textContent==='Removível A');
+ await page.keyboard.press('Enter');
+ assert.equal(await page.evaluate(()=>window.__ux23DetachedAction),'A',
+  'A reinserted action is available again without recreating the header');
+ await detachedHost.evaluate(el=>el.remove());
+ await page.evaluate(()=>{delete window.__ux23DetachedButtons;delete window.__ux23DetachedAction;});
+ // Large action menus need typeahead, accent-insensitive matching, repeat-key
+ // cycling and page navigation without breaking IME composition.
+ await page.evaluate(async()=>{
+  const {createInspectorHeader}=await import('/design-system/inspector-header.js');
+  const host=document.createElement('div');host.id='ux23-typeahead-host';host.className='design-inspector';
+  host.style.cssText='position:fixed;top:4px;right:4px;width:220px;z-index:2147483000';
+  const toggle=document.createElement('button');toggle.type='button';toggle.textContent='Menu longo';
+  const labels=['Alpha','Árvore','Beta','Bravo','Brisa','Ritmo',...Array.from({length:18},(_,i)=>'Item '+i)];
+  host.append(createInspectorHeader({toggle,menuVisibility:'always',menuItems:labels.map(label=>({label,onSelect:()=>{window.__ux23TypeaheadSelected=label;}}))}));
+  document.body.append(host);
+ });
+ await page.setViewportSize({width:390,height:320});
+ const typeHost=page.locator('#ux23-typeahead-host');
+ const typeTrigger=typeHost.locator('.ds-header-menu-trigger');
+ await typeTrigger.focus();await typeTrigger.press('Enter');
+ const focusedLabel=()=>page.evaluate(()=>document.activeElement?.textContent?.trim());
+ assert.equal(await focusedLabel(),'Alpha');
+ await page.keyboard.press('b');assert.equal(await focusedLabel(),'Beta');
+ await page.keyboard.press('b');assert.equal(await focusedLabel(),'Bravo','Repeated letters cycle matching actions');
+ await page.waitForTimeout(750);
+ await page.keyboard.press('b');await page.keyboard.press('r');await page.keyboard.press('i');
+ assert.equal(await focusedLabel(),'Brisa','Multi-character typeahead selects matching action');
+ await page.waitForTimeout(750);
+ await page.keyboard.press('a');assert.equal(await focusedLabel(),'Alpha');
+ await page.keyboard.press('a');assert.equal(await focusedLabel(),'Árvore','Diacritics do not block typeahead');
+ await page.screenshot({path:'test-results/header-typeahead-focused.png'});
+ await page.keyboard.press('PageDown');assert.equal(await focusedLabel(),'Item 0');
+ await page.keyboard.press('PageUp');assert.equal(await focusedLabel(),'Árvore');
+ // Typeahead must restart after explicit keyboard navigation, even within
+ // its 700ms timeout. Otherwise "b" + ArrowDown + "r" wrongly finds Brisa.
+ await page.waitForTimeout(750);
+ await page.keyboard.press('Home');
+ await page.keyboard.press('b');assert.equal(await focusedLabel(),'Beta');
+ await page.keyboard.press('ArrowDown');assert.equal(await focusedLabel(),'Bravo');
+ await page.keyboard.press('r');assert.equal(await focusedLabel(),'Ritmo',
+  'Arrow navigation clears stale typeahead prefixes before the next printable key');
+ await page.screenshot({path:'test-results/header-typeahead-after-arrow.png'});
+ // Live permission changes must be excluded from typeahead just as they are
+ // from Arrow/Home/End navigation and native click dispatch.
+ await typeHost.getByRole('menuitem',{name:'Brisa'}).evaluate(el=>el.disabled=true);
+ await page.waitForTimeout(750);
+ await page.keyboard.press('b');assert.equal(await focusedLabel(),'Beta');
+ await page.keyboard.press('b');assert.equal(await focusedLabel(),'Bravo');
+ await page.keyboard.press('b');assert.equal(await focusedLabel(),'Beta',
+  'Repeated-key typeahead skips dynamically disabled actions');
+ // Keep focus inside the menu without invoking native scrollIntoView,
+ // which can scroll the document or an unrelated inspector panel.
+ await typeHost.evaluate(host=>{
+  for(const item of host.querySelectorAll('[role=menuitem]')){
+   item.scrollIntoView=()=>{throw new Error('Menu focus must scroll only its own popover');};
+  }
+ });
+ const outerScrollBefore=await page.evaluate(()=>({
+  page:window.scrollY,inspector:document.querySelector('#inspector-themes')?.scrollTop||0
+ }));
+ await page.keyboard.press('End');assert.equal(await focusedLabel(),'Item 17');
+ assert.ok(await typeHost.getByRole('menu').evaluate(el=>el.scrollTop)>0,
+  'Keyboard navigation scrolls the focused action into view on a short screen');
+ assert.deepEqual(await page.evaluate(()=>({
+  page:window.scrollY,inspector:document.querySelector('#inspector-themes')?.scrollTop||0
+ })),outerScrollBefore,'Navigating a long menu must not scroll outer panels or the page');
+ await page.screenshot({path:'test-results/header-typeahead-scroll-contained.png'});
+ // A permission change must keep a keyboard user near their position in a
+ // long menu, not unexpectedly return to the first action.
+ await typeHost.getByRole('menuitem',{name:'Item 17'}).evaluate(el=>el.disabled=true);
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Item 16');
+ assert.equal(await focusedLabel(),'Item 16','Disabling the last action focuses its nearest predecessor');
+ await typeHost.getByRole('menuitem',{name:'Item 16'}).evaluate(el=>el.disabled=true);
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Item 15');
+ assert.equal(await focusedLabel(),'Item 15','Repeated permission updates preserve the local keyboard position');
+ await page.keyboard.press('Home');await page.keyboard.press('ArrowDown');
+ assert.equal(await focusedLabel(),'Árvore');
+ await typeHost.getByRole('menuitem',{name:'Árvore'}).evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await page.waitForFunction(()=>document.activeElement?.textContent?.trim()==='Beta');
+ assert.equal(await focusedLabel(),'Beta','Disabling a middle action focuses the next available action');
+ await page.screenshot({path:'test-results/header-typeahead-permission-neighbor-390.png'});
+ // High text zoom can make one menu item taller than the scrollport.
+ // Home must reveal its leading edge without alternating top/bottom on
+ // subsequent keyboard events or layout updates.
+ const oversizedMenuItem=typeHost.getByRole('menuitem',{name:'Alpha'});
+ await oversizedMenuItem.evaluate(el=>{el.style.height='400px';});
+ await page.keyboard.press('Home');
+ await page.waitForFunction(()=>{
+  const menu=document.querySelector('#ux23-typeahead-host [role=menu]');
+  return menu&&menu.scrollTop<2;
+ });
+ for(let attempt=0;attempt<3;attempt++){
+  await page.keyboard.press('Home');
+  assert.ok(await typeHost.getByRole('menu').evaluate(el=>el.scrollTop)<2,
+   'Oversized menu actions must not oscillate between their top and bottom edges');
+ }
+ await page.screenshot({path:'test-results/header-typeahead-oversized-action-390.png'});
+ await oversizedMenuItem.evaluate(el=>{el.style.height='';});
+ assert.equal(await page.evaluate(()=>{
+  const focused=document.activeElement;
+  focused.dispatchEvent(new KeyboardEvent('keydown',{key:'b',bubbles:true,isComposing:true}));
+  focused.dispatchEvent(new KeyboardEvent('keydown',{key:'b',bubbles:true,keyCode:229}));
+  return document.activeElement===focused;
+ }),true,'IME composition must not trigger menu typeahead');
+ assert.deepEqual(await page.evaluate(()=>{
+  const focused=document.activeElement,menu=focused.closest('[role=menu]');
+  for(const key of ['Escape','ArrowDown','ArrowUp','Home','End','PageDown','PageUp','Tab']){
+   focused.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true,isComposing:true}));
+   focused.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true,keyCode:229}));
+  }
+  return {focused:document.activeElement===focused,open:menu.matches(':popover-open')};
+ }),{focused:true,open:true},'IME navigation and Escape must not dismiss the menu or move focus');
+ // Some browsers emit a plain Escape/Arrow keydown during an active IME
+ // session (isComposing=false, keyCode!=229). The lifecycle is authoritative.
+ assert.deepEqual(await page.evaluate(()=>{
+  const focused=document.activeElement,menu=focused.closest('[role=menu]');
+  focused.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true,data:'あ'}));
+  for(const key of ['Escape','ArrowDown','Home','End','PageDown','PageUp','Tab','b']){
+   focused.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true}));
+  }
+  const state={focused:document.activeElement===focused,open:menu.matches(':popover-open')};
+  focused.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'あ'}));
+  return state;
+ }),{focused:true,open:true},'IME lifecycle protects menu focus even without keydown composition flags');
+ // Dispatching synthetic keydown alone cannot prove native browser behavior:
+ // Escape dismisses popovers, Tab moves focus, and Enter activates buttons.
+ // Exercise real keyboard defaults during an active IME lifecycle.
+ await page.evaluate(()=>{
+  document.activeElement.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true,data:'あ'}));
+ });
+ for(const key of ['Escape','Tab','Shift+Tab','Enter']){
+  await page.keyboard.press(key);
+  assert.deepEqual(await page.evaluate(()=>({
+   open:document.querySelector('#ux23-typeahead-host [role=menu]')?.matches(':popover-open'),
+   focused:document.activeElement?.closest('#ux23-typeahead-host [role=menu]')!==null,
+   selected:window.__ux23TypeaheadSelected??null
+  })),{open:true,focused:true,selected:null},
+  'Real '+key+' during IME must not dismiss, move focus or execute an action');
+ }
+ await page.screenshot({path:'test-results/header-ime-native-keys-390.png'});
+ await page.evaluate(()=>{
+  document.activeElement.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'あ'}));
+ });
+ await page.keyboard.press('Home');assert.equal(await focusedLabel(),'Alpha',
+  'Keyboard navigation resumes after compositionend');
+ await page.screenshot({path:'test-results/header-typeahead-composition-lifecycle.png'});
+ await page.screenshot({path:'test-results/header-typeahead-ime.png'});
+ await page.keyboard.press('Escape');
+ assert.equal(await typeTrigger.evaluate(el=>el===document.activeElement),true);
+ assert.deepEqual(await typeHost.locator('[role=menuitem]').evaluateAll(items=>[...new Set(items.map(item=>item.tabIndex))]),[-1],
+  'A menu is one Tab stop: its actions are reached by arrows/typeahead');
+ await typeTrigger.focus();await typeTrigger.press('Enter');
+ await page.keyboard.press('Shift+Tab');
+ assert.equal(await typeHost.locator('button').first().evaluate(el=>el===document.activeElement),true,
+  'Shift+Tab exits to the preceding accordion toggle, not another menu action');
+ assert.equal(await typeHost.getByRole('menu').isVisible(),false);
+ // Hidden/disabled wrappers can contain natively focusable buttons.
+ // Leaving a popover must skip those descendants, even if the wrapper
+ // retains a layout rectangle with content-visibility:hidden.
+ await typeHost.evaluate(host=>{
+  const trigger=host.querySelector('.ds-header-menu-trigger');
+  const disabled=document.createElement('div');disabled.id='ux23-disabled-tab-wrapper';
+  disabled.setAttribute('aria-disabled','true');
+  const disabledButton=document.createElement('button');disabledButton.type='button';
+  disabledButton.textContent='Indisponível por herança';disabled.append(disabledButton);
+  const hidden=document.createElement('div');hidden.id='ux23-css-hidden-tab-wrapper';
+  hidden.style.contentVisibility='hidden';
+  const hiddenButton=document.createElement('button');hiddenButton.type='button';
+  hiddenButton.textContent='Indisponível por CSS';hidden.append(hiddenButton);
+  trigger.after(disabled,hidden);
+ });
+ await typeTrigger.focus();await typeTrigger.press('Enter');
+ await page.keyboard.press('Tab');
+ assert.equal(await page.evaluate(()=>document.activeElement?.closest('#ux23-disabled-tab-wrapper')!==null),false,
+  'Tab must skip buttons inside an aria-disabled ancestor');
+ assert.equal(await page.evaluate(()=>document.activeElement?.closest('#ux23-css-hidden-tab-wrapper')!==null),false,
+  'Tab must skip buttons under content-visibility:hidden');
+ assert.deepEqual(await page.evaluate(()=>({
+  outside:!document.activeElement?.closest('[role=menu]'),
+  notBody:document.activeElement!==document.body,
+  closed:!document.querySelector('#ux23-typeahead-host [role=menu]').matches(':popover-open')
+ })),{outside:true,notBody:true,closed:true},
+ 'Tab exits the menu to the next page control without stranding focus on body');
+ await page.screenshot({path:'test-results/header-typeahead-tab-exit.png'});
+ await page.screenshot({path:'test-results/header-css-hidden-tab-stop-skipped.png'});
+ await typeHost.evaluate(el=>el.remove());
+ await page.setViewportSize({width:1024,height:900});
+
+ // Reparenting a live inspector must not retain observers on its former
+ // ancestors or ignore permission changes on its new container.
+ await page.evaluate(async()=>{
+  const {createInspectorHeader}=await import('/design-system/inspector-header.js');
+  const host=document.createElement('div');host.id='ux23-reparent-host';
+  const toggle=document.createElement('button');toggle.textContent='Ações reparentadas';
+  host.append(createInspectorHeader({toggle,menuVisibility:'always',menuItems:[
+   {label:'Reparentar',onSelect:()=>window.__ux23ReparentSelected=true}
+  ]}));
+  document.body.append(host);
+ });
+ const reparentTrigger=page.locator('#ux23-reparent-host .ds-header-menu-trigger');
+ await reparentTrigger.focus();await reparentTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-reparent-host [role=menu]')?.matches(':popover-open'));
+ await page.evaluate(()=>{
+  const host=document.querySelector('#ux23-reparent-host');
+  const wrapper=document.createElement('div');wrapper.id='ux23-reparent-wrapper';
+  host.before(wrapper);wrapper.append(host);
+ });
+ // Chromium can close an auto popover asynchronously after reparenting.
+ // Inspecting its state in the same task can race that native dismissal:
+ // the menu appears open, then closes before the next waitForFunction.
+ // Allow the browser to settle, and retry the open without assuming which
+ // native behavior it chose. This is a test timing guard, not UX approval.
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>
+  requestAnimationFrame(resolve))));
+ const reparentMenu=page.locator('#ux23-reparent-host [role=menu]');
+ for(let attempt=0;attempt<3;attempt++){
+  if(await reparentMenu.evaluate(el=>el.matches(':popover-open')))break;
+  await reparentTrigger.focus();await reparentTrigger.press('Enter');
+  await page.waitForTimeout(80);
+ }
+ await page.waitForFunction(()=>document.querySelector('#ux23-reparent-host [role=menu]')?.matches(':popover-open'),
+  null,{timeout:3000});
+ await page.locator('#ux23-reparent-wrapper').evaluate(el=>el.setAttribute('aria-disabled','true'));
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-reparent-host');
+  return !host.querySelector('[role=menu]').matches(':popover-open')&&
+   document.activeElement!==document.body&&!host.contains(document.activeElement);
+ },null,{timeout:4000}).catch(async error=>{
+  const snapshot=await page.evaluate(()=>{
+   const host=document.querySelector('#ux23-reparent-host');
+   return {open:host.querySelector('[role=menu]').matches(':popover-open'),
+    hostDisabled:host.parentElement?.getAttribute('aria-disabled'),
+    focus:document.activeElement?.outerHTML?.slice(0,180)};
+  });
+  throw new Error('Reparented host permission did not revoke focus: '+JSON.stringify(snapshot),{cause:error});
+ });
+ await page.locator('#ux23-reparent-host [role=menuitem]').evaluate(el=>el.click());
+ assert.equal(await page.evaluate(()=>window.__ux23ReparentSelected),undefined,
+  'Reparented disabled hosts cannot dispatch stale menu actions');
+ await page.screenshot({path:'test-results/header-reparented-host-revoked.png'});
+ await page.locator('#ux23-reparent-wrapper').evaluate(el=>el.removeAttribute('aria-disabled'));
+ await reparentTrigger.focus();await reparentTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-reparent-host [role=menu]')?.matches(':popover-open'));
+ await page.keyboard.press('Escape');
+ await page.locator('#ux23-reparent-wrapper').evaluate(el=>el.remove());
+
+ // Exercise the top-layer menu against a genuinely short, mobile viewport.
+ await page.evaluate(async()=>{
+  const {createInspectorHeader}=await import('/design-system/inspector-header.js');
+  const host=document.createElement('div');host.id='ux23-edge-menu-host';host.className='design-inspector';
+  host.style.cssText='position:fixed;bottom:4px;right:4px;width:240px;z-index:2147483000;';
+  const toggle=document.createElement('button');toggle.type='button';toggle.className='ds-accordion-toggle';
+  toggle.setAttribute('aria-label','Ações no limite da tela');toggle.textContent='Limite';
+  host.append(createInspectorHeader({toggle,menuVisibility:'always',menuItems:Array.from({length:18},(_,i)=>({label:'Opção '+i,onSelect:()=>{}}))}));
+  document.body.append(host);
+ });
+ for(const viewport of [{width:390,height:320},{width:1024,height:420}]){
+  await page.setViewportSize(viewport);
+  const edgeTrigger=page.locator('#ux23-edge-menu-host .ds-header-menu-trigger');
+  // The app topbar can visually overlap a synthetic fixed fixture at 320px;
+  // keyboard activation exercises the actual trigger without a false pointer interception.
+  await edgeTrigger.focus();await edgeTrigger.press('Enter');
+  // Popover dimensions can settle one frame after a viewport CSS change.
+  // Validate the final anchored geometry, not a transient pre-layout rect.
+  await page.waitForFunction(()=>{
+   const b=document.querySelector('#ux23-edge-menu-host [role=menu]')?.getBoundingClientRect();
+   return b&&b.width>0&&b.height>0&&b.top>=7&&b.left>=7&&
+    b.bottom<=innerHeight-7&&b.right<=innerWidth-7;
+  });
+  // ResizeObserver and visualViewport can settle on the next animation
+  // frame. Require a stable post-layout rectangle, not a transient pass.
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  await page.waitForFunction(()=>{
+   const b=document.querySelector('#ux23-edge-menu-host [role=menu]')?.getBoundingClientRect();
+   return b&&b.width>0&&b.height>0&&b.top>=7&&b.left>=7&&
+    b.bottom<=innerHeight-7&&b.right<=innerWidth-7;
+  });
+  const bounds=await page.locator('#ux23-edge-menu-host [role=menu]').boundingBox();
+  assert.ok(bounds&&bounds.x>=7&&bounds.y>=7&&bounds.x+bounds.width<=viewport.width-7&&bounds.y+bounds.height<=viewport.height-7,
+   'Menu must stay within the settled viewport: '+JSON.stringify({viewport,bounds}));
+  if(viewport.width===390){
+   // Browser chrome may resize a viewport while the popover is still open.
+   await page.setViewportSize({width:390,height:250});
+   await page.waitForFunction(()=>{
+    const b=document.querySelector('#ux23-edge-menu-host [role=menu]')?.getBoundingClientRect();
+    return b&&b.top>=7&&b.bottom<=innerHeight-7&&b.left>=7&&b.right<=innerWidth-7;
+   });
+   await page.screenshot({path:'test-results/header-edge-menu-resized-390.png'});
+   await page.setViewportSize(viewport);
+  }
+  await page.screenshot({path:`test-results/header-edge-menu-${viewport.width}.png`});
+  await page.keyboard.press('Escape');
+  // Native popover toggle is dispatched asynchronously after hidePopover().
+  await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host .ds-header-menu-trigger')?.getAttribute('aria-expanded')==='false');
+ }
+
+ // Mobile keyboards and pinch zoom change the visual viewport independently
+ // from innerHeight. Simulate both a smaller rectangle and its scroll offset.
+ await page.setViewportSize({width:390,height:320});
+ await page.evaluate(()=>{
+  window.__ux23OriginalVisualViewport=Object.getOwnPropertyDescriptor(window,'visualViewport');
+  const fake=new EventTarget();
+  Object.assign(fake,{offsetLeft:24,offsetTop:28,width:330,height:220});
+  Object.defineProperty(window,'visualViewport',{configurable:true,value:fake});
+  window.__ux23FakeViewport=fake;
+ });
+ const visualTrigger=page.locator('#ux23-edge-menu-host .ds-header-menu-trigger');
+ await visualTrigger.focus();await visualTrigger.press('Enter');
+ const withinVisualViewport=()=>page.waitForFunction(()=>{
+  const menu=document.querySelector('#ux23-edge-menu-host [role=menu]');
+  const rect=menu?.getBoundingClientRect(),v=window.visualViewport;
+  return rect&&menu.matches(':popover-open')&&rect.width>0&&rect.height>0&&
+   rect.left>=v.offsetLeft+7&&rect.right<=v.offsetLeft+v.width-7&&
+   rect.top>=v.offsetTop+7&&rect.bottom<=v.offsetTop+v.height-7;
+ });
+ await withinVisualViewport();
+ await page.screenshot({path:'test-results/header-edge-menu-visual-390.png'});
+ await page.evaluate(()=>{
+  const v=window.__ux23FakeViewport;
+  Object.assign(v,{offsetLeft:45,offsetTop:60,width:260,height:170});
+  v.dispatchEvent(new Event('scroll'));
+ });
+ await withinVisualViewport();
+ await page.screenshot({path:'test-results/header-edge-menu-visual-scrolled-390.png'});
+ await page.keyboard.press('Escape');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host .ds-header-menu-trigger')?.getAttribute('aria-expanded')==='false');
+ await page.evaluate(()=>{
+  const descriptor=window.__ux23OriginalVisualViewport;
+  if(descriptor)Object.defineProperty(window,'visualViewport',descriptor);
+  else delete window.visualViewport;
+  delete window.__ux23FakeViewport;
+  delete window.__ux23OriginalVisualViewport;
+ });
+ // A CSS media query can hide an open accordion without changing any
+ // DOM attributes. Resize must revoke its top-layer popover and recover focus.
+ await page.evaluate(()=>{
+  const style=document.createElement('style');style.id='ux23-responsive-host-style';
+  style.textContent='@media(max-width:380px){#ux23-edge-menu-host{display:none!important}}';
+  document.head.append(style);
+ });
+ const responsiveTrigger=page.locator('#ux23-edge-menu-host .ds-header-menu-trigger');
+ await responsiveTrigger.focus();await responsiveTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.setViewportSize({width:375,height:320});
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-edge-menu-host');
+  return getComputedStyle(host).display==='none'&&
+   !host.querySelector('[role=menu]').matches(':popover-open')&&
+   document.activeElement!==document.body&&!host.contains(document.activeElement);
+ });
+ await page.screenshot({path:'test-results/header-responsive-host-revoked-375.png'});
+ await page.setViewportSize({width:390,height:320});
+ await responsiveTrigger.focus();await responsiveTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.keyboard.press('Escape');
+ await page.locator('#ux23-responsive-host-style').evaluate(el=>el.remove());
+ // CSS-only responsive permission changes can hide *individual* actions.
+ // No mutation event fires on menuitems when a media query starts matching.
+ // The open menu must recover focus, close if empty, and become usable again.
+ await page.evaluate(()=>{
+  const style=document.createElement('style');style.id='ux23-responsive-actions-style';
+  style.textContent=[
+   '@media(max-width:380px){#ux23-edge-menu-host [role=menuitem]:first-child{display:none!important}}',
+   '@media(max-width:360px){#ux23-edge-menu-host [role=menuitem]{display:none!important}}'
+  ].join('');
+  document.head.append(style);
+ });
+ const responsiveMenu=page.locator('#ux23-edge-menu-host [role=menu]');
+ await responsiveTrigger.focus();await responsiveTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host [role=menu]')?.matches(':popover-open'));
+ assert.equal(await responsiveMenu.locator('[role=menuitem]').first().evaluate(el=>el===document.activeElement),true);
+ await page.setViewportSize({width:375,height:320});
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-edge-menu-host');
+  const items=host.querySelectorAll('[role=menuitem]');
+  return host.querySelector('[role=menu]').matches(':popover-open')&&
+   getComputedStyle(items[0]).display==='none'&&document.activeElement===items[1];
+ });
+ await page.screenshot({path:'test-results/header-responsive-actions-focus-375.png'});
+ await page.setViewportSize({width:350,height:320});
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-edge-menu-host');
+  return !host.querySelector('[role=menu]').matches(':popover-open')&&
+   host.querySelector('.ds-header-menu-trigger').hidden&&
+   document.activeElement===host.querySelector('.ds-accordion-toggle');
+ });
+ await page.screenshot({path:'test-results/header-responsive-actions-empty-350.png'});
+ await page.setViewportSize({width:390,height:320});
+ await page.waitForFunction(()=>!document.querySelector('#ux23-edge-menu-host .ds-header-menu-trigger').hidden);
+ await responsiveTrigger.focus();await responsiveTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host [role=menu]')?.matches(':popover-open'));
+ assert.equal(await responsiveMenu.locator('[role=menuitem]').first().evaluate(el=>el===document.activeElement),true,
+  'Restoring viewport makes previously hidden actions available without rebuilding the menu');
+ await page.keyboard.press('Escape');
+ await page.locator('#ux23-responsive-actions-style').evaluate(el=>el.remove());
+ // content-visibility:hidden can hide a host or action without display:none.
+ // Top-layer popovers must not outlive these visibility changes.
+ await responsiveTrigger.focus();await responsiveTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host [role=menu]')?.matches(':popover-open'));
+ await responsiveMenu.locator('[role=menuitem]').first().evaluate(el=>{el.style.contentVisibility='hidden';});
+ await page.waitForFunction(()=>{
+  const items=document.querySelectorAll('#ux23-edge-menu-host [role=menuitem]');
+  return getComputedStyle(items[0]).contentVisibility==='hidden'&&document.activeElement===items[1];
+ });
+ await page.screenshot({path:'test-results/header-content-visibility-action.png'});
+ await responsiveMenu.locator('[role=menuitem]').first().evaluate(el=>{el.style.contentVisibility='';});
+ await page.keyboard.press('Escape');
+ await responsiveTrigger.focus();await responsiveTrigger.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#ux23-edge-menu-host [role=menu]')?.matches(':popover-open'));
+ await page.locator('#ux23-edge-menu-host').evaluate(el=>{el.style.contentVisibility='hidden';});
+ await page.waitForFunction(()=>{
+  const host=document.querySelector('#ux23-edge-menu-host');
+  return !host.querySelector('[role=menu]').matches(':popover-open')&&
+   document.activeElement!==document.body&&!host.contains(document.activeElement);
+ });
+ await page.screenshot({path:'test-results/header-content-visibility-host-revoked.png'});
+ await page.locator('#ux23-edge-menu-host').evaluate(el=>{el.style.contentVisibility='';});
+ // Synthetic fixed fixture must not intercept the real inspector's hover test.
+ await page.locator('#ux23-edge-menu-host').evaluate(el=>el.remove());
+ for(const width of [1024,390]){
+  await page.setViewportSize({width,height:900});await group.hover();
+  const geometry=await group.evaluate(el=>{const title=el.querySelector('.ds-accordion-title').getBoundingClientRect(),actions=el.querySelector('.ds-choice-actions').getBoundingClientRect(),menu=el.querySelector('.ds-header-menu-trigger').getBoundingClientRect(),chevron=el.querySelector('.ds-accordion-chevron').getBoundingClientRect();return {ordered:title.right<=actions.left&&actions.right<=menu.left&&menu.right<=chevron.left,overflow:el.scrollWidth>el.clientWidth};});
+  assert.equal(geometry.ordered,true);assert.equal(geometry.overflow,false);
+  await page.locator('#toast.show').waitFor({state:'hidden'});
+  await page.locator('.design-inspector').first().screenshot({path:`test-results/header-pattern-${width}.png`});
+ }
+ console.log('Header layout, accessible menu linkage, keyboard/IME, dynamic actions, visual viewport offsets, screenshots and Escape passed.');
+}finally{await browser.close();}

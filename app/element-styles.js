@@ -22,13 +22,15 @@ export function parseElementStyles(raw=null){
  if(!rawProperties||typeof rawProperties!=='object'||Array.isArray(rawProperties)||Object.keys(rawProperties).length>500)throw Error('Propriedades individuais inválidas');
  const properties={};
  for(const [id,props] of Object.entries(rawProperties)){
-  if(!/^([a-z0-9]+):([0-9]{1,5})$/.test(id)||!index.has(id.split(':')[0])||!props||typeof props!=='object'||Array.isArray(props))throw Error('Propriedade individual inválida');
+  if((!index.has(id)&&!/^([a-z0-9]+):([0-9]{1,5})$/.test(id))||!index.has(id.split(':')[0])||!props||typeof props!=='object'||Array.isArray(props))throw Error('Propriedade individual inválida');
   const safe={};
   for(const [key,value] of Object.entries(props)){
-   if(key==='fontSize'&&Number.isFinite(value)&&value>=8&&value<=96)safe[key]=value;
+   if(['color','backgroundColor','markerColor'].includes(key)&&typeof value==='string'&&/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value))safe[key]=value;
+   else if(key==='fontSize'&&Number.isFinite(value)&&value>=8&&value<=96)safe[key]=value;
    else if(key==='fontWeight'&&[400,500,600,700,800,900].includes(value))safe[key]=value;
    else if(key==='lineHeight'&&Number.isFinite(value)&&value>=1&&value<=2.5)safe[key]=value;
    else if(key==='spacing'&&Number.isFinite(value)&&value>=0&&value<=48)safe[key]=value;
+   else if(key==='visibility'&&['visible','hidden'].includes(value))safe[key]=value;
    else if(key==='align'&&['left','center','right','justify'].includes(value))safe[key]=value;
    else throw Error('Propriedade individual inválida');
   }
@@ -70,7 +72,7 @@ export function clearElementInstance(value,id){
 }
 export function setElementProperty(value,id,key,property){
  const parsed=parseElementStyles(value);
- if(!/^([a-z0-9]+):([0-9]{1,5})$/.test(id)||!index.has(id.split(':')[0]))throw Error('Elemento desconhecido');
+ if((!index.has(id)&&!/^([a-z0-9]+):([0-9]{1,5})$/.test(id))||!index.has(id.split(':')[0]))throw Error('Elemento desconhecido');
  const properties={...parsed.properties},current={...(properties[id]||{})};
  if(property===null)delete current[key];else current[key]=property;
  if(Object.keys(current).length)properties[id]=current;else delete properties[id];
@@ -85,9 +87,9 @@ export function decorateMarkdownElements(root,value){
    const id=element.id+':'+(++ordinal),preset=styles.instances[id]??styles.rules[element.id]??'plain';
    node.dataset.mdElementId=id;
    node.dataset.mdElementKind=element.id;
-   const props=styles.properties[id]||{};
-   for(const key of ['fontSize','fontWeight','lineHeight','spacing','align']){
-    const css={fontSize:'font-size',fontWeight:'font-weight',lineHeight:'line-height',spacing:'margin-bottom',align:'text-align'}[key];
+   const props={...styles.properties[element.id],...styles.properties[id]};
+   for(const key of ['fontSize','fontWeight','lineHeight','spacing','align','visibility','color','backgroundColor','markerColor']){
+    const css={fontSize:'font-size',fontWeight:'font-weight',lineHeight:'line-height',spacing:'margin-bottom',align:'text-align',visibility:'visibility',color:'color',backgroundColor:'background-color',markerColor:'--md-marker-color'}[key];
     if(props[key]!==undefined)node.style.setProperty(css,String(props[key])+(key==='fontSize'||key==='spacing'?'px':''));
     else node.style.removeProperty(css);
    }

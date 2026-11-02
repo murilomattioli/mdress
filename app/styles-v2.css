@@ -55,28 +55,16 @@
 .mesh-handle:active{cursor:grabbing}
 .mesh-handle:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .mesh-point-controls{display:flex;flex-direction:column;gap:8px;margin:13px 0}
-.mesh-point{padding:9px;border:1px solid var(--border);border-radius:8px;display:grid;grid-template-columns:minmax(0,1fr) 44px 24px;gap:8px;align-items:center}
-.mesh-point>strong{font-size:11px;overflow:hidden;text-overflow:ellipsis}
-.mesh-point input[type=color]{width:44px!important;height:28px!important}
-.mesh-point button{padding:5px 2px;line-height:1;font-size:12px}
-.mesh-point .mesh-sliders{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px}
-.mesh-point .mesh-sliders label{display:block!important;margin:0!important;font-size:10px}
-.mesh-point .mesh-sliders input{display:block;width:100%;accent-color:var(--accent)}
+ .mesh-point{padding:8px;border:1px solid var(--ds-border);border-radius:8px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.mesh-point-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mesh-point-heading strong{font-size:11px;font-weight:600}
+.mesh-point-heading>button{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;background:transparent;color:var(--ds-text-secondary);border-radius:5px}
+.mesh-point .mesh-sliders{display:flex;flex-direction:column;gap:6px}
+
 .mesh-controls>.muted{font-size:11px;line-height:1.4}
 @media print{.mesh-controls{display:none!important}}
 
 /* F-009 - export format and print profiles */
-.pdf-dialog{max-width:475px;width:min(475px,92vw)}
-.pdf-profile-choices{display:grid;gap:9px;border:0;padding:0;margin:18px 0}
-.pdf-profile-choices legend{font-size:12px;font-weight:700;margin-bottom:8px}
-.pdf-profile-choices label{display:flex;flex-direction:row;align-items:center;gap:10px;border:1px solid var(--border);border-radius:10px;margin:0;padding:12px;cursor:pointer}
-.pdf-profile-choices label:has(input:checked){border-color:var(--accent);background:var(--panel2)}
-.pdf-profile-choices input{width:auto!important;accent-color:var(--accent)}
-.pdf-profile-choices span{display:grid;gap:3px}
-.pdf-profile-choices strong{font-size:13px}
-.pdf-profile-choices small{font-size:11px;color:var(--muted)}
-.pdf-export-notes{border-top:1px solid var(--border);padding:8px 0;font-size:12px;color:var(--muted)}
-.pdf-export-notes p{margin:7px 0;line-height:1.5}
 @media print{
  html,body{height:auto!important;overflow:visible!important}
  .workspace[data-mode=edit] .preview-panel,.workspace[data-mode=preview] .preview-panel{display:block!important}
@@ -111,23 +99,7 @@
 
 
 /* Export studio: choices are appearance controls, not an ATS pass/fail switch. */
-.pdf-dialog{width:min(560px,96vw);max-width:560px;max-height:min(91vh,920px);overflow:auto}
-.pdf-profile-choices{grid-template-columns:1fr;gap:7px}
-.pdf-profile-choices label{padding:10px 12px}
-.pdf-export-advanced{margin:12px 0;display:grid;gap:7px;border-top:1px solid var(--border);padding-top:14px}
-.pdf-export-advanced label{display:grid;grid-template-columns:minmax(150px,1fr) 190px;align-items:center;gap:12px;font-size:12px;margin:3px 0}
-.pdf-export-advanced select{width:100%;font-size:12px}
-.pdf-section-header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
-.pdf-section-header strong{font-size:12px}
-.pdf-section-header small{font-size:11px;color:var(--accent)}
-.pdf-benchmark{margin:14px 0;border:1px solid var(--border);border-radius:10px;padding:13px;background:var(--panel2)}
-.pdf-benchmark strong{font-size:12px}
-.pdf-benchmark p,.pdf-benchmark output{display:block;font-size:11px;line-height:1.55;color:var(--muted);margin:7px 0}
-.pdf-file-check{display:flex!important;align-items:center;flex-wrap:wrap;gap:8px!important;font-weight:600;font-size:12px!important}
-.pdf-file-check input{width:100%;max-width:100%;font-size:11px;overflow:hidden}
-.pdf-file-check input::file-selector-button{background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:7px;margin-right:9px;cursor:pointer}
 #pdfProfileNotes p{margin:7px 0}
-@media(max-width:600px){.pdf-export-advanced label{grid-template-columns:1fr;gap:5px}.pdf-dialog{max-height:94vh}}
 /* Non-lossy heading-and-lead grouping (no source mutation). */
 .section-lead{display:flow-root}
 .section-lead>h2:first-child,.section-lead>h3:first-child{margin-top:var(--resume-section-gap,1.4em)}
@@ -207,16 +179,11 @@
 /* UX-001 • precise and contextual document inspector */
 .design-inspector{display:flex;flex-direction:column;overflow:hidden;flex:0 0 338px;min-width:286px;border-left:1px solid var(--border)}
 .design-inspector.hidden{display:none!important}
-.inspector-header{flex:0 0 auto;display:flex;flex-direction:column;gap:5px;padding:17px 17px 12px;border-bottom:1px solid var(--border)}
+.inspector-header{flex:0 0 auto;display:flex;flex-direction:column;gap:5px;padding:17px 17px 12px;border-bottom:0}
 .inspector-header .inspector-eyebrow{font-size:10px;letter-spacing:.13em;color:var(--accent);font-weight:800}
 .inspector-header>strong{font-size:16px;line-height:1.25;letter-spacing:-.02em}
 .inspector-header>p{margin:0;color:var(--muted);font-size:11px;line-height:1.5}
-.inspector-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));flex:0 0 auto;min-height:43px;border-bottom:1px solid var(--border);background:var(--panel);gap:0;padding:0 7px}
-.inspector-tabs button{border:0;border-radius:0;background:none;color:var(--muted);font-size:11px;font-weight:650;min-width:0;min-height:41px;padding:8px 3px;position:relative}
-.inspector-tabs button[aria-selected=true]{color:var(--text)}
-.inspector-tabs button[aria-selected=true]::after{content:'';position:absolute;bottom:0;left:8px;right:8px;height:2px;background:var(--accent);border-radius:3px 3px 0 0}
-.inspector-tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:5px}
-.inspector-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.inspector-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scrollbar-width:thin;overflow-anchor:none}
 .inspector-panel{padding:0 0 18px}
 .inspector-panel.hidden{display:none!important}
 .property-section{border-bottom:1px solid var(--border);padding:16px 15px 18px}
@@ -250,3 +217,10 @@
 @media(max-width:1650px){.design-inspector{width:min(338px,95%);min-width:0;flex-basis:338px}}
 @media(max-width:770px){.design-inspector{width:min(338px,100%);min-width:0}}
 @media print{.inspector-tabs,.inspector-header,.inspector-scroll{display:none!important}}
+
+.outline-pagination{padding:8px 12px;border-top:1px solid var(--ds-border);font-size:12px}
+.outline-pagination>summary{cursor:pointer;padding:6px 0;font-weight:650}
+.outline-pagination .page-break-list{display:grid;gap:4px}
+.outline-pagination .page-break-option{display:flex;justify-content:space-between;gap:12px;padding:8px;border:1px solid var(--ds-border);border-radius:6px;background:var(--ds-panel);color:var(--ds-text);text-align:left}
+.outline-pagination .page-break-option-state{white-space:nowrap;color:var(--ds-text-secondary)}
+.outline-pagination .page-break-inspector-title{display:none}

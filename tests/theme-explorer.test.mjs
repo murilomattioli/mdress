@@ -25,3 +25,13 @@ test('shuffling supports deterministic choices with unlocked groups',()=>{
  assert.deepEqual(a,b);assert.equal(a.font,sample.font);
  assert.throws(()=>shuffleTheme(sample,{},()=>Infinity));
 });
+
+test('shuffle never picks the single heaviest-cost background kind when lighter alternatives exist',()=>{
+ // 'grid' (blueprint recipe, 46 KiB) is the single most expensive kind among the curated
+ // recipes — every other draw has a cheaper alternative available, so it should never win.
+ const base=recipeTheme('modernist');
+ for(let s=0;s<1;s+=0.02){
+  const r=shuffleTheme(base,{},s);
+  assert.notEqual(r.backgroundStyle.kind,'grid','seed '+s+' picked the heaviest available kind');
+ }
+});

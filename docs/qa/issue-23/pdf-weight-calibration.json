@@ -1,0 +1,198 @@
+{
+  "date": "2026-10-29",
+  "note": "Real Chromium PDF sizes; approximate costs, not guaranteed file sizes.",
+  "scenarios": [
+    {
+      "scenario": "section:plain",
+      "bytes": 70907,
+      "kib": 69.2,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 23.1
+    },
+    {
+      "scenario": "section:surface",
+      "bytes": 109653,
+      "kib": 107.1,
+      "pages": 3,
+      "decoratedSections": 14,
+      "kibPerPage": 35.7
+    },
+    {
+      "scenario": "section:glass",
+      "bytes": 2519986,
+      "kib": 2460.9,
+      "pages": 3,
+      "decoratedSections": 14,
+      "kibPerPage": 820.3
+    },
+    {
+      "scenario": "section:accent",
+      "bytes": 99908,
+      "kib": 97.6,
+      "pages": 3,
+      "decoratedSections": 14,
+      "kibPerPage": 32.5
+    },
+    {
+      "scenario": "section:outline",
+      "bytes": 94096,
+      "kib": 91.9,
+      "pages": 3,
+      "decoratedSections": 14,
+      "kibPerPage": 30.6
+    },
+    {
+      "scenario": "section:band",
+      "bytes": 100472,
+      "kib": 98.1,
+      "pages": 3,
+      "decoratedSections": 14,
+      "kibPerPage": 32.7
+    },
+    {
+      "scenario": "section:editorial",
+      "bytes": 86446,
+      "kib": 84.4,
+      "pages": 3,
+      "decoratedSections": 14,
+      "kibPerPage": 28.1
+    },
+    {
+      "scenario": "section:spotlight",
+      "bytes": 383556,
+      "kib": 374.6,
+      "pages": 3,
+      "decoratedSections": 14,
+      "kibPerPage": 124.9
+    },
+    {
+      "scenario": "section:minimal-grid",
+      "bytes": 89344,
+      "kib": 87.3,
+      "pages": 3,
+      "decoratedSections": 14,
+      "kibPerPage": 29.1
+    },
+    {
+      "scenario": "background:solid:clean",
+      "bytes": 70906,
+      "kib": 69.2,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 23.1
+    },
+    {
+      "scenario": "background:solid:night",
+      "bytes": 70940,
+      "kib": 69.3,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 23.1
+    },
+    {
+      "scenario": "background:gradient:pearl",
+      "bytes": 71988,
+      "kib": 70.3,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 23.4
+    },
+    {
+      "scenario": "background:gradient:dusk",
+      "bytes": 72087,
+      "kib": 70.4,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 23.5
+    },
+    {
+      "scenario": "background:gradient:sage",
+      "bytes": 72102,
+      "kib": 70.4,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 23.5
+    },
+    {
+      "scenario": "background:radial:spotlight",
+      "bytes": 72635,
+      "kib": 70.9,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 23.6
+    },
+    {
+      "scenario": "background:dots:dots",
+      "bytes": 116585,
+      "kib": 113.9,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 38
+    },
+    {
+      "scenario": "background:grid:blueprint",
+      "bytes": 117998,
+      "kib": 115.2,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 38.4
+    },
+    {
+      "scenario": "background:lines:stripes",
+      "bytes": 76641,
+      "kib": 74.8,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 24.9
+    },
+    {
+      "scenario": "background:crosshatch:cross",
+      "bytes": 82889,
+      "kib": 80.9,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 27
+    },
+    {
+      "scenario": "background:mesh:mesh-soft",
+      "bytes": 88496,
+      "kib": 86.4,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 28.8
+    },
+    {
+      "scenario": "background:mesh:mesh-aurora",
+      "bytes": 88493,
+      "kib": 86.4,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 28.8
+    },
+    {
+      "scenario": "background:mesh:mesh-peach",
+      "bytes": 88276,
+      "kib": 86.2,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 28.7
+    },
+    {
+      "scenario": "background:mesh:mesh-mint",
+      "bytes": 88454,
+      "kib": 86.4,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 28.8
+    },
+    {
+      "scenario": "background:checker:checker",
+      "bytes": 109940,
+      "kib": 107.4,
+      "pages": 3,
+      "decoratedSections": 13,
+      "kibPerPage": 35.8
+    }
+  ]
+}

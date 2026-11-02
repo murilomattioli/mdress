@@ -41,3 +41,106 @@ export function summarizeAuditFindings(findings, coverage) {
     }),
   };
 }
+
+/** A scenario with no visible controls cannot be reported as a clean UX audit. */
+export function auditCoverageFinding(count,context){
+ if(Number.isInteger(count)&&count>0)return null;
+ return {rule:'coverage',severity:'error',component:'app',
+  detail:'Nenhum controle visível foi inventariado',context};
+}
+
+/**
+ * Detect actionable overlap between distinct inspector controls in the same
+ * property row. Intentional toolbar scrolling and adjacent shared borders
+ * are not collisions. Coordinates come from rendered browser rectangles.
+ */
+export function findInspectorControlOverlaps(rows,minimumIntersection=4){
+ const collisions=[];
+ for(const row of rows){
+  const controls=row.controls||[];
+  for(let i=0;i<controls.length;i++){
+   for(let j=i+1;j<controls.length;j++){
+    const a=controls[i],b=controls[j];
+    const horizontal=Math.min(a.rect.right,b.rect.right)-Math.max(a.rect.left,b.rect.left);
+    const vertical=Math.min(a.rect.bottom,b.rect.bottom)-Math.max(a.rect.top,b.rect.top);
+    if(horizontal<=minimumIntersection||vertical<=minimumIntersection)continue;
+    collisions.push({
+     row:row.name,first:a.name,second:b.name,
+     horizontal:Math.round(horizontal),vertical:Math.round(vertical),
+     html:a.html+' | '+b.html
+    });
+   }
+  }
+ }
+ return collisions;
+}
+
+/**
+ * Controls from distinct property rows must never occupy the same hit area.
+ * Unlike within-row checks, this also catches a row escaping its layout
+ * container and covering the neighboring row after responsive reflow.
+ */
+export function findInspectorCrossRowOverlaps(rows,minimumIntersection=4){
+ const collisions=[];
+ for(let i=0;i<rows.length;i++){
+  for(let j=i+1;j<rows.length;j++){
+   for(const a of rows[i].controls||[]){
+    for(const b of rows[j].controls||[]){
+     const horizontal=Math.min(a.rect.right,b.rect.right)-Math.max(a.rect.left,b.rect.left);
+     const vertical=Math.min(a.rect.bottom,b.rect.bottom)-Math.max(a.rect.top,b.rect.top);
+     if(horizontal<=minimumIntersection||vertical<=minimumIntersection)continue;
+     collisions.push({
+      row:rows[i].name,otherRow:rows[j].name,
+      first:a.name,second:b.name,
+      horizontal:Math.round(horizontal),vertical:Math.round(vertical),
+      html:a.html+' | '+b.html
+     });
+    }
+   }
+  }
+ }
+ return collisions;
+}
+
+/** Report broken IDREFs rather than mistaking aria-labelledby for a name. */
+export function missingAriaReferenceIds(value,exists){
+ return [...new Set(String(value||'').trim().split(/\s+/).filter(Boolean))]
+  .filter(id=>!exists(id));
+}
+
+/** A duplicated IDREF may resolve to the wrong element for assistive tech. */
+export function duplicateAriaReferenceIds(value,count){
+ return [...new Set(String(value||'').trim().split(/\s+/).filter(Boolean))]
+  .filter(id=>count(id)>1);
+}
+
+/** An existing but empty aria-labelledby target does not provide a name. */
+export function emptyAriaLabelReferenceIds(value,resolveText){
+ return [...new Set(String(value||'').trim().split(/\s+/).filter(Boolean))]
+  .filter(id=>resolveText(id)==='');
+}
+
+
+/**
+ * Mobile inspector controls must provide a usable hit rectangle in both axes.
+ * Only elements explicitly marked as touch targets are checked; decorative
+ * icons and visually hidden native select sources are not interactive targets.
+ * A half-pixel tolerance avoids false positives from fractional CSS pixels.
+ */
+export function findUndersizedTouchTargets(rows,minimumSize=44){
+ const failures=[];
+ for(const row of rows){
+  for(const control of row.controls||[]){
+   if(!control.touchTarget)continue;
+   const {left,right,top,bottom}=control.rect;
+   const width=right-left,height=bottom-top;
+   if(width+0.5>=minimumSize&&height+0.5>=minimumSize)continue;
+   failures.push({
+    row:row.name,name:control.name,
+    width:Math.round(width*10)/10,height:Math.round(height*10)/10,
+    html:control.html
+   });
+  }
+ }
+ return failures;
+}

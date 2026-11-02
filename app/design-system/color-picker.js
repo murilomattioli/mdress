@@ -1,0 +1,439 @@
+/** Dependency-free color editor. Native inputs remain the document's source of truth. */
+const clamp=(n,max=100)=>Math.max(0,Math.min(max,n));
+export function parseHex(value){
+ if(!/^#?[\da-f]{6}$/i.test(value))return null;
+ return '#'+value.replace('#','').toUpperCase();
+}
+export function rgbToHex(rgb){return '#'+rgb.map(n=>Math.round(clamp(n,255)).toString(16).padStart(2,'0')).join('').toUpperCase();}
+export function hexToRgb(hex){return [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));}
+export function rgbToHsv(rgb){
+ const [r,g,b]=rgb.map(n=>n/255),v=Math.max(r,g,b),d=v-Math.min(r,g,b);
+ const h=!d?0:v===r?((g-b)/d+6)%6:v===g?(b-r)/d+2:(r-g)/d+4;
+ return [h*60,v?d/v*100:0,v*100];
+}
+export function hsvToRgb([h,s,v]){
+ s=clamp(s)/100;v=clamp(v)/100;h=((h%360)+360)%360/60;
+ const c=v*s,x=c*(1-Math.abs(h%2-1)),m=v-c;
+ return [[c,x,0],[x,c,0],[0,c,x],[0,x,c],[x,0,c],[c,0,x]][Math.floor(h)].map(n=>Math.round((n+m)*255));
+}
+// Invalid persisted opacity must not poison native range inputs or CSS alpha.
+export function opacityPercent(value){
+ if(value===undefined||value===null||value==='')return 100;
+ const numeric=Number(value);
+ return Number.isFinite(numeric)?Math.round(clamp(numeric,1)*100):100;
+}
+const STORE='mdress.saved-colors.v1';
+const DEFAULTS=['#000000','#FFFFFF','#FF3B30','#FF9500','#FFCC00','#34C759','#5AC8FA','#007AFF','#5856D6','#FF2D55'];
+function savedColors(){try{const list=JSON.parse(localStorage.getItem(STORE));return Array.isArray(list)?[...new Set(list.filter(v=>typeof v==='string').map(parseHex).filter(Boolean))].slice(0,12):DEFAULTS;}catch{return DEFAULTS;}}
+function node(tag,cls,text){const el=document.createElement(tag);el.className=cls||'';if(text)el.textContent=text;return el;}
+function button(label,icon){const b=node('button','cp-button');b.type='button';b.setAttribute('aria-label',label);b.title=label;if(icon){const svg=node('ds-icon');svg.setAttribute('name',icon);svg.setAttribute('size','18');b.append(svg);}else b.textContent=label;return b;}
+// A top-layer color dialog is outside its source's fieldset, inert and CSS
+// visibility tree. Recheck the original source at every commit, including
+// synthetic events that can run before a MutationObserver closes the dialog.
+function sourceAvailable(input){
+ // Chromium may return the previous computed visibility in the same task
+ // as an inline revocation. Block the target's explicit hidden state first.
+ if(input?.style?.visibility==='hidden'||input?.style?.visibility==='collapse')return false;
+ if(!input?.isConnected||input.matches(':disabled')||
+    input.closest('[hidden],[inert],[aria-hidden="true"],[aria-disabled="true"]')||
+    !input.getClientRects().length)return false;
+ const visibility=getComputedStyle(input).visibility;
+ if(visibility==='hidden'||visibility==='collapse')return false;
+ for(let node=input;node;node=node.parentElement){
+  if(node.hidden)return false;
+  const style=getComputedStyle(node);
+  if(style.display==='none'||style.contentVisibility==='hidden')return false;
+ }
+ return true;
+}
+let active=null;
+let nextPickerId=0;
+export function openColorPicker(input){
+ if(!sourceAvailable(input))return;
+ active?.close();
+ let hex=parseHex(input.value)||'#000000',hsv=rgbToHsv(hexToRgb(hex)),saved=savedColors();
+ const dialog=node('dialog','mdress-color-picker');
+ const pickerId=++nextPickerId;active=dialog;
+ let restoreFocus=true,handoffOnClose=false,opacity=opacityPercent(input.dataset.opacity),editRevision=0;
+ const events=new AbortController();
+ // Some IMEs emit unflagged Escape/Tab while composing. Protect native
+ // keyboard defaults as well as picker handlers, without cancelling Enter
+ // used to confirm a candidate in an editable field.
+ let composing=false;
+ const isImeKey=e=>composing||e.isComposing||e.keyCode===229;
+ dialog.addEventListener('compositionstart',()=>{composing=true;});
+ dialog.addEventListener('compositionend',()=>{composing=false;});
+ dialog.addEventListener('keydown',e=>{
+  if(!isImeKey(e))return;
+  if(['Escape','Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(e.key)||
+     (e.key==='Enter'&&e.target.closest?.('button')))e.preventDefault();
+  e.stopPropagation();
+ },true);
+ // Dynamic mesh rows reuse numeric IDs after deleting a point. A remounted
+ // source may only inherit an open picker if its logical point identity
+ // still matches; never redirect edits to a different point at that index.
+ const sourceKey=input.dataset.mdressSourceKey;
+ const sourceId=input.id;
+ const anchor=()=>{
+  // Virtualized rows may recycle the SAME native input node for another
+  // logical mesh point without disconnecting it. Connectivity alone is not
+  // proof of ownership: revoke the picker if either identity has changed.
+  // The same check also covers a detached node reinserted under a new key.
+  if(input.isConnected){
+   if(input.dataset.mdressSourceKey!==sourceKey||input.id!==sourceId)return null;
+   return input;
+  }
+  // Labels are presentation, not identity: anonymous color inputs can share
+  // the same name (or have no name at all). Never hand a detached picker's
+  // edits to an unrelated input merely because its aria-label matches.
+  if(!sourceKey&&!sourceId)return null;
+  // Both identity dimensions must match the source at picker creation.
+  // A remounted id-only input that gains a logical key (or a key-only input
+  // that gains an id) is a different control, despite its partial match.
+  const candidates=[...document.querySelectorAll('input[type="color"]')].filter(el=>
+   el.dataset.mdressSourceKey===sourceKey&&el.id===sourceId);
+  // Ambiguous logical keys/duplicate IDs are not safe remount targets.
+  return candidates.length===1?candidates[0]:null;
+ };
+ // A dynamic mesh editor remounts its native input after each commit.
+ // Continue editing the same logical color source while the dialog is open.
+ const liveSource=()=>{const target=anchor();return target?.type==='color'&&sourceAvailable(target)?target:null;};
+ // Source edits may travel through the app without the picker commit path.
+ // Track events as well as the value so an A→B→A edit still cancels a sample.
+ const trackedSources=new WeakSet();
+ function trackSource(target){
+  if(!target||trackedSources.has(target))return;
+  trackedSources.add(target);
+  for(const type of ['input','change'])
+   target.addEventListener(type,()=>{editRevision++;},{signal:events.signal});
+ }
+ trackSource(input);
+ dialog.setAttribute('aria-label','Cores — '+(input.getAttribute('aria-label')||input.closest('label')?.querySelector('.ds-prop-name')?.textContent||'Documento'));
+ const header=node('header','cp-header'),heading=node('h2','','Cores'),close=button('Fechar seletor de cores','x'),pipette=button('Capturar cor da tela','pipette');
+ header.append(pipette,heading,close);close.onclick=()=>dialog.close();
+ pipette.disabled=typeof window.EyeDropper!=='function';if(pipette.disabled)pipette.title='Conta-gotas indisponível neste navegador';
+ const tabs=node('div','cp-tabs');tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Modo de seleção');
+ const modes=['Grade','Espectro','RGB'],panels=modes.map((name,i)=>{const p=node('div','cp-panel');p.id='cp-panel-'+pickerId+'-'+i;p.setAttribute('role','tabpanel');p.setAttribute('aria-labelledby','cp-tab-'+pickerId+'-'+i);return p;});
+ const tabButtons=modes.map((name,i)=>{const b=button(name);b.id='cp-tab-'+pickerId+'-'+i;b.setAttribute('role','tab');b.setAttribute('aria-controls',panels[i].id);b.onclick=()=>selectTab(i);b.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const step=(e.key==='ArrowRight'?1:-1)*(getComputedStyle(tabs).direction==='rtl'?-1:1);const next=e.key==='Home'?0:e.key==='End'?2:(i+step+3)%3;selectTab(next);tabButtons[next].focus();};tabs.append(b);return b;});
+ function selectTab(index){tabButtons.forEach((b,i)=>{b.setAttribute('aria-selected',String(i===index));b.tabIndex=i===index?0:-1;panels[i].hidden=i!==index;});}
+ const grid=node('div','cp-grid');grid.setAttribute('aria-label','Paleta de cores');panels[0].append(grid);
+ const colors=Array.from({length:12},(_,i)=>rgbToHex(Array(3).fill(255-i*255/11)));
+ for(let row=0;row<7;row++)for(let col=0;col<12;col++)colors.push(rgbToHex(hsvToRgb([col*30,row<3?25+row*25:90,row<3?100:100-(row-3)*20])));
+ // Roving keyboard focus starts at the selected palette color, not at an
+ // unrelated first swatch. Keep exactly one Tab stop as users navigate.
+ let gridFocusIndex=Math.max(0,colors.indexOf(hex));
+ const cells=colors.map((color,i)=>{const b=button(color);b.className='cp-cell';b.textContent='';b.style.background=color;b.tabIndex=i===gridFocusIndex?0:-1;b.onclick=()=>{gridFocusIndex=i;commit(color);};b.onkeydown=e=>{const columns=window.matchMedia('(max-width: 360px)').matches?5:window.matchMedia('(max-width: 600px)').matches?6:12;const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:-columns,ArrowDown:columns,Home:-i,End:colors.length-1-i}[e.key];if(delta===undefined)return;e.preventDefault();gridFocusIndex=clamp(i+delta,colors.length-1);cells.forEach((c,j)=>c.tabIndex=j===gridFocusIndex?0:-1);cells[gridFocusIndex].focus();};grid.append(b);return b;});
+ const spectrum=node('div','cp-spectrum');spectrum.tabIndex=0;spectrum.setAttribute('role','group');spectrum.setAttribute('aria-label','Saturação e luminosidade. Use as setas para ajustar.');
+ const cursor=node('span','cp-cursor');spectrum.append(cursor);
+ const hueLabel=node('label','cp-hue-label','Matiz'),hue=node('input','cp-hue');hue.type='range';hue.min='0';hue.max='360';hue.setAttribute('aria-label','Matiz');hueLabel.append(hue);panels[1].append(spectrum,hueLabel);
+ function changeHSV(){commit(rgbToHex(hsvToRgb(hsv)),true);}
+ function move(e){const r=spectrum.getBoundingClientRect();hsv[1]=clamp((e.clientX-r.left)/r.width*100);hsv[2]=100-clamp((e.clientY-r.top)/r.height*100);changeHSV();}
+ spectrum.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();spectrum.focus();spectrum.setPointerCapture(e.pointerId);move(e);};
+ spectrum.onpointermove=e=>{if(spectrum.hasPointerCapture(e.pointerId))move(e);};
+ spectrum.onpointerup=e=>{if(spectrum.hasPointerCapture(e.pointerId))spectrum.releasePointerCapture(e.pointerId);};
+ spectrum.onkeydown=e=>{const delta={ArrowLeft:[1,-1],ArrowRight:[1,1],ArrowUp:[2,1],ArrowDown:[2,-1]}[e.key];if(!delta)return;e.preventDefault();hsv[delta[0]]=clamp(hsv[delta[0]]+delta[1]*(e.shiftKey?10:1));changeHSV();};
+ hue.oninput=()=>{hsv[0]=Number(hue.value);changeHSV();};
+ const channels=['Vermelho','Verde','Azul'].map((label,index)=>{
+  const row=node('label','cp-channel'),name=node('span','',label),range=node('input'),number=node('input');range.type='range';number.type='number';
+  for(const el of [range,number]){el.min='0';el.max='255';el.step='1';el.setAttribute('aria-label',label+(el===range?' — controle':' — valor'));}
+  function apply(el){const value=el.valueAsNumber;if(!Number.isFinite(value)||value<0||value>255||!Number.isInteger(value)){showFieldError(el,'Use um valor inteiro entre 0 e 255.');return;}clearFieldError(el);const rgb=hexToRgb(hex);rgb[index]=value;commit(rgbToHex(rgb));}
+  range.oninput=()=>apply(range);
+  // Typing is already an intentional edit, even before blur/change commits it.
+  // Never allow a pending native screen sample to erase an in-progress draft.
+  number.addEventListener('input',()=>{editRevision++;});
+  number.onchange=()=>apply(number);number.onkeydown=e=>{if(e.key==='Enter')apply(number);if(e.key==='Escape'){e.stopPropagation();number.value=hexToRgb(hex)[index];clearFieldError(number);}};
+  row.append(name,range,number);panels[2].append(row);return {range,number};
+ });
+ const valueRow=node('div','cp-value'),preview=node('span','cp-preview'),hexLabel=node('label','','Hexadecimal'),hexInput=node('input','cp-hex');hexInput.type='text';hexInput.maxLength=7;hexInput.spellcheck=false;hexInput.setAttribute('aria-label','Cor hexadecimal');hexLabel.append(hexInput);valueRow.append(preview,hexLabel);
+ const opacityRow=node('label','cp-opacity'),opacityLabel=node('span','','Opacidade'),opacityRange=node('input'),opacityValue=node('input');
+ opacityRange.type='range';opacityValue.type='number';
+ for(const control of [opacityRange,opacityValue]){control.min='0';control.max='100';control.step='1';control.setAttribute('aria-label',control===opacityRange?'Opacidade':'Opacidade em porcentagem');}
+ const opacitySuffix=node('span','','%');opacityRow.append(opacityLabel,opacityRange,opacityValue,opacitySuffix);
+ function applyOpacity(control){
+  if(!dialog.open||active!==dialog)return;
+  if(!liveSource()){dismissRevoked();return;}
+  const value=control.valueAsNumber;
+  if(!Number.isFinite(value)||!Number.isInteger(value)||value<0||value>100){
+   showFieldError(control,'Use um valor inteiro entre 0% e 100%.');
+   return;
+  }
+  // An explicit opacity edit supersedes any pending screen sample too.
+  editRevision++;
+  clearFieldError(control);
+  opacity=value;sync();
+  const target=liveSource();
+  if(target){
+   const previous=target.dataset.opacity===undefined?1:Number(target.dataset.opacity);
+   const next=opacity/100;
+   // Do not create duplicate history entries for Enter/change or unchanged slider values.
+   // Repair corrupted persisted alpha instead of treating it as a valid unchanged value.
+   if(!Number.isFinite(previous)||previous<0||previous>1||Math.abs(previous-next)>1e-9){
+    target.dataset.opacity=next;
+    target.dispatchEvent(new CustomEvent('coloropacitychange',{bubbles:true,detail:next}));
+   }
+  }
+ }
+ opacityRange.oninput=()=>applyOpacity(opacityRange);
+ // A not-yet-committed opacity draft must also invalidate EyeDropper results.
+ opacityValue.addEventListener('input',()=>{editRevision++;});
+ opacityValue.onchange=()=>applyOpacity(opacityValue);
+ opacityValue.onkeydown=e=>{
+  if(e.key!=='Escape')return;
+  e.stopPropagation();
+  opacityValue.value=opacity;
+  clearFieldError(opacityValue);
+ };
+ const status=node('p','cp-status');status.id='mdress-color-error-'+pickerId;status.setAttribute('role','status');
+ // A single visible status cannot describe several different invalid fields:
+ // its aria-errormessage must belong to exactly one active editor at a time.
+ let errorOwner=null;
+ function clearFieldError(control){
+  control.removeAttribute('aria-invalid');control.removeAttribute('aria-errormessage');
+  if(errorOwner!==control)return;
+  errorOwner=null;delete status.dataset.error;status.textContent='';
+  status.setAttribute('aria-live','polite');
+ }
+ function showFieldError(control,message){
+  if(errorOwner&&errorOwner!==control)clearFieldError(errorOwner);
+  errorOwner=control;
+  control.setAttribute('aria-invalid','true');
+  control.setAttribute('aria-errormessage',status.id);
+  status.dataset.error='true';status.setAttribute('aria-live','assertive');
+  status.textContent=message;
+ }
+ function applyHex(){const value=parseHex(hexInput.value.trim());if(!value){showFieldError(hexInput,'Use seis dígitos: #RRGGBB.');return;}commit(value);}
+ // Invalidate an in-flight sample at the first keystroke, not only on Enter.
+ // This protects both valid and invalid drafts from late native resolutions.
+ hexInput.addEventListener('input',()=>{editRevision++;});
+ hexInput.onchange=applyHex;hexInput.onkeydown=e=>{if(e.key==='Enter')applyHex();if(e.key==='Escape'){e.stopPropagation();hexInput.value=hex;clearFieldError(hexInput);}};
+ const footer=node('section','cp-saved'),footerTitle=node('div','cp-saved-title','Cores salvas'),swatches=node('div','cp-swatches'),add=button('Salvar cor atual','plus');footerTitle.append(add);footer.append(footerTitle,swatches);
+ function renderSaved(){swatches.replaceChildren();saved.forEach(color=>{const b=button('Usar '+color);b.className='cp-saved-color';b.textContent='';b.style.background=color;b.onclick=()=>commit(color);swatches.append(b);});}
+ add.onclick=()=>{if(!dialog.open||active!==dialog)return;
+  if(!liveSource()){dismissRevoked();return;}
+  saved=[hex,...saved.filter(c=>c!==hex)].slice(0,12);renderSaved();try{localStorage.setItem(STORE,JSON.stringify(saved));if(!errorOwner)status.textContent='Cor salva.';}catch{if(!errorOwner)status.textContent='Cor disponível nesta sessão; armazenamento indisponível.';}};
+ function sync(){
+  // Synchronizing a valid document color replaces every outstanding draft.
+  // Clear both the ARIA owner and its message, never an orphaned IDREF.
+  if(errorOwner)clearFieldError(errorOwner);
+  opacityRange.value=opacityValue.value=opacity;for(const control of [opacityRange,opacityValue]){control.removeAttribute('aria-invalid');control.removeAttribute('aria-errormessage');}opacityRange.style.setProperty('--cp-opacity-color',hex);
+  preview.style.background=hex+Math.round(opacity/100*255).toString(16).padStart(2,'0');hexInput.value=hex;hexInput.removeAttribute('aria-invalid');hexInput.removeAttribute('aria-errormessage');
+  // When a different editor selects a palette color, the next Tab into the
+  // palette must reach that color. Do not move focus during arrow navigation.
+  const selectedIndex=colors.indexOf(hex);
+  if(selectedIndex>=0&&!grid.contains(document.activeElement))gridFocusIndex=selectedIndex;
+  cells.forEach((b,i)=>{b.setAttribute('aria-pressed',String(b.title===hex));b.tabIndex=i===gridFocusIndex?0:-1;});
+  spectrum.style.backgroundColor=rgbToHex(hsvToRgb([hsv[0],100,100]));cursor.style.left=hsv[1]+'%';cursor.style.top=(100-hsv[2])+'%';
+  spectrum.setAttribute('aria-description',`Saturação ${Math.round(hsv[1])}%, luminosidade ${Math.round(hsv[2])}%.`);hue.value=hsv[0];
+  const rgb=hexToRgb(hex);channels.forEach(({range,number},i)=>{range.value=number.value=rgb[i];number.removeAttribute('aria-invalid');number.removeAttribute('aria-errormessage');const low=[...rgb],high=[...rgb];low[i]=0;high[i]=255;range.style.background=`linear-gradient(to right,${rgbToHex(low)},${rgbToHex(high)})`;});
+ }
+ function commit(value,keepHSV=false){
+  // Detached controls retain JS handlers; never let a dismissed or replaced
+  // picker commit an old swatch, channel, HEX or opacity event.
+  if(!dialog.open||active!==dialog)return;
+  if(!liveSource()){dismissRevoked();return;}
+  // The user's palette, HEX, RGB or spectrum edit takes precedence over an
+  // asynchronous EyeDropper response, even when the source HEX is unchanged.
+  editRevision++;
+  hex=value;if(!keepHSV)hsv=rgbToHsv(hexToRgb(hex));status.textContent='';delete status.dataset.error;sync();
+  const target=liveSource();if(target){
+   // Native color inputs normalize case; compare semantic colors, not raw strings.
+   // Enter followed by change and reselecting a swatch must not duplicate edits.
+   const changed=parseHex(target.value)!==hex;
+   if(changed){target.value=hex;target.dispatchEvent(new Event('input',{bubbles:true}));target.dispatchEvent(new Event('change',{bubbles:true}));}
+  }
+ }
+ // Native EyeDropper requests can resolve after the picker was dismissed.
+ // Keep a single in-flight request; stale results must never mutate a newer
+ // picker or the document, and asynchronous failures must not resurrect UI.
+ let picking=false;
+ pipette.onclick=async()=>{
+  if(picking||!dialog.open||active!==dialog)return;
+  const source=liveSource(),sourceHex=parseHex(source?.value),sourceOpacity=source?.dataset.opacity,revision=editRevision;
+  if(!source)return;
+  // A stale native rejection must not show an error for a later color edit,
+  // just as a stale successful sample must not overwrite that edit.
+  const sampleIsCurrent=()=>dialog.open&&active===dialog&&sourceAvailable(source)&&
+   revision===editRevision&&anchor()===source&&
+   parseHex(source.value)===sourceHex&&source.dataset.opacity===sourceOpacity;
+  picking=true;pipette.setAttribute('aria-busy','true');pipette.setAttribute('aria-disabled','true');
+  if(!errorOwner){status.textContent='';delete status.dataset.error;}
+  try{
+   const result=await new window.EyeDropper().open();
+   // Native sampling is asynchronous. Do not overwrite an intervening HEX,
+   // RGB, palette, opacity or external document edit, or a replaced source.
+   if(sampleIsCurrent()){
+    const color=parseHex(result?.sRGBHex);
+    if(color)commit(color);
+   }
+  }catch(error){
+   if(error?.name!=='AbortError'&&sampleIsCurrent()&&!errorOwner)
+    status.textContent='Não foi possível capturar a cor.';
+  }finally{
+   picking=false;pipette.removeAttribute('aria-busy');pipette.removeAttribute('aria-disabled');
+  }
+ };
+ dialog.append(header,tabs,...panels,valueRow,opacityRow,footer,status);document.body.append(dialog);
+ dialog.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){e.preventDefault();dialog.close();}
+  if(e.key==='Tab'){
+   const items=[...dialog.querySelectorAll('button,input,[tabindex]')].filter(el=>!el.disabled&&el.tabIndex>=0&&el.getClientRects().length);
+   if(document.activeElement===(e.shiftKey?items[0]:items.at(-1))){
+    // Closing during keydown leaves the browser with no native Tab target:
+    // Shift+Tab can otherwise land on <body>. Continue from the original
+    // source's position in document tab order, in the requested direction.
+    // A portalled dialog is not adjacent to its source in DOM order.
+    // Recreate the document's sequential keyboard order, including positive
+    // tabindex values (which precede tabindex=0). DOM-only ordering can send
+    // Tab backwards or Shift+Tab forwards in an embedded inspector.
+    const candidates=[...document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]')]
+     .filter(el=>!dialog.contains(el)&&el.tabIndex>=0&&sourceAvailable(el));
+    // Native radio groups expose one sequential Tab stop: the checked radio,
+    // or the first available radio when none is checked. Landing on an
+    // unchecked sibling can change the user's selection on keyboard exit.
+    const tabStops=candidates.filter(el=>{
+     if(el.tagName!=='INPUT'||el.type!=='radio'||!el.name)return true;
+     const group=candidates.filter(candidate=>candidate.tagName==='INPUT'&&
+      candidate.type==='radio'&&candidate.name===el.name&&candidate.form===el.form);
+     return el===(group.find(candidate=>candidate.checked)||group[0]);
+    });
+    const outside=tabStops.map((el,order)=>({el,order}))
+     .sort((a,b)=>{
+      const ap=a.el.tabIndex>0,bp=b.el.tabIndex>0;
+      if(ap!==bp)return ap?-1:1;
+      if(ap&&a.el.tabIndex!==b.el.tabIndex)return a.el.tabIndex-b.el.tabIndex;
+      return a.order-b.order;
+     }).map(item=>item.el);
+    const source=anchor(),index=outside.indexOf(source);
+    const step=e.shiftKey?-1:1;
+    let destination=index>=0&&outside.length>1?
+     outside[(index+step+outside.length)%outside.length]:null;
+    if(!destination&&source?.isConnected){
+     // Pointer-accessible native sources can intentionally have tabindex=-1.
+     // They have no slot in the sequential order, so choose the closest
+     // ordinary Tab stop relative to their DOM position, not the first
+     // unrelated page control. Fall back to the document's Tab-order edge.
+     // A pointer-only source has no sequential slot. Choose the nearest
+     // available DOM neighbor, including positive-tabindex controls, rather
+     // than ignoring a visible adjacent action or using the sorted Tab order.
+     const adjacent=tabStops.filter(el=>source.compareDocumentPosition(el)&
+      (e.shiftKey?Node.DOCUMENT_POSITION_PRECEDING:Node.DOCUMENT_POSITION_FOLLOWING));
+     destination=e.shiftKey?adjacent.at(-1):adjacent[0];
+    }
+    destination??=e.shiftKey?outside.at(-1):outside[0];
+    restoreFocus=false;
+    e.preventDefault();
+    dialog.close();
+    destination?.focus();
+   }
+  }
+ });
+ function reposition(){
+  // Media-query visibility can change on resize without a DOM mutation.
+  if(!liveSource()){dismissRevoked();return;}
+  const target=liveSource();if(!target){dismissRevoked();return;}
+  // A mobile keyboard or pinch zoom can shrink/offset the visual viewport
+  // without changing innerHeight. Keep the entire portalled picker inside
+  // that rectangle and let its contents scroll when vertical space is tight.
+  const visual=window.visualViewport;
+  const view={left:visual?.offsetLeft??0,top:visual?.offsetTop??0,
+   width:visual?.width??innerWidth,height:visual?.height??innerHeight};
+  const gap=8,edge=12;
+  dialog.style.maxWidth=Math.max(1,view.width-edge*2)+'px';
+  dialog.style.maxHeight=Math.max(1,view.height-edge*2)+'px';
+  const a=target.getBoundingClientRect(),w=dialog.offsetWidth,h=dialog.offsetHeight;
+  const right=view.left+view.width,bottom=view.top+view.height;
+  const below=bottom-a.bottom-gap-edge,above=a.top-view.top-gap-edge;
+  let top=a.bottom+gap,left=a.right-w;
+  if(below<h){
+   if(above>=h)top=a.top-gap-h;
+   else if(a.left-view.left-gap-edge>=w){left=a.left-gap-w;top=a.top;}
+   else if(right-a.right-gap-edge>=w){left=a.right+gap;top=a.top;}
+   else top=below>=above?a.bottom+gap:a.top-gap-h;
+  }
+  dialog.style.left=Math.max(view.left+edge,Math.min(right-w-edge,left))+'px';
+  dialog.style.top=Math.max(view.top+edge,Math.min(bottom-h-edge,top))+'px';
+ }
+ document.addEventListener('pointerdown',e=>{
+  if(!dialog.contains(e.target)&&e.target!==anchor()){restoreFocus=false;dialog.close();}
+ },{signal:events.signal});
+ document.addEventListener('focusin',e=>{
+  if(dialog.open&&!dialog.contains(e.target)&&e.target!==anchor()){restoreFocus=false;dialog.close();}
+ },{signal:events.signal});
+ window.addEventListener('resize',reposition,{signal:events.signal});
+ window.visualViewport?.addEventListener('resize',reposition,{signal:events.signal});
+ window.visualViewport?.addEventListener('scroll',reposition,{signal:events.signal});
+ document.addEventListener('scroll',reposition,{capture:true,signal:events.signal});
+ const observer=new ResizeObserver(reposition);observer.observe(dialog);
+ // The picker is portalled into <body>. Observe permission changes on the
+ // source and its ancestors, plus DOM reparenting, while it is open. CSS
+ // visibility overrides are evaluated on the actual input, not ancestors.
+ let watched=[];
+ const permissions=new MutationObserver(records=>{
+  // Cosmetic class/style updates (e.g. inspector focus/scroll chrome)
+  // must not invalidate a valid native sample. Explicit permission changes
+  // still invalidate even if revoked and restored in the same microtask.
+  if(records.some(record=>record.type==='attributes'&&
+    ['disabled','hidden','inert','aria-hidden','aria-disabled'].includes(record.attributeName)))editRevision++;
+  // An input may be recycled from point A to B and back to A in one
+  // microtask. Comparing its final key alone misses that ownership change,
+  // and an in-flight EyeDropper could then write into the wrong point.
+  // Identity mutation of the original source is always a revoked session.
+  const currentAnchor=anchor();
+  if(records.some(record=>record.type==='attributes'&&
+    (record.target===input||record.target===currentAnchor)&&
+    ['id','data-mdress-source-key'].includes(record.attributeName))){
+   editRevision++;
+   dismissRevoked();
+   return;
+  }
+  if(!dialog.open)return;
+  if(!liveSource()){dismissRevoked();return;}
+  watchSourceTree();
+ });
+ function watchSourceTree(){
+  const current=liveSource()||input;
+  trackSource(current);
+  const ancestors=[];
+  for(let node=current;node;node=node.parentElement)ancestors.push(node);
+  if(watched.length===ancestors.length&&watched.every((node,i)=>node===ancestors[i]))return;
+  permissions.disconnect();watched=ancestors;
+  for(const node of ancestors)permissions.observe(node,{
+   attributes:true,attributeFilter:['disabled','hidden','inert','aria-hidden','aria-disabled','class','style','id','data-mdress-source-key']
+  });
+  // Observe document (not documentElement): a second observe() call on the
+  // same target would replace its attribute watcher for root theme/permissions.
+  // Capture same-task A→B→A mutations on newly mounted replacement
+  // inputs, even before watchSourceTree has attached its per-node observer.
+  permissions.observe(document,{childList:true,subtree:true,attributes:true,
+   attributeFilter:['id','data-mdress-source-key']});
+ }
+ function dismissRevoked(){
+  if(!dialog.open)return;
+  restoreFocus=false;handoffOnClose=true;dialog.close();
+ }
+ watchSourceTree();
+ dialog.addEventListener('close',()=>{
+  events.abort();observer.disconnect();permissions.disconnect();
+  dialog.remove();
+  // Closing is asynchronous. If another picker has opened, restoring the
+  // previous source's focus would dismiss the replacement on focusin.
+  const superseded=active!==dialog;
+  if(!superseded)active=null;
+  const target=anchor();
+  if(!superseded&&restoreFocus&&sourceAvailable(target))target.focus();
+  else if(!superseded&&handoffOnClose){
+   // A revoked fieldset must not receive focus through its descendants.
+   const scope=(anchor()||input).closest('.design-inspector')||document;
+   const candidates=[...scope.querySelectorAll('button,input,select,textarea,[tabindex]'),
+    document.getElementById('designToggle'),document.getElementById('railDesign'),document.getElementById('source')];
+   candidates.find(el=>el!==input&&el?.tabIndex>=0&&sourceAvailable(el))?.focus({preventScroll:true});
+  }
+ },{once:true});
+ selectTab(0);renderSaved();sync();dialog.show();reposition();tabButtons[0].focus({preventScroll:true});
+}
+let initialized=false;
+export function initializeColorPicker(){
+ if(initialized)return;initialized=true;
+ document.addEventListener('click',e=>{if(e.target.matches('input[type="color"]')){e.preventDefault();openColorPicker(e.target);}});
+ document.addEventListener('keydown',e=>{if(e.target.matches('input[type="color"]')&&['Enter',' '].includes(e.key)){e.preventDefault();openColorPicker(e.target);}});
+}

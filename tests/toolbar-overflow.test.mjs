@@ -22,3 +22,69 @@ test('keyboard focus reveals clipped actions without shifting visible controls',
  assert.equal(focusedToolbarDelta({left:390,right:430},viewport),36);
  assert.equal(focusedToolbarDelta({left:150,right:200},viewport),0);
 });
+
+test('toolbar overflow tolerates fractional layout measurements',()=>{
+ assert.deepEqual(toolbarOverflowState({scrollLeft:0,scrollWidth:402,clientWidth:400}),{
+  overflow:false,canScrollPrevious:false,canScrollNext:false
+ });
+ assert.deepEqual(toolbarOverflowState({scrollLeft:0,scrollWidth:401,clientWidth:400}),{
+  overflow:false,canScrollPrevious:false,canScrollNext:false
+ });
+});
+
+test('focused action respects padding on both viewport edges',()=>{
+ const viewport={left:100,right:300};
+ assert.equal(focusedToolbarDelta({left:106,right:294},viewport),0);
+ assert.equal(focusedToolbarDelta({left:105,right:295},viewport),-1);
+ assert.equal(focusedToolbarDelta({left:120,right:295},viewport),1);
+ assert.equal(focusedToolbarDelta({left:105,right:295},viewport,8),-3);
+});
+
+test('oversized toolbar controls reveal the leading edge without oscillating',()=>{
+ const viewport={left:100,right:260};
+ assert.equal(focusedToolbarDelta({left:310,right:610},viewport),204);
+ assert.equal(focusedToolbarDelta({left:106,right:406},viewport),0);
+ assert.equal(focusedToolbarDelta({left:50,right:350},viewport),-56);
+ assert.equal(focusedToolbarDelta({left:106,right:406},viewport),0);
+});
+
+test('overflow controls stay disabled when the scrollbar is below the visual tolerance',()=>{
+ assert.deepEqual(toolbarOverflowState({scrollLeft:1.8,scrollWidth:402,clientWidth:400}),{
+  overflow:false,canScrollPrevious:false,canScrollNext:false
+ });
+ assert.deepEqual(toolbarOverflowState({scrollLeft:2,scrollWidth:403,clientWidth:400}),{
+  overflow:true,canScrollPrevious:true,canScrollNext:false
+ });
+});
+
+test('RTL toolbar arrows follow physical directions with negative scrollLeft',()=>{
+ const dimensions={scrollWidth:700,clientWidth:400};
+ assert.deepEqual(toolbarOverflowState({...dimensions,scrollLeft:0},'rtl'),{
+  overflow:true,canScrollPrevious:true,canScrollNext:false
+ });
+ assert.deepEqual(toolbarOverflowState({...dimensions,scrollLeft:-150},'rtl'),{
+  overflow:true,canScrollPrevious:true,canScrollNext:true
+ });
+ assert.deepEqual(toolbarOverflowState({...dimensions,scrollLeft:-300},'rtl'),{
+  overflow:true,canScrollPrevious:false,canScrollNext:true
+ });
+ assert.deepEqual(toolbarOverflowState({...dimensions,scrollLeft:-299.6},'rtl'),{
+  overflow:true,canScrollPrevious:false,canScrollNext:true
+ });
+ assert.deepEqual(toolbarOverflowState({scrollWidth:401,clientWidth:400,scrollLeft:0},'rtl'),{
+  overflow:false,canScrollPrevious:false,canScrollNext:false
+ });
+});
+
+
+test('oversized RTL actions reveal the right leading edge without oscillation',()=>{
+ const viewport={left:100,right:260};
+ // The logical start is the right edge, even when the left edge is clipped.
+ assert.equal(focusedToolbarDelta({left:-200,right:100},viewport,6,'rtl'),-154);
+ assert.equal(focusedToolbarDelta({left:90,right:390},viewport,6,'rtl'),136);
+ assert.equal(focusedToolbarDelta({left:-46,right:254},viewport,6,'rtl'),0);
+ assert.equal(focusedToolbarDelta({left:-100,right:200},viewport,6,'rtl'),0);
+ // Ordinary controls still reveal whichever physical edge is clipped.
+ assert.equal(focusedToolbarDelta({left:90,right:120},viewport,6,'rtl'),-16);
+ assert.equal(focusedToolbarDelta({left:240,right:270},viewport,6,'rtl'),16);
+});

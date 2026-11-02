@@ -16,22 +16,41 @@ export function getDocumentTemplate(id){
 }
 export function inspectMarkdown(md){
  if(typeof md!=='string')throw Error('Markdown inválido');
- const lines=md.split(/\r?\n/),problems=[],heads=[];
- let fenced=false,openFence='';
- for(const [i,line] of lines.entries()){
-  const trimmed=line.trimStart();
-  const fenceMatch=trimmed.match(/^(\x60{3,}|~{3,})/);
-  if(fenceMatch){if(!fenced){fenced=true;openFence=fenceMatch[1][0];}else if(fenceMatch[1][0]===openFence)fenced=false;continue;}
-  if(fenced)continue;
-  const h=trimmed.match(/^(#{1,6})\s+(.+?)\s*$/);
-  if(h)heads.push({level:h[1].length,title:h[2],line:i+1});
-  if(line.length>2000)problems.push({type:'warning',title:'Linha muito longa',description:'Linha '+(i+1)+' possui mais de 2.000 caracteres. Pode não quebrar bem entre páginas.'});
+ const lines=md.split(/\r?\n/),diagnostics=[],headings=[],prose=[];
+ let fence=null,links=0,images=0,codeBlocks=0;
+ const add=(line,type,title,description)=>diagnostics.push({line,type,title,description});
+ for(const [index,line] of lines.entries()){
+  const number=index+1,trim=line.trim();
+  const marker=trim.match(/^(`{3,}|~{3,})/);
+  if(marker){
+   if(!fence){fence={char:marker[1][0],length:marker[1].length,line:number};codeBlocks++;}
+   else if(marker[1][0]===fence.char&&marker[1].length>=fence.length&&trim===marker[1])fence=null;
+   continue;
+  }
+  if(fence)continue;
+  prose.push(line);
+  const heading=trim.match(/^(#{1,6})\s+(.+?)\s*#*$/);
+  if(heading){
+   const item={level:heading[1].length,title:heading[2],line:number};
+   const previous=headings.at(-1);
+   if(previous&&item.level>previous.level+1)add(number,'warning','Nível de título saltado',`Use H${previous.level+1} antes de H${item.level} para manter a hierarquia.`);
+   headings.push(item);
+  }
+  if(line.length>2000)add(number,'warning','Linha muito longa','Divida o trecho em parágrafos para facilitar a leitura e a paginação.');
+  for(const match of line.replace(/`[^`]*`/g,'').matchAll(/(!?)\[([^\]]*)\]\(([^)]*)\)/g)){
+   const image=Boolean(match[1]),target=match[3].trim();
+   if(image){images++;if(!match[2].trim())add(number,'warning','Imagem sem descrição','Preencha o texto entre colchetes para descrever a imagem.');}else links++;
+   if(!target)add(number,'warning',image?'Imagem sem endereço':'Link sem destino','Preencha o endereço entre parênteses.');
+   else {let supported=false;try{supported=['https:','http:','mailto:'].includes(new URL(target).protocol);}catch{}
+    if(!supported)add(number,'warning','Endereço não suportado','A prévia aceita endereços completos http, https ou mailto. Revise este destino.');
+   }
+   if(!image&&!match[2].trim())add(number,'warning','Link sem texto','Dê ao link um nome que explique seu destino.');
+  }
+  if(/<\/?(script|iframe)\b/i.test(line))add(number,'warning','HTML não suportado','Scripts e iframes não são executados na prévia.');
  }
- if(!md.trim())problems.push({type:'info',title:'Documento vazio',description:'Adicione conteúdo ou escolha um modelo inicial.'});
- else if(!heads.length)problems.push({type:'info',title:'Sem títulos',description:'Use # para definir um título e ## para organizar as seções.'});
- for(let i=1;i<heads.length;i++)if(heads[i].level>heads[i-1].level+1)problems.push({type:'warning',title:'Nível de título saltado',description:'O título da linha '+heads[i].line+' pula um nível na hierarquia.'});
- if(fenced)problems.push({type:'warning',title:'Código não encerrado',description:'Encerre o bloco de código com o mesmo tipo de cerca de abertura.'});
- if(/!\[[^\]]*\]\([^)]*\)/.test(md))problems.push({type:'info',title:'Imagem no Markdown',description:'Imagens externas ainda não são renderizadas. Prefira texto para informações essenciais.'});
- if(/<\/?(script|iframe)\b/i.test(md))problems.push({type:'warning',title:'HTML não suportado',description:'Scripts e iframes não são executados na prévia.'});
- return {headings:heads,lines:lines.length,characters:md.length,diagnostics:problems};
+ if(fence)add(fence.line,'warning','Código não encerrado','Feche o bloco com uma cerca do mesmo tipo e tamanho da abertura.');
+ if(!md.trim())add(1,'info','Documento vazio','Comece pelo editor ou importe um arquivo Markdown.');
+ else if(!headings.length)add(1,'info','Organize a leitura com títulos','Use # para o título e ## para as seções, quando fizer sentido para este documento.');
+ const words=(prose.join(' ').replace(/!?\[([^\]]*)\]\([^)]*\)/g,'$1').match(/[\p{L}\p{N}]+(?:[’'-][\p{L}\p{N}]+)*/gu)||[]).length;
+ return {headings,lines:lines.length,characters:md.length,diagnostics,words,readingMinutes:Math.ceil(words/200),links,images,codeBlocks};
 }

@@ -36,3 +36,61 @@ button[aria-pressed=true]:not(.mode-active){background:var(--ds-brand-soft)}
 .ds-status[data-status=busy]::before{content:'';width:6px;height:6px;border:1px solid var(--ds-text-tertiary);border-top-color:transparent;border-radius:50%;animation:ds-spin .75s linear infinite}
 @keyframes ds-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* Application forms share the inspector's control scale and dialog hierarchy. */
+.app-dialog{width:min(480px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:24px;border-radius:14px;font-size:13px}
+.app-dialog h2{margin:0 0 8px;font-size:16px;font-weight:600;line-height:1.4}
+.app-dialog form>label,.app-dialog .pdf-custom-controls>label{margin:12px 0;display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:400}
+.app-dialog input:not([type=radio]):not([type=checkbox]):not([type=file]),.app-dialog textarea{box-sizing:border-box;min-height:36px;width:100%;border:1px solid var(--ds-border);border-radius:6px;padding:8px 10px;background:var(--ds-panel-raised);color:var(--ds-text);font:400 13px var(--ds-font)}
+.app-dialog form>.toolbar{display:flex;justify-content:flex-end;gap:8px;margin:20px 0 0;padding-top:16px;border-top:1px solid var(--ds-border)}
+.app-dialog button:not(.ds-select-option){min-height:32px;border-radius:6px;font-size:12px;font-weight:500}
+.app-dialog .ds-select-trigger{height:36px;min-height:36px}
+.app-dialog .primary{background:var(--ds-brand);color:var(--ds-on-brand);border-color:transparent}
+.app-dialog button:hover{filter:none}
+@media(max-width:480px){.app-dialog{padding:18px}.app-dialog form>.toolbar>button{flex:1}}
+
+/* Inspector tabs: sole owner of geometry and interaction states. */
+.shortcuts-dialog .shortcuts-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px}
+.shortcuts-dialog .shortcuts-heading h2{margin:0 0 4px}
+.shortcuts-dialog .shortcuts-heading p{margin:0;color:var(--ds-text-secondary);font-size:12px}
+.shortcuts-dialog .shortcut-group+.shortcut-group{margin-top:20px}
+.shortcuts-dialog .shortcut-group h3{margin:0 0 8px;font-size:11px;font-weight:600;color:var(--ds-text-secondary)}
+.shortcuts-dialog dl{margin:0}
+.shortcuts-dialog .shortcut-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px;border-bottom:1px solid var(--ds-border-subtle)}
+.shortcuts-dialog dt{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500}
+.shortcuts-dialog dt ds-icon{flex:0 0 15px;color:var(--ds-text-secondary)}
+.shortcuts-dialog dd{display:flex;align-items:center;gap:5px;margin:0;color:var(--ds-text-secondary);font-size:10px}
+.shortcuts-dialog kbd{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:25px;padding:0 6px;border:1px solid var(--ds-border);border-bottom-width:2px;border-radius:5px;background:var(--ds-panel-raised);color:var(--ds-text);font:500 11px var(--ds-font)}
+.shortcuts-dialog .shortcuts-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:24px}
+.shortcuts-dialog .shortcuts-footer>span{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ds-text-secondary)}
+.design-inspector .inspector-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));flex:0 0 auto;align-items:stretch;gap:2px;padding:5px 2px;border-bottom:1px solid var(--ds-border-subtle);background:var(--ds-panel)}
+.design-inspector .inspector-tabs button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;min-height:48px;margin:0;padding:5px 1px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--ds-text-secondary);font:500 11px/14px var(--ds-font);white-space:nowrap;filter:none;transform:none}
+.design-inspector .inspector-tabs button ds-icon{display:flex;align-items:center;justify-content:center;flex:0 0 14px;width:14px;height:14px}
+.design-inspector .inspector-tabs button:hover{color:var(--ds-text);background:transparent;filter:none}
+.design-inspector .inspector-tabs button[aria-selected=true]{color:var(--ds-text);background:var(--ds-panel-raised);border-color:var(--ds-border);font-weight:600}
+.design-inspector .inspector-tabs button:focus-visible{outline:2px solid var(--ds-focus);outline-offset:-2px}
+
+/* Export: one decision first; optional adjustments stay collapsed. */
+.app-dialog.pdf-dialog{width:min(420px,calc(100vw - 32px));max-width:420px;padding:20px;box-sizing:border-box}
+.pdf-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.pdf-heading h2{margin:0}
+.pdf-profile-choices{display:grid;gap:6px;border:0;padding:0;margin:0 0 14px;min-width:0}
+.pdf-profile-choices legend{padding:0;margin-bottom:7px;font-size:12px;color:var(--ds-text-secondary)}
+.pdf-dialog .pdf-profile-choices label{display:flex;flex-direction:row;text-align:left;align-items:center;gap:10px;padding:9px 10px;margin:0;cursor:pointer;border:1px solid var(--ds-border-subtle);border-radius:7px}
+.pdf-profile-choices input{width:15px;height:15px;margin:0;accent-color:var(--ds-brand);flex:none}
+.pdf-profile-choices span{display:grid;gap:2px}
+.pdf-profile-choices strong{font-size:12px;font-weight:500}
+.pdf-profile-choices small{font-size:11px;color:var(--ds-text-secondary)}
+.pdf-dialog form>.pdf-paper-field{margin:0 0 14px}
+.pdf-custom-settings summary{display:flex;align-items:center;gap:8px;cursor:pointer;min-height:30px;font-size:12px;color:var(--ds-text-secondary);list-style:none}
+.pdf-custom-settings summary::before{content:'';width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);margin:0 3px;transition:transform .15s}
+.pdf-custom-settings[open] summary::before{transform:rotate(45deg)}
+.pdf-custom-settings summary small{margin-left:auto;font-size:10px}
+.pdf-custom-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pdf-dialog .pdf-custom-controls>label{margin:6px 0 0;min-width:0}
+.pdf-export-notes{font-size:11px;line-height:1.5;color:var(--ds-text-secondary);margin-top:8px}
+.pdf-footer{margin-top:16px}
+.pdf-footer p{font-size:11px;color:var(--ds-text-secondary);margin:0 0 12px;line-height:1.5}
+.pdf-footer p strong{font-weight:500}
+.pdf-footer>div{display:flex;justify-content:flex-end;gap:8px}
+@media(max-width:420px){.app-dialog.pdf-dialog{padding:16px}.pdf-footer>div>button{flex:1}}
