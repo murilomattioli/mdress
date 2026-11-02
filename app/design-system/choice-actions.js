@@ -55,11 +55,17 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
    const collapsedBody=Boolean(actionAccordion&&
     node.matches('.ds-accordion-body[hidden]:not([aria-hidden="true"])')&&
     node.closest('.ds-accordion')===actionAccordion);
-   // Chromium can expose content-visibility:hidden for an HTML [hidden]
-   // accordion body. Preserve the collapsed-gallery exception, but never
-   // exempt an explicit inline content-visibility lock.
-   if(getComputedStyle(node).contentVisibility==='hidden'&&
-      (!collapsedBody||node.style.contentVisibility==='hidden'))return true;
+   // A hidden accordion body is expected to have display:none. Exempt
+   // only that collapse state, not an additional explicit CSS lock on it.
+   // Other ancestors can be hidden by CSS without any [hidden] attribute.
+   // Detached nodes have no reliable computed layout during construction.
+   if(source.isConnected){
+    const style=getComputedStyle(node);
+    if(style.display==='none'&&(!collapsedBody||node.style.display==='none'))return true;
+    if(style.visibility==='hidden'&&!collapsedBody)return true;
+    if(style.contentVisibility==='hidden'&&
+       (!collapsedBody||node.style.contentVisibility==='hidden'))return true;
+   }
    if(!node.matches('[hidden],[aria-hidden="true"]'))continue;
    if(collapsedBody)continue;
    return true;

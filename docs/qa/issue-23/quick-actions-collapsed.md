@@ -25,3 +25,5 @@ npm run qa:supervised
 ```
 
 **Gate:** PR #27 permanece draft e issue #23 aberta até homologação visual/interativa explícita. Não publicar, fazer merge ou release.
+
+**Regressão de ancestrais ocultos por CSS (02/11/2026):** um wrapper intermediário com `display:none` ou `visibility:hidden` deve desabilitar imediatamente Anterior/Próximo/Aleatório, inclusive quando o corpo do accordion já está recolhido. O `display:none` causado somente por `[hidden]` no corpo do mesmo accordion permanece permitido; uma restrição `style.display='none'` aplicada explicitamente ao corpo não é isenta. A restauração do estilo reabilita as ações sem remontagem. `choice-actions-qa.mjs` valida cliques sintéticos e `disabled` antes/depois da mutação; a revisão visual humana continua obrigatória.

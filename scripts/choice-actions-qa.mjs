@@ -222,8 +222,23 @@ try{
   const ancestorContentHidden=commits===1&&next.disabled;
   body.style.contentVisibility='';await tick();
   const ancestorContentRestored=!next.disabled;
-  const wrapper=document.createElement('div');wrapper.hidden=true;body.append(wrapper);wrapper.append(gallery);
-  click();await tick();
+  // Explicit CSS on the collapsed body is not the normal [hidden] state.
+  body.style.display='none';click();await tick();
+  const explicitCollapsedDisplayLock=commits===1&&next.disabled;
+  body.style.display='';await tick();
+  const explicitCollapsedDisplayRestored=!next.disabled;
+  const wrapper=document.createElement('div');body.append(wrapper);wrapper.append(gallery);
+  // A descendant wrapper hidden by CSS (not [hidden]) must revoke the
+  // header actions even while the accordion's own body is collapsed.
+  wrapper.style.display='none';click();await tick();
+  const nestedCssDisplayHidden=commits===1&&next.disabled;
+  wrapper.style.display='';await tick();
+  const nestedCssDisplayRestored=!next.disabled;
+  wrapper.style.visibility='hidden';click();await tick();
+  const nestedCssVisibilityHidden=commits===1&&next.disabled;
+  wrapper.style.visibility='';await tick();
+  const nestedCssVisibilityRestored=!next.disabled;
+  wrapper.hidden=true;click();await tick();
   const nestedHidden=commits===1&&next.disabled;
   body.append(gallery);wrapper.remove();await tick();
   click();await tick();
@@ -231,7 +246,9 @@ try{
   return {collapsedWorks,explicitAriaHidden,restored,directHidden,directRestored,
    directAriaHidden,directAriaRestored,cssDisplayHidden,cssDisplayRestored,
    cssVisibilityHidden,cssVisibilityRestored,ancestorContentHidden,
-   ancestorContentRestored,nestedHidden,reparentRestored};
+   ancestorContentRestored,explicitCollapsedDisplayLock,explicitCollapsedDisplayRestored,
+   nestedCssDisplayHidden,nestedCssDisplayRestored,
+   nestedCssVisibilityHidden,nestedCssVisibilityRestored,nestedHidden,reparentRestored};
  });
  assert.ok(Object.values(collapsedStates).every(Boolean),
   'Collapsed accordion header must navigate; hidden sources must revoke: '+JSON.stringify(collapsedStates));
