@@ -280,7 +280,17 @@ try{
     const quick=font.locator('.ds-choice-actions button');
     assert.equal(await quick.count(),3,'Font picker exposes previous/next/random');
     await quick.nth(1).focus();
-    assert.equal(await quick.nth(1).evaluate(el=>el===document.activeElement),true);
+    const quickFocusState=await quick.nth(1).evaluate(el=>({
+     active:el===document.activeElement,disabled:el.disabled,hidden:el.hidden,
+     focused:document.activeElement?.outerHTML?.slice(0,160),
+     ancestors:[...function*(node){for(;node;node=node.parentElement)yield node;}(el)]
+      .map(node=>({tag:node.tagName,id:node.id,classes:node.className,
+       hidden:node.hidden,display:getComputedStyle(node).display,
+       visibility:getComputedStyle(node).visibility}))
+      .filter(node=>node.hidden||node.display==='none'||node.visibility==='hidden')
+    }));
+    assert.equal(quickFocusState.active,true,
+     'Quick action must accept focus after reveal: '+JSON.stringify(quickFocusState));
     await page.locator('#fontChoice').evaluate(el=>{el.disabled=true;});
     await page.waitForFunction(()=>[...document.querySelectorAll('.ds-property-select--quick .ds-choice-actions button')].length===3&&
      [...document.querySelectorAll('.ds-property-select--quick .ds-choice-actions button')].every(el=>el.disabled));
