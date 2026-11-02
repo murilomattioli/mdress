@@ -36,6 +36,11 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
  // its collapsed body. The header MUST remain actionable while that body is
  // hidden. Other hidden/aria-hidden ancestors still revoke the action.
  const sourceHiddenByAncestor=()=>{
+  // The source itself can be hidden without moving its header actions.
+  // Native inputs/selects use aria-hidden for their enhanced visual proxy,
+  // so only treat aria-hidden on non-native gallery containers as a lock.
+  if(source.hidden||(source.matches('[aria-hidden="true"]')&&
+     !source.matches('input,select,textarea')))return true;
   const actionAccordion=group.closest('.ds-accordion');
   for(let node=source.parentElement;node;node=node.parentElement){
    if(!node.matches('[hidden],[aria-hidden="true"]'))continue;
