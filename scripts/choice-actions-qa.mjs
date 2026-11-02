@@ -210,6 +210,18 @@ try{
   const directAriaHidden=commits===1&&next.disabled;
   gallery.removeAttribute('aria-hidden');await tick();
   const directAriaRestored=!next.disabled;
+  gallery.style.display='none';click();await tick();
+  const cssDisplayHidden=commits===1&&next.disabled;
+  gallery.style.display='';await tick();
+  const cssDisplayRestored=!next.disabled;
+  gallery.style.visibility='hidden';click();await tick();
+  const cssVisibilityHidden=commits===1&&next.disabled;
+  gallery.style.visibility='';await tick();
+  const cssVisibilityRestored=!next.disabled;
+  body.style.contentVisibility='hidden';click();await tick();
+  const ancestorContentHidden=commits===1&&next.disabled;
+  body.style.contentVisibility='';await tick();
+  const ancestorContentRestored=!next.disabled;
   const wrapper=document.createElement('div');wrapper.hidden=true;body.append(wrapper);wrapper.append(gallery);
   click();await tick();
   const nestedHidden=commits===1&&next.disabled;
@@ -217,9 +229,11 @@ try{
   click();await tick();
   const reparentRestored=commits===2&&choices[2].getAttribute('aria-pressed')==='true'&&!next.disabled;
   return {collapsedWorks,explicitAriaHidden,restored,directHidden,directRestored,
-   directAriaHidden,directAriaRestored,nestedHidden,reparentRestored};
+   directAriaHidden,directAriaRestored,cssDisplayHidden,cssDisplayRestored,
+   cssVisibilityHidden,cssVisibilityRestored,ancestorContentHidden,
+   ancestorContentRestored,nestedHidden,reparentRestored};
  });
- assert.deepEqual(Object.values(collapsedStates),Array(9).fill(true),
+ assert.deepEqual(Object.values(collapsedStates),Array(15).fill(true),
   'Collapsed accordion header must navigate; explicitly hidden source ancestors must revoke');
  await permissionPage.screenshot({path:'test-results/ux-audit/quick-collapsed-fixture-1024.png',animations:'disabled'});
  // Evidence of the direct source lock, independent of the collapsed body.
