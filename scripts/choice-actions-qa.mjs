@@ -201,10 +201,10 @@ try{
    source:{hidden:gallery.hidden,ariaHidden:gallery.getAttribute('aria-hidden'),
     display:getComputedStyle(gallery).display,visibility:getComputedStyle(gallery).visibility,
     contentVisibility:getComputedStyle(gallery).contentVisibility},
-   ancestors:[...function*(node){for(;node;node=node.parentElement)yield node;}(gallery.parentElement)]
-    .map(node=>({tag:node.tagName,classes:node.className,hidden:node.hidden,
+   ancestors:(()=>{const list=[];for(let node=gallery.parentElement;node;node=node.parentElement)
+    list.push({tag:node.tagName,classes:node.className,hidden:node.hidden,
      contentVisibility:getComputedStyle(node).contentVisibility,
-     display:getComputedStyle(node).display}))
+     display:getComputedStyle(node).display});return list;})()
   };
   click();await tick();
   const collapsedWorks=commits===1&&choices[1].getAttribute('aria-pressed')==='true'&&!next.disabled;
