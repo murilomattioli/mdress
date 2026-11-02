@@ -196,16 +196,6 @@ try{
   const next=group.querySelector('[data-action="next"]');
   const click=()=>next.dispatchEvent(new MouseEvent('click',{bubbles:true}));
   const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
-  const initialDebug={
-   disabled:next.disabled,connected:gallery.isConnected,
-   source:{hidden:gallery.hidden,ariaHidden:gallery.getAttribute('aria-hidden'),
-    display:getComputedStyle(gallery).display,visibility:getComputedStyle(gallery).visibility,
-    contentVisibility:getComputedStyle(gallery).contentVisibility},
-   ancestors:(()=>{const list=[];for(let node=gallery.parentElement;node;node=node.parentElement)
-    list.push({tag:node.tagName,classes:node.className,hidden:node.hidden,
-     contentVisibility:getComputedStyle(node).contentVisibility,
-     display:getComputedStyle(node).display});return list;})()
-  };
   click();await tick();
   const collapsedWorks=commits===1&&choices[1].getAttribute('aria-pressed')==='true'&&!next.disabled;
   body.setAttribute('aria-hidden','true');click();await tick();
@@ -238,12 +228,12 @@ try{
   body.append(gallery);wrapper.remove();await tick();
   click();await tick();
   const reparentRestored=commits===2&&choices[2].getAttribute('aria-pressed')==='true'&&!next.disabled;
-  return {initialDebug,collapsedWorks,explicitAriaHidden,restored,directHidden,directRestored,
+  return {collapsedWorks,explicitAriaHidden,restored,directHidden,directRestored,
    directAriaHidden,directAriaRestored,cssDisplayHidden,cssDisplayRestored,
    cssVisibilityHidden,cssVisibilityRestored,ancestorContentHidden,
    ancestorContentRestored,nestedHidden,reparentRestored};
  });
- assert.ok(Object.entries(collapsedStates).filter(([key])=>key!=='initialDebug').every(([,value])=>value),
+ assert.ok(Object.values(collapsedStates).every(Boolean),
   'Collapsed accordion header must navigate; hidden sources must revoke: '+JSON.stringify(collapsedStates));
  await permissionPage.screenshot({path:'test-results/ux-audit/quick-collapsed-fixture-1024.png',animations:'disabled'});
  // Evidence of the direct source lock, independent of the collapsed body.
