@@ -31,3 +31,7 @@ npm run qa:supervised
 ## Galeria não nativa dentro de fieldset (regressão)
 
 Uma galeria `<div>` dentro de `<fieldset disabled>` não corresponde ao pseudoestado CSS `:disabled`, embora seus botões descendentes estejam bloqueados. As quick actions ficam no cabeçalho, fora desse fieldset: precisam consultar também os ancestrais da **fonte** e não apenas os próprios botões. O primeiro `<legend>` continua sendo a exceção HTML; mover a galeria para dentro dele reabilita as ações, e movê-la de volta revoga o acesso. A regressão obrigatória em `scripts/choice-actions-qa.mjs` verifica bloqueio síncrono de cliques sintéticos, estado disabled após mutation, restauração e reparenting, com screenshots `quick-gallery-fieldset-{disabled,restored}-1024.png`.
+
+## Eventos nativos e callbacks dinâmicos
+
+A fonte pode alterar a seleção sem modificar atributos DOM (por exemplo, `select.value` seguido de `change`). As quick actions atualizam os estados `disabled` e `hidden` em `input` e `change`. No instante do clique, reavaliam `config.disabled` e `config.visible` para bloquear ações sintéticas entre a mudança de estado e o refresh. A regressão `liveActionStates` cobre os dois eventos e ambas as condições de corrida.

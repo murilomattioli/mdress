@@ -306,6 +306,48 @@ try{
  await permissionPage.waitForFunction(()=>!document.querySelector('#ux23-gallery-fieldset [data-action="next"]')?.disabled);
  await permissionPage.screenshot({path:'test-results/ux-audit/quick-gallery-fieldset-restored-1024.png',animations:'disabled'});
  await permissionPage.locator('#ux23-gallery-fieldset').evaluate(el=>el.remove());
+ // Native input/change events must refresh callback-driven action states.
+ // A stale button must also reject synthetic clicks before the event arrives.
+ const liveActionStates=await permissionPage.evaluate(async()=>{
+  const {createChoiceActions}=await import('/design-system/choice-actions.js');
+  const panel=document.querySelector('#inspector-document');
+  const fixture=document.createElement('div');fixture.id='ux23-quick-live-config';
+  const source=document.createElement('select');
+  source.add(new Option('Primeiro','a'));source.add(new Option('Segundo','b'));
+  fixture.append(source);panel.append(fixture);
+  let commits=0;
+  const group=createChoiceActions({label:'Permissão dinâmica',source,
+   actions:[{action:'next',title:'Próximo',icon:'arrow-right',
+    disabled:()=>source.value==='b',visible:()=>source.dataset.lock!=='hidden'}],
+   readChoices:()=>[...source.options].map(option=>({
+    label:option.label,selected:option.selected,
+    apply:()=>{source.value=option.value;commits++;return true;}
+   }))});
+  fixture.append(group);
+  const next=group.querySelector('[data-action="next"]');
+  const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+  const click=()=>next.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  const initiallyEnabled=!next.disabled&&!next.hidden;
+  source.value='b';click();
+  const staleDisabledBlocked=commits===0;
+  source.dispatchEvent(new Event('change',{bubbles:true}));await tick();
+  const changeRefreshed=next.disabled;
+  source.value='a';source.dispatchEvent(new Event('input',{bubbles:true}));await tick();
+  const inputRefreshed=!next.disabled;
+  source.dataset.lock='hidden';click();
+  const staleHiddenBlocked=commits===0;
+  source.dispatchEvent(new Event('input',{bubbles:true}));await tick();
+  const hiddenRefreshed=next.hidden;
+  delete source.dataset.lock;source.dispatchEvent(new Event('change',{bubbles:true}));await tick();
+  const visibleRestored=!next.hidden&&!next.disabled;
+  fixture.remove();
+  return {initiallyEnabled,staleDisabledBlocked,changeRefreshed,inputRefreshed,
+   staleHiddenBlocked,hiddenRefreshed,visibleRestored};
+ });
+ assert.ok(Object.values(liveActionStates).every(Boolean),
+  'Dynamic quick-action callbacks must refresh on input/change and guard stale clicks: '+
+   JSON.stringify(liveActionStates));
+
  await permissionPage.screenshot({path:'test-results/ux-audit/quick-collapsed-fixture-1024.png',animations:'disabled'});
  // Evidence of the direct source lock, independent of the collapsed body.
  await permissionPage.locator('#ux23-collapsed-gallery').evaluate(el=>el.hidden=true);

@@ -86,7 +86,11 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
  // A synthetic click can race with a disabled fieldset, hidden panel or
  // detached source before a MutationObserver updates the quick-action UI.
  // Validate both the visible action and its native source at dispatch time.
- const actionable=button=>{
+ const actionable=(button,config)=>{
+  // Config callbacks can change before an input/change event or observer
+  // refreshes the button. Reject stale synthetic clicks synchronously.
+  if((typeof config.disabled==='function'?config.disabled():config.disabled)||
+     (typeof config.visible==='function'?config.visible():config.visible)===false)return false;
   if(!button.isConnected||!group.contains(button)||button.disabled||button.hidden||
      !source.isConnected||button.matches(':disabled')||permissionRevoked())return false;
   if(getComputedStyle(button).visibility!=='visible'||!button.getClientRects().length)return false;
@@ -102,7 +106,7 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
   button.setAttribute('aria-label',label+' — '+title);button.title=title;
   const glyph=document.createElement('ds-icon');glyph.setAttribute('name',icon);button.append(glyph);
   button.onclick=()=>{
-   if(!actionable(button))return;
+   if(!actionable(button,config))return;
    if(config.onSelect){config.onSelect();refresh();return;}
    const choices=readChoices();if(choices.length<2)return;
    const current=choices.findIndex(choice=>choice.selected);
@@ -141,6 +145,10 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
   }
  }
  group.append(status);refresh();
+ // Native selection changes can alter adapter choices or dynamic action
+ // permissions without changing any observed DOM attribute.
+ source.addEventListener('input',refresh);
+ source.addEventListener('change',refresh);
  new MutationObserver(refresh).observe(source,{
   childList:true,subtree:true,attributes:true,
   attributeFilter:['disabled','hidden','selected','aria-pressed','aria-disabled','inert']
