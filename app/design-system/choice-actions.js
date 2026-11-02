@@ -39,10 +39,18 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
   // The source itself can be hidden without moving its header actions.
   // Native inputs/selects use aria-hidden for their enhanced visual proxy,
   // so only treat aria-hidden on non-native gallery containers as a lock.
-  if(source.hidden||(source.matches('[aria-hidden="true"]')&&
-     !source.matches('input,select,textarea')))return true;
+  const nativeProxy=source.matches('input,select,textarea');
+  if(source.hidden||(source.matches('[aria-hidden="true"]')&&!nativeProxy))return true;
+  // Gallery containers can be hidden with CSS rather than HTML attributes.
+  // Native proxy fields intentionally remain visually concealed by the DS.
+  if(!nativeProxy){
+   const style=getComputedStyle(source);
+   if(style.display==='none'||style.visibility!=='visible'||
+      style.contentVisibility==='hidden')return true;
+  }
   const actionAccordion=group.closest('.ds-accordion');
   for(let node=source.parentElement;node;node=node.parentElement){
+   if(getComputedStyle(node).contentVisibility==='hidden')return true;
    if(!node.matches('[hidden],[aria-hidden="true"]'))continue;
    if(actionAccordion&&node.matches('.ds-accordion-body[hidden]:not([aria-hidden="true"])')&&
       node.closest('.ds-accordion')===actionAccordion)continue;
