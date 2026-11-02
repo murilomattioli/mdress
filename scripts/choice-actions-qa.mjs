@@ -252,6 +252,60 @@ try{
  });
  assert.ok(Object.values(collapsedStates).every(Boolean),
   'Collapsed accordion header must navigate; hidden sources must revoke: '+JSON.stringify(collapsedStates));
+ // A gallery can be a DIV inside a disabled fieldset while its quick
+ // actions are outside that fieldset in a header. :disabled does not match
+ // the DIV; the source ancestry must independently revoke navigation.
+ const galleryFieldsetStates=await permissionPage.evaluate(async()=>{
+  const {createChoiceActions}=await import('/design-system/choice-actions.js');
+  const panel=document.querySelector('#inspector-document');
+  const fixture=document.createElement('section');fixture.id='ux23-gallery-fieldset';
+  const header=document.createElement('div');
+  const fieldset=document.createElement('fieldset');
+  const legend=document.createElement('legend');legend.textContent='Galeria sob fieldset';
+  const body=document.createElement('div');
+  const gallery=document.createElement('div');gallery.id='ux23-fieldset-gallery';
+  const choices=['A','B','C'].map((label,index)=>{
+   const option=document.createElement('button');option.type='button';
+   option.textContent=label;option.setAttribute('aria-pressed',String(index===0));
+   gallery.append(option);return option;
+  });
+  body.append(gallery);fieldset.append(legend,body);fixture.append(header,fieldset);
+  panel.append(fixture);
+  let commits=0;
+  const group=createChoiceActions({label:'Galeria fieldset',source:gallery,
+   readChoices:()=>choices.map(option=>({
+    label:option.textContent,selected:option.getAttribute('aria-pressed')==='true',
+    apply:()=>{choices.forEach(item=>item.setAttribute('aria-pressed',String(item===option)));
+     commits++;return true;}
+   }))});
+  header.append(group);
+  const next=group.querySelector('[data-action="next"]');
+  const click=()=>next.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
+  fieldset.disabled=true;click();await tick();
+  const blocked=commits===0&&next.disabled&&!gallery.matches(':disabled');
+  fieldset.disabled=false;await tick();
+  const restored=!next.disabled;
+  click();const committed=commits===1&&choices[1].getAttribute('aria-pressed')==='true';
+  fieldset.disabled=true;legend.append(gallery);await tick();
+  const firstLegendAllowed=!next.disabled;
+  click();const legendCommitted=commits===2&&choices[2].getAttribute('aria-pressed')==='true';
+  body.append(gallery);click();await tick();
+  const movedBackBlocked=commits===2&&next.disabled;
+  fieldset.disabled=false;await tick();
+  const reenabled=!next.disabled;
+  fieldset.disabled=true;await tick();
+  return {blocked,restored,committed,firstLegendAllowed,legendCommitted,
+   movedBackBlocked,reenabled};
+ });
+ assert.ok(Object.values(galleryFieldsetStates).every(Boolean),
+  'Non-form gallery source must inherit disabled fieldset independently from header: '+
+   JSON.stringify(galleryFieldsetStates));
+ await permissionPage.screenshot({path:'test-results/ux-audit/quick-gallery-fieldset-disabled-1024.png',animations:'disabled'});
+ await permissionPage.locator('#ux23-gallery-fieldset fieldset').evaluate(el=>{el.disabled=false;});
+ await permissionPage.waitForFunction(()=>!document.querySelector('#ux23-gallery-fieldset [data-action="next"]')?.disabled);
+ await permissionPage.screenshot({path:'test-results/ux-audit/quick-gallery-fieldset-restored-1024.png',animations:'disabled'});
+ await permissionPage.locator('#ux23-gallery-fieldset').evaluate(el=>el.remove());
  await permissionPage.screenshot({path:'test-results/ux-audit/quick-collapsed-fixture-1024.png',animations:'disabled'});
  // Evidence of the direct source lock, independent of the collapsed body.
  await permissionPage.locator('#ux23-collapsed-gallery').evaluate(el=>el.hidden=true);

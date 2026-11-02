@@ -79,7 +79,10 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
   source.matches?.(':disabled,[aria-disabled="true"],[inert]')||
   Boolean(source.parentElement?.closest('[aria-disabled="true"],[inert]'))||
   Boolean(group.closest('[aria-disabled="true"],[inert],[hidden],[aria-hidden="true"]'))||
-  sourceHiddenByAncestor()||inDisabledFieldset(group);
+  // Gallery sources are often non-form containers. Unlike a native select,
+  // a <div> does not match :disabled inside <fieldset disabled>. Respect
+  // the source's own fieldset ancestry, independently from header actions.
+  sourceHiddenByAncestor()||inDisabledFieldset(source)||inDisabledFieldset(group);
  // A synthetic click can race with a disabled fieldset, hidden panel or
  // detached source before a MutationObserver updates the quick-action UI.
  // Validate both the visible action and its native source at dispatch time.

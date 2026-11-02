@@ -27,3 +27,7 @@ npm run qa:supervised
 **Gate:** PR #27 permanece draft e issue #23 aberta até homologação visual/interativa explícita. Não publicar, fazer merge ou release.
 
 **Regressão de ancestrais ocultos por CSS (02/11/2026):** um wrapper intermediário com `display:none` ou `visibility:hidden` deve desabilitar imediatamente Anterior/Próximo/Aleatório, inclusive quando o corpo do accordion já está recolhido. O `display:none` causado somente por `[hidden]` no corpo do mesmo accordion permanece permitido; uma restrição `style.display='none'` aplicada explicitamente ao corpo não é isenta. A restauração do estilo reabilita as ações sem remontagem. `choice-actions-qa.mjs` valida cliques sintéticos e `disabled` antes/depois da mutação; a revisão visual humana continua obrigatória.
+
+## Galeria não nativa dentro de fieldset (regressão)
+
+Uma galeria `<div>` dentro de `<fieldset disabled>` não corresponde ao pseudoestado CSS `:disabled`, embora seus botões descendentes estejam bloqueados. As quick actions ficam no cabeçalho, fora desse fieldset: precisam consultar também os ancestrais da **fonte** e não apenas os próprios botões. O primeiro `<legend>` continua sendo a exceção HTML; mover a galeria para dentro dele reabilita as ações, e movê-la de volta revoga o acesso. A regressão obrigatória em `scripts/choice-actions-qa.mjs` verifica bloqueio síncrono de cliques sintéticos, estado disabled após mutation, restauração e reparenting, com screenshots `quick-gallery-fieldset-{disabled,restored}-1024.png`.
