@@ -50,10 +50,16 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
   }
   const actionAccordion=group.closest('.ds-accordion');
   for(let node=source.parentElement;node;node=node.parentElement){
-   if(getComputedStyle(node).contentVisibility==='hidden')return true;
+   const collapsedBody=Boolean(actionAccordion&&
+    node.matches('.ds-accordion-body[hidden]:not([aria-hidden="true"])')&&
+    node.closest('.ds-accordion')===actionAccordion);
+   // Chromium can expose content-visibility:hidden for an HTML [hidden]
+   // accordion body. Preserve the collapsed-gallery exception, but never
+   // exempt an explicit inline content-visibility lock.
+   if(getComputedStyle(node).contentVisibility==='hidden'&&
+      (!collapsedBody||node.style.contentVisibility==='hidden'))return true;
    if(!node.matches('[hidden],[aria-hidden="true"]'))continue;
-   if(actionAccordion&&node.matches('.ds-accordion-body[hidden]:not([aria-hidden="true"])')&&
-      node.closest('.ds-accordion')===actionAccordion)continue;
+   if(collapsedBody)continue;
    return true;
   }
   return false;
