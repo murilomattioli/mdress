@@ -8,6 +8,8 @@
 
 **Evidências:** `quick-collapsed-fixture-1024.png` e `quick-gallery-collapsed-{graphite,studio}-{1440,390}.png` são adicionadas a `test-results/ux-audit/` e ao artifact temporário do Browser Smoke. A revisão visual humana deve confirmar a legibilidade dos controles recolhidos, feedback de seleção e alvos de toque; testes verdes não homologam UX.
 
+**Regressão adicional — ocultação direta e CSS:** além do accordion recolhido, o botão deve ficar indisponível quando a **própria galeria** recebe `hidden`, `aria-hidden="true"`, `display:none` ou `visibility:hidden`, ou quando um ancestral usa `content-visibility:hidden`. A remoção da restrição deve restaurar a ação sem remontagem. O `aria-hidden="true"` do `select` nativo aprimorado é intencional: seu trigger customizado é o controle acessível e as quick actions continuam operacionais. O teste Chromium cobre esses estados e gera `quick-direct-source-hidden-1024.png`. Esses cenários não substituem a revisão humana das capturas.
+
 **PowerShell (sem merge):**
 
 ```powershell
