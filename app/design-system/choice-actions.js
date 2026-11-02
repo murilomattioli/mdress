@@ -62,7 +62,10 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
    if(source.isConnected){
     const style=getComputedStyle(node);
     if(style.display==='none'&&(!collapsedBody||node.style.display==='none'))return true;
-    if(style.visibility==='hidden'&&!collapsedBody)return true;
+    // CSS visibility can be overridden on a visible descendant. Checking
+    // every ancestor would wrongly lock native quick actions in the mobile
+    // preview (preview-body is hidden, but its inspector is visible).
+    // The gallery's effective visibility is checked on source above.
     if(style.contentVisibility==='hidden'&&
        (!collapsedBody||node.style.contentVisibility==='hidden'))return true;
    }
