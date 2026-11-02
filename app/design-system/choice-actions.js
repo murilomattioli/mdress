@@ -43,7 +43,9 @@ export function createChoiceActions({label,source,readChoices,onUnavailableFocus
   if(source.hidden||(source.matches('[aria-hidden="true"]')&&!nativeProxy))return true;
   // Gallery containers can be hidden with CSS rather than HTML attributes.
   // Native proxy fields intentionally remain visually concealed by the DS.
-  if(!nativeProxy){
+  // A detached gallery has no computed layout and may report display:none
+  // before its accordion is mounted. Do not lock actions during construction.
+  if(!nativeProxy&&source.isConnected){
    const style=getComputedStyle(source);
    if(style.display==='none'||style.visibility!=='visible'||
       style.contentVisibility==='hidden')return true;
